@@ -15,7 +15,7 @@ class HomeScreen extends StatelessWidget {
         actions: [
           IconButton(
             tooltip: 'About',
-            onPressed: () => context.push(AppRoutes.about),
+            onPressed: () => context.push(AppRoutes.menu),
             icon: const Icon(Icons.info_outline),
           ),
         ],
