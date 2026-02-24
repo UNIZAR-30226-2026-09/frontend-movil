@@ -14,7 +14,13 @@ class _AjustesScreenState extends State<AjustesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      
+      body: Center(
+        child: Image.asset(
+          'assets/images/Logo_Soberania.jpeg',
+          width: 250,
+          fit: BoxFit.contain,
+        ),
+      ),
     );
   }
 }
