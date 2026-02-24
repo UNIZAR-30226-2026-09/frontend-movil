@@ -27,6 +27,13 @@ class HomeScreen extends StatelessWidget {
           fit: BoxFit.contain,
         ),
       ),
+      bottomNavigationBar: 
+        BottomNavigationBar(
+          items: const [
+            BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+            BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Settings'),
+          ],
+        ),
     );
   }
 }
