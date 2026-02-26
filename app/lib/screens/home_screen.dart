@@ -21,10 +21,9 @@ class HomeScreen extends StatelessWidget {
         ],
       ),
       body: Center(
-        child: Image.asset(
-          'assets/images/Logo_Soberania.jpeg',
-          width: 250,
-          fit: BoxFit.contain,
+        child: ElevatedButton(
+          onPressed: () => context.push(AppRoutes.batalla),
+          child: const Text("Ver Mapa"),
         ),
       ),
       bottomNavigationBar: 
