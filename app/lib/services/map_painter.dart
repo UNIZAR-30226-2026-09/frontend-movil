@@ -1,14 +1,15 @@
-import 'dart:ui' show Path;
-
 import 'package:flutter/material.dart';
 import '../config/map_data.dart';
 import '../models/territory_model.dart';
-import '../config/map_colors.dart';
+import '../utils/color_utils.dart'; 
+import '../providers/game_provider.dart'; 
 
 class MapPainter extends CustomPainter {
   final List<Comarca> comarcas;
   final Map<String, Path> comarcaPaths;
-  final String? selectedComarcaId;
+  
+  // Ahora usamos el objeto de estado completo en lugar de solo un ID
+  final GameState gameState; 
 
   final double viewerScale;
   final double labelMinScale;
@@ -17,7 +18,7 @@ class MapPainter extends CustomPainter {
   MapPainter({
     required this.comarcas,
     required this.comarcaPaths,
-    this.selectedComarcaId,
+    required this.gameState, // Recibimos el estado (origen + resaltadas)
     required this.viewerScale,
     this.labelMinScale = 2.0,
     this.labelFontSizePx = 12.0,
@@ -27,62 +28,69 @@ class MapPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final fillPaint = Paint()..style = PaintingStyle.fill;
 
-    
     final baseStroke = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.0
       ..color = const Color(0xFF333333);
+
+    // Pinceles para destacar la lógica de ataque 
+    final attackHighlightStroke = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.0
+      ..color = ColorUtils.resaltadoColor; 
 
     final selectedStroke = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3.0
       ..color = Colors.white;
 
-    final selectedFill = Paint()
-      ..style = PaintingStyle.fill
-      ..color = Colors.white.withOpacity(0.15);
-
-    // Escala + translate
+    // Lógica de Escala 
     final scaleX = size.width / MapPaths.viewBoxWidth;
     final scaleY = size.height / MapPaths.viewBoxHeight;
     final scale = scaleX < scaleY ? scaleX : scaleY;
-
-    final ScaledW = MapPaths.viewBoxWidth * scale;
-    final ScaledH = MapPaths.viewBoxHeight * scale;
-
-    final dx = (size.width - ScaledW) / 2.0;
-    final dy = (size.height - ScaledH) / 2.0;
-    final extraUp = size.height * 0.05; // 5% de la altura
+    final dx = (size.width - (MapPaths.viewBoxWidth * scale)) / 2.0;
+    final dy = (size.height - (MapPaths.viewBoxHeight * scale)) / 2.0;
+    final extraUp = size.height * 0.05;
 
     canvas.save();
     canvas.translate(dx, dy - extraUp);
     canvas.scale(scale);
     canvas.translate(-MapPaths.viewBoxX, -MapPaths.viewBoxY);
 
-     // 1) Pinta todas normal
+    // PINTADO DE COMARCAS CON LÓGICA DINÁMICA
     for (final comarca in comarcas) {
       final path = comarcaPaths[comarca.id];
       if (path == null) continue;
 
-      fillPaint.color =
-          MapColors.comarcaFill[comarca.id] ?? MapColors.fallbackFill;
+      // Decisión de color basada en el estado del juego 
+      if (comarca.id == gameState.origenSeleccionado) {
+        fillPaint.color = ColorUtils.origenColor; // Comarca atacante
+      } else if (gameState.comarcasResaltadas.contains(comarca.id)) {
+        fillPaint.color = ColorUtils.resaltadoColor; // Comarcas en rango BFS
+      } else {
+        fillPaint.color = ColorUtils.getColorRegion(comarca.regionId); // Color normal
+      }
 
       canvas.drawPath(path, fillPaint);
-      canvas.drawPath(path, baseStroke);
+      
     }
 
-    // 2) Pinta el borde seleccionado AL FINAL (encima de todo)
-    if (selectedComarcaId != null) {
-      final selectedPath = comarcaPaths[selectedComarcaId!];
-      if (selectedPath != null) {
-        canvas.drawPath(selectedPath, selectedStroke);
-        canvas.drawPath(selectedPath, selectedFill);
+    for (final comarca in comarcas) {
+      final path = comarcaPaths[comarca.id];
+      if (path == null) continue;
+
+      // Si la comarca está resaltada, le ponemos un borde un poco más oscuro o marcado
+      if (gameState.comarcasResaltadas.contains(comarca.id) || 
+          comarca.id == gameState.origenSeleccionado) {
+        canvas.drawPath(path, selectedStroke); // El borde blanco que definiste
+      } else {
+        canvas.drawPath(path, baseStroke); // El borde gris/oscuro normal
       }
     }
 
-    // 3) Labels (antes del restore)
+// Labels (Etiquetas de las comarcas con ajuste dinámico)
     if (viewerScale >= labelMinScale) {
-      // para hacer fade-in suave al entrar
+      // Cálculo del fade-in suave basado en el zoom actual
       final t = ((viewerScale - labelMinScale) / 0.5).clamp(0.0, 1.0);
 
       final textPainter = TextPainter(
@@ -92,11 +100,9 @@ class MapPainter extends CustomPainter {
         ellipsis: '…',
       );
 
-      // Tamaño constante en pantalla (px)
-      // Canvas ya está en coords "mundo" (SVG). En pantalla se multiplica por: scale * viewerScale
+      // Calculamos el tamaño de fuente y padding "mundo" para que en pantalla 
+      // siempre se vean del mismo tamaño independientemente del zoom
       final fontWorld = labelFontSizePx / (scale * viewerScale);
-
-      // también padding/radius constantes en pantalla
       final padX = 6.0 / (scale * viewerScale);
       final padY = 4.0 / (scale * viewerScale);
       final radius = 6.0 / (scale * viewerScale);
@@ -106,6 +112,7 @@ class MapPainter extends CustomPainter {
         if (path == null) continue;
 
         final bounds = path.getBounds();
+        // Solo dibujamos el texto si la comarca es lo suficientemente grande en pantalla
         if (bounds.width < 25 || bounds.height < 15) continue;
 
         final center = bounds.center;
@@ -113,13 +120,13 @@ class MapPainter extends CustomPainter {
         textPainter.text = TextSpan(
           text: comarca.name,
           style: TextStyle(
-            color: Colors.black.withOpacity(0.9 * t),
+            color: Colors.black.withValues(alpha: 0.9 * t),
             fontSize: fontWorld,
             fontWeight: FontWeight.w700,
           ),
         );
 
-        // Ancho constante en pantalla (px)
+        // Limitamos el ancho del texto para que no se salga de la comarca
         final maxWidthWorld = 120.0 / (scale * viewerScale);
         textPainter.layout(maxWidth: maxWidthWorld);
 
@@ -136,9 +143,11 @@ class MapPainter extends CustomPainter {
         );
 
         canvas.save();
+        // ClipPath para que el fondo blanco de la etiqueta no se salga de los bordes de la comarca
         canvas.clipPath(path);
 
-        final bgPaint = Paint()..color = Colors.white.withOpacity((0.55 + 0.25 * t));
+        // Fondo semi-transparente que se vuelve más opaco al hacer zoom
+        final bgPaint = Paint()..color = Colors.white.withValues(alpha: (0.55 + 0.25 * t));
         canvas.drawRRect(
           RRect.fromRectAndRadius(bgRect, Radius.circular(radius)),
           bgPaint,
@@ -149,12 +158,13 @@ class MapPainter extends CustomPainter {
         canvas.restore();
       }
     }
+
     canvas.restore();
   }
+
   @override
-  bool shouldRepaint(covariant MapPainter oldDelegate) => 
-    oldDelegate.comarcas != comarcas ||
-    oldDelegate.selectedComarcaId != selectedComarcaId ||
-    oldDelegate.comarcaPaths != comarcaPaths ||
-    oldDelegate.viewerScale != viewerScale;
+  bool shouldRepaint(covariant MapPainter oldDelegate) =>
+      oldDelegate.gameState != gameState || // Repintar si cambia la selección o el BFS
+      oldDelegate.viewerScale != viewerScale ||
+      oldDelegate.comarcas != comarcas;
 }

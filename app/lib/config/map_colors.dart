@@ -17,7 +17,7 @@ class MapColors {
   /// Colores por ID "canonical" (los IDs que tú usas en MapPaths.data / JSON)
   static final Map<String, Color> comarcaFill = {
     // EJEMPLOS (rellena con todos los del SVG web):
-    'jacetania': hex('#4db29a'), // en web: la_jacetania
+    'la_jacetania': hex('#4db29a'), // en web: la_jacetania
     'alto_gallego': hex('#0049f7'),
     'sobrarbe': hex('#8cca82'),
     'ribagorza': hex('#4d53b2'), // en web: la_ribagorza
@@ -31,7 +31,7 @@ class MapColors {
     'ribera_alta_del_ebro': hex('#01119e'), // en web: ribera_alta_ebro
     'campo_de_borja': hex('#9e0189'), // en web: campo_de_boja (typo)
     'tarazona_y_el_moncayo': hex('#01929e'),
-    'comarca_central': hex('#01929e'), // en web: zaragoza
+    'zaragoza': hex('#01929e'), // en web: zaragoza
     'valdejalon': hex('#9e0101'), // en web: villa_de_jalon
     'aranda': hex('#4cfe74'),
     'comunidad_de_calatayud': hex('#4cebfe'),
@@ -42,7 +42,7 @@ class MapColors {
     'bajo_aragon_caspe': hex('#fe0606'),
     'bajo_aragon': hex('#19fe06'),
     'bajo_martin': hex('#2006fe'),
-    'andorra_sierra_de_arcos': hex('#ce06fe'), // en web: andorra
+    'andorra': hex('#ce06fe'), // en web: andorra
     'cuencas_mineras': hex('#fe0624'),
     'jiloca': hex('#7187fe'),
     'sierra_de_albarracin': hex('#71fe73'),
