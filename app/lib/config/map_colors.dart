@@ -14,25 +14,24 @@ class MapColors {
     throw FormatException('Invalid hex color: $hex');
   }
 
-  /// Colores por ID "canonical" (los IDs que tú usas en MapPaths.data / JSON)
+  /// Colores por ID "canonical" 
   static final Map<String, Color> comarcaFill = {
-    // EJEMPLOS (rellena con todos los del SVG web):
-    'la_jacetania': hex('#4db29a'), // en web: la_jacetania
+    'la_jacetania': hex('#4db29a'), 
     'alto_gallego': hex('#0049f7'),
     'sobrarbe': hex('#8cca82'),
-    'ribagorza': hex('#4d53b2'), // en web: la_ribagorza
+    'la_ribagorza': hex('#4d53b2'), 
     'hoya_de_huesca': hex('#4d53b2'),
     'somontano_de_barbastro': hex('#ac4db2'),
-    'la_litera': hex('#4da4b2'), // en web: litera
+    'litera': hex('#4da4b2'), 
     'cinca_medio': hex('#dde01f'),
     'bajo_cinca': hex('#4cf8f8'),
-    'monegros': hex('#66f84c'), // en web: los_monegros
+    'monegros': hex('#66f84c'), 
     'cinco_villas': hex('#9e6d01'),
-    'ribera_alta_del_ebro': hex('#01119e'), // en web: ribera_alta_ebro
-    'campo_de_borja': hex('#9e0189'), // en web: campo_de_boja (typo)
+    'ribera_alta_del_ebro': hex('#01119e'), 
+    'campo_de_borja': hex('#9e0189'), 
     'tarazona_y_el_moncayo': hex('#01929e'),
-    'zaragoza': hex('#01929e'), // en web: zaragoza
-    'valdejalon': hex('#9e0101'), // en web: villa_de_jalon
+    'zaragoza': hex('#01929e'), 
+    'valdejalon': hex('#9e0101'), 
     'aranda': hex('#4cfe74'),
     'comunidad_de_calatayud': hex('#4cebfe'),
     'campo_de_carinena': hex('#844cfe'),
@@ -42,12 +41,12 @@ class MapColors {
     'bajo_aragon_caspe': hex('#fe0606'),
     'bajo_aragon': hex('#19fe06'),
     'bajo_martin': hex('#2006fe'),
-    'andorra': hex('#ce06fe'), // en web: andorra
+    'andorra': hex('#ce06fe'), 
     'cuencas_mineras': hex('#fe0624'),
     'jiloca': hex('#7187fe'),
     'sierra_de_albarracin': hex('#71fe73'),
-    'comunidad_de_teruel': hex('#2701a0'), // en web: comunidad_teruel
-    'gudar_javalambre': hex('#06a001'), // en web: gudar
+    'comunidad_de_teruel': hex('#2701a0'), 
+    'gudar': hex('#06a001'), 
     'maestrazgo': hex('#b5e8ff'),
     'matarrana': hex('#06f7fe'),
   };

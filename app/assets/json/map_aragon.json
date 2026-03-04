@@ -23,7 +23,7 @@
                 "la_ribagorza",
                 "somontano_de_barbastro",
                 "cinca_medio",
-                "la_litera",
+                "litera",
                 "monegros",
                 "bajo_cinca"
             ]
@@ -32,7 +32,7 @@
             "name": "Alto Ebro",
             "bonus_troops": 7,
             "comarcas": [
-                "tarazona_y_moncayo",
+                "tarazona_y_el_moncayo",
                 "campo_de_borja",
                 "ribera_alta_del_ebro",
                 "zaragoza",
@@ -125,7 +125,7 @@
             ]
         },
         "la_ribagorza": {
-            "name": "la_ribagorza",
+            "name": "La_ribagorza",
             "region_id": "estepas_y_condados",
             "adjacent_to": [
                 "sobrarbe",
@@ -187,7 +187,7 @@
                 "bajo_aragon_caspe"
             ]
         },
-        "tarazona_y_moncayo": {
+        "tarazona_y_el_moncayo": {
             "name": "Tarazona y Moncayo",
             "region_id": "alto_ebro",
             "adjacent_to": [
@@ -200,7 +200,7 @@
             "region_id": "alto_ebro",
             "adjacent_to": [
                 "cinco_villas",
-                "tarazona_y_moncayo",
+                "tarazona_y_el_moncayo",
                 "aranda",
                 "ribera_alta_del_ebro",
                 "valdejalon"
@@ -233,7 +233,7 @@
             "name": "Aranda",
             "region_id": "alto_ebro",
             "adjacent_to": [
-                "tarazona_y_moncayo",
+                "tarazona_y_el_moncayo",
                 "campo_de_borja",
                 "valdejalon",
                 "comunidad_de_calatayud"

@@ -109,7 +109,10 @@ class MapPainter extends CustomPainter {
 
       for (final comarca in comarcas) {
         final path = comarcaPaths[comarca.id];
-        if (path == null) continue;
+        if (path == null) {
+          debugPrint("❌ ERROR: No hay dibujo para el ID: '${comarca.id}'");
+          continue;
+        }
 
         final bounds = path.getBounds();
         // Solo dibujamos el texto si la comarca es lo suficientemente grande en pantalla
