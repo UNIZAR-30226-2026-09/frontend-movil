@@ -1,5 +1,5 @@
 import 'dart:collection';
-import '../models/territory_model.dart';
+import '../../models/territory_model.dart';
 
 class GraphService {
   // Usamos un Map donde la clave es el ID de la comarca y el valor es su lista de vecinos

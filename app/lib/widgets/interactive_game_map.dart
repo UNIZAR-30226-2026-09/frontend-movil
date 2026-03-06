@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'; 
 import 'package:vector_math/vector_math_64.dart';
-import '../services/map_loader.dart';
-import '../services/map_painter.dart';
+import '../services/map/map_loader.dart';
+import '../services/map/map_painter.dart';
 import '../models/territory_model.dart';
 import '../config/map_data.dart';
 import '../providers/game_provider.dart'; 
@@ -35,6 +35,9 @@ class _InteractiveGameMapState extends ConsumerState<InteractiveGameMap> {
   double _currentScale = 1.0;
   static const double _eps = 1e-6;
 
+  bool _isClamping = false;
+  Size? _lastViewportSize;
+
   TransformationController get _tc => widget.controller ?? _internalController;
 
   @override
@@ -45,14 +48,24 @@ class _InteractiveGameMapState extends ConsumerState<InteractiveGameMap> {
       _internalController = TransformationController();
     }
     _currentScale = _tc.value.storage[0];
+    _tc.addListener(_handleTransformChanged);
   }
 
   @override
   void dispose() {
+    _tc.removeListener(_handleTransformChanged);
     if (_ownsController) _internalController.dispose();
     super.dispose();
   }
 
+  void _handleTransformChanged() {
+    if (_isClamping) return;
+    if (_lastViewportSize == null) return;
+
+    _isClamping = true;
+    _clampToViewport(_lastViewportSize!);
+    _isClamping = false;
+  }
 
   Comarca? _hitTestComarca(Offset mapPoint) {
     for (final comarca in widget.gameMap.comarcas.reversed) {
@@ -95,6 +108,7 @@ class _InteractiveGameMapState extends ConsumerState<InteractiveGameMap> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final viewport = Size(constraints.maxWidth, constraints.maxHeight);
+        _lastViewportSize = viewport;
 
         return InteractiveViewer(
           transformationController: _tc,
@@ -102,7 +116,7 @@ class _InteractiveGameMapState extends ConsumerState<InteractiveGameMap> {
           maxScale: widget.maxScale,
           panEnabled: panAllowed,
           boundaryMargin: EdgeInsets.zero,
-          onInteractionUpdate: (_) => _clampToViewport(viewport),
+          constrained: true,
           child: SizedBox(
             width: viewport.width,
             height: viewport.height,
@@ -134,9 +148,126 @@ class _InteractiveGameMapState extends ConsumerState<InteractiveGameMap> {
     );
   }
 
+  
+
+  double _getScale(Matrix4 m) {
+    return m.storage[0];
+  }
+  
+  Offset _getTranslation(Matrix4 m) {
+    return Offset(m.storage[12], m.storage[13]);
+  }
+  
+  Matrix4 _setTranslation(Matrix4 m, Offset t) {
+    final next = Matrix4.copy(m);
+    next.storage[12] = t.dx;
+    next.storage[13] = t.dy;
+    return next;
+  }
+
+  double _applyResistance(double value, double min, double max) {
+    if (value < min) {
+      final overshoot = min - value;
+      final resisted = overshoot / (1.0 + overshoot / 60.0);
+      return min - resisted;
+    }
+
+    if (value > max) {
+      final overshoot = value - max;
+      final resisted = overshoot / (1.0 + overshoot / 60.0);
+      return max + resisted;
+    }
+
+    return value;
+  }
+
+  bool _isOutsideBounds(double value, double min, double max) {
+    return value < min || value > max;
+  }
+
   void _clampToViewport(Size viewportSize) {
-    // ... (Mantenemos tu lógica de clamp intacta) ...
-    final newScale = _tc.value.storage[0];
+    final m = _tc.value;
+    final s = _getScale(m);
+
+    final vw = viewportSize.width;
+    final vh = viewportSize.height;
+
+    double tx = m.storage[12];
+    double ty = m.storage[13];
+
+    // Si estamos en zoom mínimo, bloqueado
+    if (s <= widget.minScale + _eps) {
+      final locked = Matrix4.identity()..scale(widget.minScale);
+      _tc.value = locked;
+
+      if ((_currentScale - widget.minScale).abs() > 1e-4) {
+        setState(() => _currentScale = widget.minScale);
+      }
+      return;
+    }
+
+    // Rectángulo REAL del mapa dentro del child
+    final scaleX = vw / MapPaths.viewBoxWidth;
+    final scaleY = vh / MapPaths.viewBoxHeight;
+    final baseScale = scaleX < scaleY ? scaleX : scaleY;
+
+    final scaledW = MapPaths.viewBoxWidth * baseScale;
+    final scaledH = MapPaths.viewBoxHeight * baseScale;
+
+    final dx = (vw - scaledW) / 2.0;
+    final dy = (vh - scaledH) / 2.0;
+    final extraUp = vh * 0.05;
+
+    final mapLeft = dx;
+    final mapTop = dy - extraUp;
+    final mapRight = dx + scaledW;
+    final mapBottom = dy - extraUp + scaledH;
+
+    final mapW = scaledW * s;
+    final mapH = scaledH * s;
+
+    // Horizontal
+    bool outsideX = false;
+
+    if (mapW <= vw) {
+      tx = (vw - mapW) / 2.0 - mapLeft * s;
+    } else {
+      final minTx = vw - mapRight * s;
+      final maxTx = -mapLeft * s;
+      outsideX = _isOutsideBounds(tx, minTx, maxTx);
+      tx = _applyResistance(tx, minTx, maxTx);
+    }
+
+    bool outsideY = false;
+
+    if (mapH <= vh) {
+      ty = (vh - mapH) / 2.0 - mapTop * s;
+    } else {
+      final minTy = vh - mapBottom * s;
+      final maxTy = -mapTop * s;
+      outsideY = _isOutsideBounds(ty, minTy, maxTy);
+      ty = _applyResistance(ty, minTy, maxTy);
+    }
+
+    final current = _getTranslation(m);
+    final target = Offset(tx, ty);
+    
+    Offset finalOffset;
+    
+    if (outsideX || outsideY) {
+      const smooth = 0.2;
+      finalOffset = Offset(
+        current.dx + (target.dx - current.dx) * smooth,
+        current.dy + (target.dy - current.dy) * smooth,
+      );
+    } else {
+      finalOffset = target;
+    }
+    
+    final clamped = _setTranslation(m, finalOffset);
+    _tc.value = clamped;
+    
+    final newScale = _getScale(_tc.value);
     if ((newScale - _currentScale).abs() > 1e-4) {
       setState(() => _currentScale = newScale);
     }

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import '../config/map_data.dart';
-import '../models/territory_model.dart';
-import '../utils/color_utils.dart'; 
-import '../providers/game_provider.dart'; 
+import '../../config/map_data.dart';
+import '../../models/territory_model.dart';
+import '../../utils/color_utils.dart'; 
+import '../../providers/game_provider.dart'; 
 
 class MapPainter extends CustomPainter {
   final List<Comarca> comarcas;
