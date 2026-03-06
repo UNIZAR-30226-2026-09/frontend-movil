@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'dart:ui' show Path;
 import 'package:flutter/services.dart';
-import '../models/territory_model.dart';
-import '../config/map_data.dart';
+import '../../models/territory_model.dart';
+import '../../config/map_data.dart';
 import 'package:path_drawing/path_drawing.dart';
 
 class GameMap {

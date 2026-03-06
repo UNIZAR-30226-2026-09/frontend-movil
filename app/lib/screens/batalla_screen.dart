@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:soberania/widgets/interactive_game_map.dart';
-import '../services/map_loader.dart';
-import '../services/map_painter.dart';
+import '../services/map/map_loader.dart';
+import '../services/map/map_painter.dart';
 
 class BatallaScreen extends StatefulWidget {
   const BatallaScreen({super.key, required this.title});

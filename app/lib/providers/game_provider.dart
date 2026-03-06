@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/territory_model.dart';
-import '../services/graph_service.dart';
-import '../services/map_loader.dart';
+import '../services/graph/graph_service.dart';
+import '../services/map/map_loader.dart';
 
 // 1. Proveedor del Grafo
 final graphServiceProvider = FutureProvider<GraphService>((ref) async {
