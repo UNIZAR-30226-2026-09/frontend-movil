@@ -39,6 +39,9 @@ class AuthService {
       ),
     );
 
+    print('LOGIN RAW RESPONSE: ${response.data}');
+    print('LOGIN RAW RESPONSE TYPE: ${response.data.runtimeType}');
+
     return AuthTokenResponse.fromJson(response.data);
   }
 

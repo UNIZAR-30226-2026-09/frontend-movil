@@ -118,13 +118,20 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = state.copyWith(status: AuthStatus.loading, errorMessage: null);
 
     try{
+      print('PASO 1: llamando a authService.login');
       final AuthTokenResponse tokenResponse = await authService.login(username: username, password: password);
 
+      print('PASO 2: login correcto');
+      print('TOKEN: ${tokenResponse.accessToken}');
+      print('TOKEN TYPE: ${tokenResponse.tokenType}');
       await secureStorage.saveAuthToken(accessToken: tokenResponse.accessToken, tokenType: tokenResponse.tokenType);
 
+      print('PASO 3: token guardado');
       final user = await authService.getMe();
       state = state.copyWith(status: AuthStatus.authenticated, user: user, errorMessage: null);
-    } catch (_) {
+    } catch (e, st) {
+      print('ERROR LOGIN FLUTTER: $e');
+      print(st);
       state = state.copyWith(status: AuthStatus.unauthenticated, user: null, errorMessage: 'Error al iniciar sesión');
     }
   }
