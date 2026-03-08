@@ -14,9 +14,14 @@ class HomeScreen extends StatelessWidget {
         title: Text(title),
         actions: [
           IconButton(
-            tooltip: 'About',
+            tooltip: 'Menú',
             onPressed: () => context.push(AppRoutes.menu),
             icon: const Icon(Icons.info_outline),
+          ),
+          IconButton(
+            tooltip: 'Ajustes',
+            onPressed: () => context.push(AppRoutes.ajustes),
+            icon: const Icon(Icons.settings),
           ),
         ],
       ),
@@ -26,13 +31,6 @@ class HomeScreen extends StatelessWidget {
           child: const Text("Ver Mapa"),
         ),
       ),
-      bottomNavigationBar: 
-        BottomNavigationBar(
-          items: const [
-            BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-            BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Settings'),
-          ],
-        ),
     );
   }
 }
