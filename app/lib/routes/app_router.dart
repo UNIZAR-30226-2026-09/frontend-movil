@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:soberania/screens/inicio_screen.dart';
+import 'package:soberania/screens/login_screen.dart';
+import 'package:soberania/screens/registrar_screen.dart';
 import 'app_routes.dart';
 import '../screens/screens.dart';
 
@@ -16,8 +19,16 @@ final GoRouter appRouter = GoRouter(
       builder: (BuildContext context, GoRouterState state) => const HomeScreen(title: 'SOBERANÍA'),
     ),
     GoRoute(
-      path: AppRoutes.menu,
-      builder: (BuildContext context, GoRouterState state) => const MenuScreen(),
+      path: AppRoutes.inicio,
+      builder: (BuildContext context, GoRouterState state) => const InicioScreen(),
+    ),
+    GoRoute(
+      path: AppRoutes.login,
+      builder:(BuildContext context, GoRouterState state) => const LoginScreen(),
+    ),
+    GoRoute(
+      path: AppRoutes.registro,
+      builder:(BuildContext context, GoRouterState state) => const RegistrarScreen(),
     ),
     GoRoute(
       path: AppRoutes.ajustes,

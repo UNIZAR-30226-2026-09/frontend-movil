@@ -1,5 +1,8 @@
 class AppRoutes {
   static const String splash = '/';
+  static const String inicio = '/inicio';
+  static const String login = '/login';
+  static const String registro = '/registro';
   static const String home = '/home';
   static const String menu = '/menu';
   static const String ajustes = '/ajustes';

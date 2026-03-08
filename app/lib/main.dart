@@ -3,6 +3,7 @@ import 'package:flutter/services.dart'; // Necesario para la orientación
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'routes/app_router.dart';
 import 'theme/app_theme.dart';
+import 'providers/auth_provider.dart';
 
 void main() async {
   // 1. Inicialización necesaria para servicios de plataforma
@@ -21,8 +22,23 @@ void main() async {
   );
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends ConsumerStatefulWidget {
   const MyApp({super.key});
+
+  @override
+  ConsumerState<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends ConsumerState<MyApp> {
+  @override
+  void initState(){
+    super.initState();
+    // Al arrancar la app, comprobamos si hay una sesión guardada.
+    Future.microtask(() {
+      ref.read(authProvider.notifier).checkSession();
+    });
+  }
+
 
   @override
   Widget build(BuildContext context) {
