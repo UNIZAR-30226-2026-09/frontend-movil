@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // Necesario para la orientación
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'routes/app_router.dart';
-import 'theme/app_theme.dart';
-import 'providers/auth_provider.dart';
+import 'app/router/app_router.dart';
+import 'app/theme/app_theme.dart';
+import 'features/auth/providers/auth_provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 Future<void> main() async {
