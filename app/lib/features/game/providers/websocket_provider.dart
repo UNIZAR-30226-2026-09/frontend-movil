@@ -1,8 +1,10 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../../shared/api/websocket_service.dart';
+import 'game_provider.dart';
 
 // El estado que guardaremos (puedes ampliarlo luego con mensajes recibidos)
 class WebSocketState {
@@ -66,7 +68,17 @@ class WebSocketNotifier extends Notifier<WebSocketState> {
       _wsService.stream?.listen(
         (message) {
           debugPrint('📩 Evento WS recibido: $message');
-          // TODO: Mapear el JSON y actualizar el estado del juego (Mapa, fases, etc.)
+          try {
+            // Transformamos el string puro en un Mapa de Dart
+            final data = jsonDecode(message);
+            
+            // Si el JSON trae información del mapa o de la partida, actualizamos el estado global
+            if (data is Map<String, dynamic> && (data.containsKey('mapa') || data.containsKey('fase_actual'))) {
+              ref.read(gameProvider.notifier).actualizarDesdeServidor(data);
+            }
+          } catch (e) {
+            debugPrint('⚠️ Error parseando el JSON del WebSocket: $e');
+          }
         },
         onDone: () {
           debugPrint('⭕ Stream del WS cerrado por el servidor.');
