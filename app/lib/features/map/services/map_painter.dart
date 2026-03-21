@@ -8,7 +8,7 @@ class MapPainter extends CustomPainter {
   final List<Comarca> comarcas;
   final Map<String, Path> comarcaPaths;
   
-  // Ahora usamos el objeto de estado completo en lugar de solo un ID
+  // Estado completo del juego (Cerebro)
   final GameState gameState; 
 
   final double viewerScale;
@@ -18,11 +18,30 @@ class MapPainter extends CustomPainter {
   MapPainter({
     required this.comarcas,
     required this.comarcaPaths,
-    required this.gameState, // Recibimos el estado (origen + resaltadas)
+    required this.gameState, 
     required this.viewerScale,
     this.labelMinScale = 2.0,
     this.labelFontSizePx = 12.0,
   });
+
+  // Función interna para asignar siempre el mismo color a un mismo jugador
+  Color _getPlayerColor(String username) {
+    if (username.isEmpty) return Colors.grey.shade400; // Territorio neutral
+    
+    final playerColors = [
+      Colors.red.shade600,
+      Colors.blue.shade600,
+      Colors.green.shade600,
+      Colors.orange.shade600,
+      Colors.purple.shade600,
+      Colors.teal.shade600,
+      Colors.pink.shade600,
+      Colors.indigo.shade600,
+    ];
+    // Usamos el hash del nombre para que siempre le toque el mismo color en la partida
+    int hash = username.hashCode.abs();
+    return playerColors[hash % playerColors.length];
+  }
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -33,18 +52,12 @@ class MapPainter extends CustomPainter {
       ..strokeWidth = 1.0
       ..color = const Color(0xFF333333);
 
-    // Pinceles para destacar la lógica de ataque 
-    final attackHighlightStroke = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3.0
-      ..color = ColorUtils.resaltadoColor; 
-
     final selectedStroke = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3.0
       ..color = Colors.white;
 
-    // Lógica de Escala 
+    // Lógica de Escala y Posicionamiento de la cámara
     final scaleX = size.width / MapPaths.viewBoxWidth;
     final scaleY = size.height / MapPaths.viewBoxHeight;
     final scale = scaleX < scaleY ? scaleX : scaleY;
@@ -57,40 +70,44 @@ class MapPainter extends CustomPainter {
     canvas.scale(scale);
     canvas.translate(-MapPaths.viewBoxX, -MapPaths.viewBoxY);
 
-    // PINTADO DE COMARCAS CON LÓGICA DINÁMICA
+    // 1. PINTADO DEL COLOR DE FONDO (Dueños)
     for (final comarca in comarcas) {
       final path = comarcaPaths[comarca.id];
       if (path == null) continue;
 
-      // Decisión de color basada en el estado del juego 
+      // Buscamos si esta comarca está en el JSON que nos mandó el backend
+      final territoryData = gameState.mapa[comarca.id];
+
       if (comarca.id == gameState.origenSeleccionado) {
-        fillPaint.color = ColorUtils.origenColor; // Comarca atacante
+        fillPaint.color = ColorUtils.origenColor; 
       } else if (gameState.comarcasResaltadas.contains(comarca.id)) {
-        fillPaint.color = ColorUtils.resaltadoColor; // Comarcas en rango BFS
+        fillPaint.color = ColorUtils.resaltadoColor; 
+      } else if (territoryData != null && territoryData.ownerId.isNotEmpty) {
+        // T48: Si tiene dueño, la pintamos del color del jugador
+        fillPaint.color = _getPlayerColor(territoryData.ownerId);
       } else {
-        fillPaint.color = ColorUtils.getColorRegion(comarca.regionId); // Color normal
+        // Si no tiene dueño (inicio del juego), color base de la región
+        fillPaint.color = ColorUtils.getColorRegion(comarca.regionId); 
       }
 
       canvas.drawPath(path, fillPaint);
-      
     }
 
+    // 2. PINTADO DE LOS BORDES
     for (final comarca in comarcas) {
       final path = comarcaPaths[comarca.id];
       if (path == null) continue;
 
-      // Si la comarca está resaltada, le ponemos un borde un poco más oscuro o marcado
       if (gameState.comarcasResaltadas.contains(comarca.id) || 
           comarca.id == gameState.origenSeleccionado) {
-        canvas.drawPath(path, selectedStroke); // El borde blanco que definiste
+        canvas.drawPath(path, selectedStroke); 
       } else {
-        canvas.drawPath(path, baseStroke); // El borde gris/oscuro normal
+        canvas.drawPath(path, baseStroke); 
       }
     }
 
-// Labels (Etiquetas de las comarcas con ajuste dinámico)
+    // 3. PINTADO DE ETIQUETAS Y TROPAS (T48)
     if (viewerScale >= labelMinScale) {
-      // Cálculo del fade-in suave basado en el zoom actual
       final t = ((viewerScale - labelMinScale) / 0.5).clamp(0.0, 1.0);
 
       final textPainter = TextPainter(
@@ -100,8 +117,6 @@ class MapPainter extends CustomPainter {
         ellipsis: '…',
       );
 
-      // Calculamos el tamaño de fuente y padding "mundo" para que en pantalla 
-      // siempre se vean del mismo tamaño independientemente del zoom
       final fontWorld = labelFontSizePx / (scale * viewerScale);
       final padX = 6.0 / (scale * viewerScale);
       final padY = 4.0 / (scale * viewerScale);
@@ -109,27 +124,39 @@ class MapPainter extends CustomPainter {
 
       for (final comarca in comarcas) {
         final path = comarcaPaths[comarca.id];
-        if (path == null) {
-          debugPrint("❌ ERROR: No hay dibujo para el ID: '${comarca.id}'");
-          continue;
-        }
+        if (path == null) continue;
 
         final bounds = path.getBounds();
-        // Solo dibujamos el texto si la comarca es lo suficientemente grande en pantalla
         if (bounds.width < 25 || bounds.height < 15) continue;
+
+        // T48: Sacamos las tropas del territorio (o mostramos "-" si no hay datos)
+        final territoryData = gameState.mapa[comarca.id];
+        final tropas = territoryData != null ? territoryData.units.toString() : "0";
 
         final center = bounds.center;
 
+        // Componemos el texto: Nombre pequeño arriba, Tropas grandes abajo
         textPainter.text = TextSpan(
-          text: comarca.name,
-          style: TextStyle(
-            color: Colors.black.withValues(alpha: 0.9 * t),
-            fontSize: fontWorld,
-            fontWeight: FontWeight.w700,
-          ),
+          children: [
+            TextSpan(
+              text: "${comarca.name}\n",
+              style: TextStyle(
+                color: Colors.black.withValues(alpha: 0.9 * t),
+                fontSize: fontWorld * 0.7, // Nombre un poco más pequeño
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            TextSpan(
+              text: "🛡️ $tropas",
+              style: TextStyle(
+                color: Colors.black.withValues(alpha: 1.0 * t),
+                fontSize: fontWorld * 1.1, // Tropas más grandes
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ],
         );
 
-        // Limitamos el ancho del texto para que no se salga de la comarca
         final maxWidthWorld = 120.0 / (scale * viewerScale);
         textPainter.layout(maxWidth: maxWidthWorld);
 
@@ -146,11 +173,9 @@ class MapPainter extends CustomPainter {
         );
 
         canvas.save();
-        // ClipPath para que el fondo blanco de la etiqueta no se salga de los bordes de la comarca
         canvas.clipPath(path);
 
-        // Fondo semi-transparente que se vuelve más opaco al hacer zoom
-        final bgPaint = Paint()..color = Colors.white.withValues(alpha: (0.55 + 0.25 * t));
+        final bgPaint = Paint()..color = Colors.white.withValues(alpha: (0.65 + 0.25 * t));
         canvas.drawRRect(
           RRect.fromRectAndRadius(bgRect, Radius.circular(radius)),
           bgPaint,
@@ -167,7 +192,7 @@ class MapPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant MapPainter oldDelegate) =>
-      oldDelegate.gameState != gameState || // Repintar si cambia la selección o el BFS
+      oldDelegate.gameState != gameState || 
       oldDelegate.viewerScale != viewerScale ||
       oldDelegate.comarcas != comarcas;
 }
