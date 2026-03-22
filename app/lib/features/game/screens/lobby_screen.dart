@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -100,6 +101,27 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
             ),
           ],
         ),
+      ),
+
+      // BOTÓN TEMPORAL PARA DESBLOQUEAR EL PASO AL MAPA
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: Colors.purple,
+        onPressed: () {
+          const fakeJsonString = '''
+          {
+            "fase_actual": "ESPERA",
+            "turno_actual": "nick",
+            "jugadores": {
+              "nick": {"tropas_reserva": 0},
+              "roldi": {"tropas_reserva": 0}
+            },
+            "mapa": {}
+          }
+          ''';
+          final fakeJson = jsonDecode(fakeJsonString);
+          ref.read(gameProvider.notifier).actualizarDesdeServidor(fakeJson);
+        },
+        child: const Icon(Icons.bug_report, color: Colors.white),
       ),
     );
   }
