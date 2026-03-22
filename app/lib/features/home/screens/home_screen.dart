@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../app/router/app_routes.dart';
+import '../../game/screens/lobby_screen.dart'; // <-- ¡LA PIEZA QUE FALTABA!
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key, required this.title});
@@ -27,8 +28,13 @@ class HomeScreen extends StatelessWidget {
       ),
       body: Center(
         child: ElevatedButton(
-          onPressed: () => context.push(AppRoutes.batalla),
-          child: const Text("Ver Mapa"),
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const LobbyScreen(partidaId: 1)), 
+            );
+          },
+          child: const Text("Entrar al Lobby"),
         ),
       ),
     );
