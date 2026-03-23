@@ -47,7 +47,7 @@ class _MyAppState extends ConsumerState<MyApp> {
     return MaterialApp.router(
       title: 'Soberania',
       routerConfig: appRouter,
-      theme: AppTheme.neonDark(),
+      theme: AppTheme.darkTheme(),
     );
   }
 }

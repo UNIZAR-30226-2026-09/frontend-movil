@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:soberania/features/home/widgets/app_bottom_nav_bar.dart';
 import '../../../app/router/app_routes.dart';
 import '../providers/game_provider.dart';
 import '../providers/websocket_provider.dart';
@@ -32,10 +33,6 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     final jugadoresConectados = gameState.jugadores.keys.toList();
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Sala de Espera #${widget.partidaId}'),
-        centerTitle: true,
-      ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -123,6 +120,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
         },
         child: const Icon(Icons.bug_report, color: Colors.white),
       ),
+      bottomNavigationBar: const AppBottomNavBar(currentIndex: 2),
     );
   }
 }

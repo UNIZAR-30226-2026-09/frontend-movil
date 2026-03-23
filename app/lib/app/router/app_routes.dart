@@ -12,4 +12,8 @@ class AppRoutes {
   static const String batalla = '/batalla';
   static const String arbol = '/arbol';
   static const String carga = '/carga';
+  static const String social = '/social';
+  static const String lobby = '/lobby/:partidaId';
+
+  static String lobbyPath(int partidaId) => '/lobby/$partidaId';
 }

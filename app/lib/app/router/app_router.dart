@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:soberania/features/game/screens/lobby_screen.dart';
 import 'package:soberania/features/home/screens/inicio_screen.dart';
 import 'package:soberania/features/auth/screens/login_screen.dart';
 import 'package:soberania/features/auth/screens/registrar_screen.dart';
+import 'package:soberania/features/social/screens/social_menu_screen.dart';
 import 'app_routes.dart';
 import '../../shared/screens/screens.dart';
 
@@ -16,7 +18,7 @@ final GoRouter appRouter = GoRouter(
     ),
     GoRoute(
       path: AppRoutes.home,
-      builder: (BuildContext context, GoRouterState state) => const HomeScreen(title: 'SOBERANÍA'),
+      builder: (BuildContext context, GoRouterState state) => const HomeScreen(),
     ),
     GoRoute(
       path: AppRoutes.inicio,
@@ -57,6 +59,17 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: AppRoutes.carga,
       builder: (BuildContext context, GoRouterState state) => const CargaScreen(),
+    ),
+    GoRoute(
+      path: AppRoutes.social,
+      builder: (BuildContext context, GoRouterState state) => const SocialMenuScreen(),
+    ),
+    GoRoute(
+      path: AppRoutes.lobby,
+      builder: (BuildContext context, GoRouterState state) {
+          final partidaId = int.parse(state.pathParameters['partidaId']!);
+          return LobbyScreen(partidaId: partidaId);
+      },
     ),
   ],
 );
