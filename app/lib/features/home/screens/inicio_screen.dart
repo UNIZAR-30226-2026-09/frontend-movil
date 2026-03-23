@@ -54,6 +54,13 @@ class InicioScreen extends ConsumerWidget {
           ],
         ),
       ),
+      floatingActionButton: FloatingActionButton.small(
+        tooltip: 'Acceso temporal',
+        onPressed: () {
+          context.go(AppRoutes.home);
+        },
+        child: const Icon(Icons.login),
+      ),
     );  
   }
 }

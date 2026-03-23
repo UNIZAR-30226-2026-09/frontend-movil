@@ -89,11 +89,6 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
               onPressed: jugadoresConectados.isNotEmpty 
                   ? () => context.push(AppRoutes.batalla) 
                   : null,
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                backgroundColor: Colors.blue.shade800,
-                foregroundColor: Colors.white,
-              ),
               child: const Text('IR AL MAPA', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             ),
           ],
