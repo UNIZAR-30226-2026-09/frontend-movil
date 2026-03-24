@@ -99,7 +99,13 @@ class WebSocketNotifier extends Notifier<WebSocketState> {
 
   /// Función para que la UI mande un ataque o coloque tropas
   void emitirEvento(String tipoEvento, Map<String, dynamic> datos) {
-    _wsService.sendEvent(tipoEvento, datos);
+    // Le inyectamos a la fuerza el campo 'accion' que FastAPI pide a gritos
+    final payloadParaFastAPI = {
+      'accion': tipoEvento,
+      ...datos, // Esparcimos el resto de datos (origen, destino, tropas...)
+    };
+    
+    _wsService.sendEvent(tipoEvento, payloadParaFastAPI);
   }
 }
 

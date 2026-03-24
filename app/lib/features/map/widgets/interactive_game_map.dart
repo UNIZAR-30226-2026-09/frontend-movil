@@ -127,8 +127,6 @@ class _InteractiveGameMapState extends ConsumerState<InteractiveGameMap> {
                 final hit = _hitTestComarca(mapPoint);
                 
                 if (hit != null) {
-                  // 6. LLAMAMOS AL PROVIDER PARA SELECCIONAR (BFS)
-                  ref.read(gameProvider.notifier).seleccionarComarca(hit.id);
                   widget.onTapComarca?.call(hit);
                 }
               },
@@ -197,7 +195,7 @@ class _InteractiveGameMapState extends ConsumerState<InteractiveGameMap> {
 
     // Si estamos en zoom mínimo, bloqueado
     if (s <= widget.minScale + _eps) {
-      final locked = Matrix4.identity()..scale(widget.minScale);
+      final locked = Matrix4.diagonal3Values(widget.minScale, widget.minScale, 1.0);
       _tc.value = locked;
 
       if ((_currentScale - widget.minScale).abs() > 1e-4) {

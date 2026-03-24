@@ -43,6 +43,8 @@ class PlayerState {
 class GameState {
   // Estado Local (UI - Lo que toca el usuario en la pantalla)
   final String? origenSeleccionado;
+  final String? destinoSeleccionado;
+  final bool esperandoDestino;
   final Set<String> comarcasResaltadas;
 
   // Estado del Servidor (La verdad absoluta que nos manda el backend)
@@ -53,6 +55,8 @@ class GameState {
 
   GameState({
     this.origenSeleccionado,
+    this.destinoSeleccionado,
+    this.esperandoDestino = false,
     this.comarcasResaltadas = const {},
     this.mapa = const {},
     this.jugadores = const {},
@@ -64,15 +68,20 @@ class GameState {
   // Le metemos 'clearOrigen' como un truco para poder forzar el origen a null cuando deseleccionamos.
   GameState copyWith({
     String? origenSeleccionado,
+    String? destinoSeleccionado,
+    bool? esperandoDestino,
     Set<String>? comarcasResaltadas,
     Map<String, TerritoryState>? mapa,
     Map<String, PlayerState>? jugadores,
     String? turnoDe,
     String? faseActual,
     bool clearOrigen = false, 
+    bool clearDestino = false,
   }) {
     return GameState(
       origenSeleccionado: clearOrigen ? null : (origenSeleccionado ?? this.origenSeleccionado),
+      destinoSeleccionado: clearDestino ? null : (destinoSeleccionado ?? this.destinoSeleccionado),
+      esperandoDestino: esperandoDestino ?? this.esperandoDestino,
       comarcasResaltadas: comarcasResaltadas ?? this.comarcasResaltadas,
       mapa: mapa ?? this.mapa,
       jugadores: jugadores ?? this.jugadores,
@@ -106,10 +115,31 @@ class GameNotifier extends Notifier<GameState> {
     );
   }
 
-  void seleccionarComarca(String id) async {
+  void seleccionarComarca(String id, {List<String>? vecinosDelNodoTocado}) async {
+    if (state.esperandoDestino) {
+      if (state.origenSeleccionado != null && id != state.origenSeleccionado) {
+        final esVecinoDelOrigen = vecinosDelNodoTocado?.contains(state.origenSeleccionado) ?? false;
+        if (!esVecinoDelOrigen) {
+          return;
+        }
+
+        state = state.copyWith(
+          destinoSeleccionado: id,
+          esperandoDestino: false,
+          comarcasResaltadas: const {},
+        );
+      }
+      return;
+    }
+
     // Si toco la misma comarca que ya estaba seleccionada, limpio la selección
     if (state.origenSeleccionado == id) {
-      state = state.copyWith(clearOrigen: true, comarcasResaltadas: {});
+      state = state.copyWith(
+        clearOrigen: true,
+        clearDestino: true,
+        esperandoDestino: false,
+        comarcasResaltadas: const {},
+      );
       return;
     }
     
@@ -118,7 +148,28 @@ class GameNotifier extends Notifier<GameState> {
     
     state = state.copyWith(
       origenSeleccionado: id,
+      clearDestino: true,
+      esperandoDestino: false,
       comarcasResaltadas: alcanzables,
+    );
+  }
+
+  void prepararAtaque() {
+    if (state.origenSeleccionado == null) {
+      return;
+    }
+
+    state = state.copyWith(
+      esperandoDestino: true,
+      clearDestino: true,
+    );
+  }
+
+  void cancelarAtaque() {
+    state = state.copyWith(
+      clearDestino: true,
+      esperandoDestino: false,
+      comarcasResaltadas: const {},
     );
   }
 }

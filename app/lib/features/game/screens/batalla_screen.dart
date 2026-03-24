@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:soberania/features/map/widgets/interactive_game_map.dart';
 import 'package:soberania/features/map/services/map_loader.dart';
-import 'package:soberania/features/map/services/map_painter.dart';
 import 'package:soberania/features/game/providers/game_provider.dart';
 import 'package:soberania/features/map/widgets/action_panel.dart';
 
@@ -48,7 +47,10 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
               InteractiveGameMap(
                 gameMap: snapshot.data!,
                 onTapComarca: (c) {
-                  ref.read(gameProvider.notifier).seleccionarComarca(c.id);
+                  ref.read(gameProvider.notifier).seleccionarComarca(
+                    c.id,
+                    vecinosDelNodoTocado: c.adjacentTo,
+                  );
                 },
                 minScale: 1.0,
                 maxScale: 5.0,
@@ -73,7 +75,7 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
             },
             "mapa": {
               "hoya_de_huesca": {"owner_id": "nick", "units": 10},
-              "zaragoza": {"owner_id": "roldi", "units": 3}
+              "monegros": {"owner_id": "roldi", "units": 3} 
             }
           }
           ''';
