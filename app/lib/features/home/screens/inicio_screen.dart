@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../auth/providers/auth_provider.dart';
 import '../../../app/router/app_routes.dart';
+import '../../../shared/widgets/auth_inicio_background.dart';
 
 class InicioScreen extends ConsumerWidget {
   const InicioScreen({super.key});
@@ -14,24 +15,16 @@ class InicioScreen extends ConsumerWidget {
     final authState = ref.watch(authProvider);
 
     return Scaffold(
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'SOBERANÍA',
-              style: TextStyle(
-                fontSize: 32,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 32),
-            authState.status == AuthStatus.authenticated
+      body: AuthInicioBackground(
+        child: SizedBox.expand(
+          child: Align(
+            alignment: const Alignment(-0.05, 0.0),
+            child: authState.status == AuthStatus.authenticated
                 ? ElevatedButton(
                     onPressed: () {
                       context.go(AppRoutes.home);
                     },
-                    child: const Text('Iniciar'),
+                    child: const Text('Entrar al campo'),
                   )
                 : Column(
                     mainAxisSize: MainAxisSize.min,
@@ -51,7 +44,7 @@ class InicioScreen extends ConsumerWidget {
                       ),
                     ],
                   ),
-          ],
+          ),
         ),
       ),
       floatingActionButton: FloatingActionButton.small(

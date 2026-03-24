@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../providers/auth_provider.dart';
 import '../../../app/router/app_routes.dart';
+import '../../../shared/widgets/auth_inicio_background.dart';
 
 /* Pantalla de inicio de sesión.
    Permite al usuario introducir sus credenciales y autenticarse
@@ -68,108 +69,160 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final bool isLoading = authState.status == AuthStatus.loading;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Iniciar sesión'),
-      ),
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 400),
-            // Formulario que agrupa y valida los campos del login.
-            child: Form(
-              key: _formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text(
-                    'Accede a tu cuenta',
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  // Campo de nombre de usuario.
-                  TextFormField(
-                    controller: _usernameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Nombre de usuario',
-                      border: OutlineInputBorder(),
-                    ),
-                    // Validación simple para asegurar que el campo no esté vacío.
-                    validator: (value){
-                      if(value == null || value.trim().isEmpty){
-                        return 'Introduce tu nombre de usuario';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  // Campo de contraseña.
-                  TextFormField(
-                    controller: _passwordController,
-                    obscureText: _obscurePassword,
-                    decoration: InputDecoration(
-                      labelText: 'Contraseña',
-                      border: OutlineInputBorder(),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _obscurePassword ? Icons.visibility : Icons.visibility_off
+      body: AuthInicioBackground(
+        child: Stack(
+          children: [
+            SafeArea(
+              child: Align(
+                alignment: Alignment.topLeft,
+                child: Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF252530).withOpacity(0.92),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: const Color(0xFFC5A059),
+                        width: 1.2,
+                      ),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Colors.black54,
+                          blurRadius: 12,
+                          offset: Offset(0, 4),
                         ),
-                        onPressed: (){
-                          setState(() {
-                            _obscurePassword = !_obscurePassword;
-                          });
-                        },
+                      ],
+                    ),
+                    child: IconButton(
+                      onPressed: () => context.pop(),
+                      icon: const Icon(
+                        Icons.arrow_back_rounded,
                       ),
                     ),
-                    // Validación simple para asegurar que el campo no esté vacío.
-                    validator:(value) {
-                      if(value == null || value.trim().isEmpty){
-                        return 'Introduce tu contraseña';
-                      }
-                      return null;
-                    },
                   ),
-                  const SizedBox(height:20),
-                  // Si existe un mensaje de error en el estado de auth, se muestra en pantalla.
-                  if(authState.errorMessage != null) ...[
-                    Text(
-                      authState.errorMessage!,
-                      style: const TextStyle(color: Colors.red),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-                  // Botón de inicio de sesión, desactivado si isLoading es true.
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: isLoading ? null : _handleLogin,
-                      child: isLoading
-                        ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text('Iniciar sesión'),
-                    ),
-                  ),
-                  // Enlace para ir a la pantalla de registro, desactivado si isLoading es true.
-                  const SizedBox(height: 12),
-                  TextButton(
-                    onPressed: isLoading 
-                    ? null 
-                    : () {
-                        context.go(AppRoutes.registro);
-                      },
-                    child: const Text('¿No tienes cuenta? Regístrate'),
-                  ),
-                ],
+                ),
               ),
             ),
-          ),
+            Align(
+              alignment: const Alignment(-0.08, 0),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 400),
+                  child: Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF252530).withOpacity(0.92),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: const Color(0xFFC5A059),
+                        width: 1.2,
+                      ),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Colors.black54,
+                          blurRadius: 20,
+                          offset: Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text(
+                            'INICIAR SESIÓN',
+                            style: TextStyle(
+                              fontSize: 28,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 24),
+                          TextFormField(
+                            controller: _usernameController,
+                            decoration: const InputDecoration(
+                              labelText: 'Usuario',
+                              hintText: 'Nombre de guerra...',
+                              border: OutlineInputBorder(),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Introduce tu nombre de usuario';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _passwordController,
+                            obscureText: _obscurePassword,
+                            decoration: InputDecoration(
+                              labelText: 'Contraseña',
+                              hintText: 'Mínimo 8 caracteres',
+                              border: const OutlineInputBorder(),
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _obscurePassword
+                                      ? Icons.visibility
+                                      : Icons.visibility_off,
+                                ),
+                                onPressed: () {
+                                  setState(() {
+                                    _obscurePassword = !_obscurePassword;
+                                  });
+                                },
+                              ),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Introduce tu contraseña';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 20),
+                          if (authState.errorMessage != null) ...[
+                            Text(
+                              authState.errorMessage!,
+                              style: const TextStyle(color: Colors.redAccent),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 16),
+                          ],
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: isLoading ? null : _handleLogin,
+                              child: isLoading
+                                  ? const SizedBox(
+                                      height: 20,
+                                      width: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Text('ENTRAR AL CAMPO'),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          TextButton(
+                            onPressed: isLoading
+                                ? null
+                                : () {
+                                    context.go(AppRoutes.registro);
+                                  },
+                            child: const Text('¿No tienes cuenta? Regístrate'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

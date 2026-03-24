@@ -11,13 +11,32 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Center(
-        child: ElevatedButton(
-          onPressed: () {
-            context.push(AppRoutes.lobbyPath(1));
-          },
-          child: const Text("Entrar al Lobby"),
-        ),
+      body: Stack(
+        children: [
+          Center(
+            child: ElevatedButton(
+              onPressed: () {
+                context.push(AppRoutes.lobbyPath(1));
+              },
+              child: const Text("Entrar al Lobby"),
+            ),
+          ),
+          SafeArea(
+            child: Align(
+              alignment: Alignment.topLeft,
+              child: Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: IconButton(
+                  tooltip: 'Ajustes',
+                  onPressed: () {
+                    context.push(AppRoutes.ajustes);
+                  },
+                  icon: const Icon(Icons.settings),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
       bottomNavigationBar: const AppBottomNavBar(currentIndex: 0),
     );
