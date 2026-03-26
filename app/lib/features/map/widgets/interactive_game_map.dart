@@ -6,6 +6,7 @@ import '../services/map_painter.dart';
 import '../models/territory_model.dart';
 import '../config/map_data.dart';
 import '../../game/providers/game_provider.dart'; 
+import 'panel_control.dart';
 
 typedef OnTapComarca = void Function(Comarca comarca);
 
@@ -76,6 +77,15 @@ class _InteractiveGameMapState extends ConsumerState<InteractiveGameMap> {
     return null;
   }
 
+  int _getTropasJugadorActual(GameState gameState) {
+    // Si no hay jugador en turno, devuelve 0
+    if (gameState.turnoDe.isEmpty) return 0;
+    
+    // Obtiene le tropas de reserva del jugador actual
+    final jugadorActual = gameState.jugadores[gameState.turnoDe];
+    return jugadorActual?.tropasReserva ?? 0;
+  }
+
   Offset _sceneToMap(Offset scenePoint, Size viewport) {
     final scaleX = viewport.width / MapPaths.viewBoxWidth;
     final scaleY = viewport.height / MapPaths.viewBoxHeight;
@@ -105,44 +115,63 @@ class _InteractiveGameMapState extends ConsumerState<InteractiveGameMap> {
     final gameState = ref.watch(gameProvider); 
     final panAllowed = _currentScale > widget.minScale + _eps;
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final viewport = Size(constraints.maxWidth, constraints.maxHeight);
-        _lastViewportSize = viewport;
+    return Stack(
+      children: [
+        // --- CAPA 1: EL MAPA INTERACTIVO ---
+        Positioned.fill(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final viewport = Size(constraints.maxWidth, constraints.maxHeight);
+              _lastViewportSize = viewport;
 
-        return InteractiveViewer(
-          transformationController: _tc,
-          minScale: widget.minScale,
-          maxScale: widget.maxScale,
-          panEnabled: panAllowed,
-          boundaryMargin: EdgeInsets.zero,
-          constrained: true,
-          child: SizedBox(
-            width: viewport.width,
-            height: viewport.height,
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTapDown: (details) {
-                final mapPoint = _sceneToMap(details.localPosition, viewport);
-                final hit = _hitTestComarca(mapPoint);
-                
-                if (hit != null) {
-                  widget.onTapComarca?.call(hit);
-                }
-              },
-              child: CustomPaint(
-                painter: MapPainter(
-                  comarcas: widget.gameMap.comarcas,
-                  comarcaPaths: widget.gameMap.comarcaPaths,
-                  // 7. PASAMOS EL ESTADO COMPLETO AL PAINTER
-                  gameState: gameState, 
-                  viewerScale: _currentScale,
+              return InteractiveViewer(
+                transformationController: _tc,
+                minScale: widget.minScale,
+                maxScale: widget.maxScale,
+                panEnabled: panAllowed,
+                boundaryMargin: EdgeInsets.zero,
+                constrained: true,
+                child: SizedBox(
+                  width: viewport.width,
+                  height: viewport.height,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTapDown: (details) {
+                      final mapPoint = _sceneToMap(details.localPosition, viewport);
+                      final hit = _hitTestComarca(mapPoint);
+                      
+                      if (hit != null) {
+                        widget.onTapComarca?.call(hit);
+                      }
+                    },
+                    child: CustomPaint(
+                      painter: MapPainter(
+                        comarcas: widget.gameMap.comarcas,
+                        comarcaPaths: widget.gameMap.comarcaPaths,
+                        // 7. PASAMOS EL ESTADO COMPLETO AL PAINTER
+                        gameState: gameState, 
+                        viewerScale: _currentScale,
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-            ),
+              );
+            },
           ),
-        );
-      },
+        ),
+
+        // --- CAPA 2: EL PANEL DE CONTROL FLOTANTE ---
+        // Al estar fuera del InteractiveViewer, no le afecta el zoom
+        Positioned(
+          bottom: 0,
+          left: 0,
+          right: 0,
+          child: PanelControlGuerra(
+            tropas: _getTropasJugadorActual(gameState),
+            faseActual: gameState.faseActual,
+          ),
+        ),
+      ],
     );
   }
 
