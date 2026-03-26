@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../app/router/app_routes.dart';
+import '../../../app/theme/app_theme.dart';
 
 class AppBottomNavBar extends StatelessWidget {
   const AppBottomNavBar({
@@ -28,23 +29,33 @@ class AppBottomNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BottomNavigationBar(
-      currentIndex: currentIndex,
-      onTap: (index) => _onItemTapped(context, index),
-      items: const [
-        BottomNavigationBarItem(
-          icon: Icon(Icons.home),
-          label: 'Home',
+     return Container(
+      decoration: const BoxDecoration(
+        border: Border(
+          top: BorderSide(
+            color: AppTheme.primary,
+            width: 1.2,
+          ),
         ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.people),
-          label: 'Social',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.gamepad_rounded),
-          label: 'Batalla',
-        ),
-      ],
+      ),
+      child: BottomNavigationBar(
+        currentIndex: currentIndex,
+        onTap: (index) => _onItemTapped(context, index),
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home),
+            label: 'Home',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.people),
+            label: 'Aliados',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.gamepad_rounded),
+            label: 'Batalla',
+          ),
+        ],
+      ),
     );
   }
 }

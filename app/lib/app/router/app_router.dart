@@ -38,7 +38,7 @@ final GoRouter appRouter = GoRouter(
     ),
     GoRoute(
       path: AppRoutes.perfil,
-      builder: (BuildContext context, GoRouterState state) => const PerfilScreen(title: 'Perfil'),
+      builder: (BuildContext context, GoRouterState state) => const PerfilScreen(),
     ),
     GoRoute(
       path: AppRoutes.alianzas,

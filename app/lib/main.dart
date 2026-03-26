@@ -7,15 +7,20 @@ import 'features/auth/providers/auth_provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 Future<void> main() async {
-  // 1. Inicialización necesaria para servicios de plataforma
+  // Inicialización necesaria para servicios de plataforma
   WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load(fileName: ".env");
 
-  // 2. Forzamos la orientación horizontal (lo que subió Alexis)
+  // Forzamos la orientación horizontal (lo que subió Alexis)
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.landscapeLeft,
     DeviceOrientation.landscapeRight,
   ]);
+
+  
+  await SystemChrome.setEnabledSystemUIMode(
+    SystemUiMode.immersiveSticky,
+  );
 
   runApp(
     const ProviderScope(
