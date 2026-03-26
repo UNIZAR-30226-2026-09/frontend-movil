@@ -22,7 +22,7 @@ class AppBottomNavBar extends StatelessWidget {
         context.push(AppRoutes.social);
         break;
       case 2:
-        context.push(AppRoutes.lobbyPath(1));
+        context.push(AppRoutes.batallas);
         break;
     }
   }

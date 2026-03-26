@@ -46,7 +46,7 @@ final GoRouter appRouter = GoRouter(
     ),
     GoRoute(
       path: AppRoutes.batallas,
-      builder: (BuildContext context, GoRouterState state) => const MenubatallasScreen(title: 'Batallas'),
+      builder: (BuildContext context, GoRouterState state) => const MenubatallasScreen(),
     ),   
     GoRoute(
       path: AppRoutes.batalla,

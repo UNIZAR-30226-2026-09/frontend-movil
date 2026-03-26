@@ -94,7 +94,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ],
                     ),
                     child: IconButton(
-                      onPressed: () => context.pop(),
+                      onPressed: () => context.go(AppRoutes.inicio),
                       icon: const Icon(
                         Icons.arrow_back_rounded,
                       ),

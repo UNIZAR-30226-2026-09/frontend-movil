@@ -115,9 +115,34 @@ class PerfilScreen extends ConsumerWidget {
                                     ),
                                   ),
                                   const SizedBox(height: 18),
-                                  ElevatedButton(
-                                    onPressed: () {},
-                                    child: const Text('Cambiar contraseña'),
+                                  Row(
+                                    children: [
+                                      ElevatedButton(
+                                        onPressed: () {},
+                                        child: const Text('Cambiar contraseña'),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      OutlinedButton(
+                                        onPressed: () async {
+                                          await ref.read(authProvider.notifier).logout();
+                                          if (context.mounted) {
+                                            context.go('/inicio');
+                                          }
+                                        },
+                                        style: OutlinedButton.styleFrom(
+                                          backgroundColor: const Color(0xFF1A1A24),
+                                          foregroundColor: const Color(0xFFD32F2F),
+                                          side: const BorderSide(
+                                            color: Color(0xFFD32F2F),
+                                            width: 1.2,
+                                          ),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(12),
+                                          ),
+                                        ),
+                                        child: const Text('Cerrar sesión'),
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),

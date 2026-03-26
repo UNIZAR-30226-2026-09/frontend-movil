@@ -30,7 +30,7 @@ class HomeScreen extends ConsumerWidget {
                   HomeActionButton(
                     text: 'Entrar al lobby',
                     onPressed: () {
-                      context.push(AppRoutes.lobbyPath(1));
+                      context.push(AppRoutes.batallas);
                     },
                   ),
                   HomeActionButton(

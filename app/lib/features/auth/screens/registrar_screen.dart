@@ -100,7 +100,7 @@ class _RegistrarScreenState extends ConsumerState<RegistrarScreen> {
                       ],
                     ),
                     child: IconButton(
-                      onPressed: () => context.pop(), 
+                      onPressed: () => context.go(AppRoutes.inicio), 
                       icon: const Icon(Icons.arrow_back_rounded),
                     ),
                   ),
