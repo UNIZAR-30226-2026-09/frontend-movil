@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:soberania/features/auth/providers/auth_provider.dart';
 import 'package:soberania/features/game/providers/game_provider.dart';
-import 'package:soberania/features/game/providers/websocket_provider.dart';
 
 class ActionPanel extends ConsumerStatefulWidget {
   const ActionPanel({super.key});
@@ -22,7 +22,11 @@ class _ActionPanelState extends ConsumerState<ActionPanel> {
   @override
   Widget build(BuildContext context) {
     final gameState = ref.watch(gameProvider);
+    final authState = ref.watch(authProvider);
+    final username = authState.user?.username ?? '';
     final origenSeleccionado = gameState.origenSeleccionado;
+    final esMiTurno = username.isNotEmpty && gameState.turnoDe == username;
+    final puedeAtacar = gameState.faseActual == 'ataque_convencional' && esMiTurno;
 
     // Escuchador para abrir el popup cuando se selecciona un destino
     ref.listen<GameState>(gameProvider, (previous, next) {
@@ -133,7 +137,7 @@ class _ActionPanelState extends ConsumerState<ActionPanel> {
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
                     ElevatedButton.icon(
-                      onPressed: gameState.faseActual == 'ATAQUE'
+                      onPressed: puedeAtacar
                           ? () {
                               ref.read(gameProvider.notifier).prepararAtaque();
                             }
@@ -235,21 +239,15 @@ class _ActionPanelState extends ConsumerState<ActionPanel> {
                 ),
                 ElevatedButton(
                   onPressed: unidadesDisponibles > 0
-                      ? () {
-                          final datosAtaque = {
-                            'origen': origen,
-                            'destino': destino,
-                            'tropas': tropasAEnviar,
-                          };
-
-                          // --- NUESTRO CHIVATO VISUAL PARA LA TERMINAL ---
-                          debugPrint('🚀 ENVIANDO AL BACKEND: {"accion": "ATAQUE", ...$datosAtaque}');
-                          
-                          // ¡POR FIN ENVIAMOS EL EVENTO AL BACKEND!
-                          ref.read(webSocketProvider.notifier).emitirEvento('ATAQUE', datosAtaque);
-
-                          dialogContext.pop();
-                          ref.read(gameProvider.notifier).cancelarAtaque();
+                      ? () async {
+                          await _enviarAtaquePorHttp(
+                            context: context,
+                            dialogContext: dialogContext,
+                            ref: ref,
+                            origen: origen,
+                            destino: destino,
+                            tropasAEnviar: tropasAEnviar,
+                          );
                         }
                       : null,
                   child: const Text('¡Atacar!'),
@@ -260,5 +258,43 @@ class _ActionPanelState extends ConsumerState<ActionPanel> {
         );
       },
     );
+  }
+
+  Future<void> _enviarAtaquePorHttp({
+    required BuildContext context,
+    required BuildContext dialogContext,
+    required WidgetRef ref,
+    required String origen,
+    required String destino,
+    required int tropasAEnviar,
+  }) async {
+    final dio = ref.read(dioProvider);
+    const ataquePath = '/partidas/67/ataque';
+
+    try {
+      await dio.post(
+        ataquePath,
+        data: {
+          'territorio_origen_id': origen,
+          'territorio_destino_id': destino,
+          'tropas_a_mover': tropasAEnviar,
+        },
+      );
+
+      if (!dialogContext.mounted) {
+        return;
+      }
+
+      dialogContext.pop();
+      ref.read(gameProvider.notifier).cancelarAtaque();
+    } catch (_) {
+      if (!dialogContext.mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se pudo enviar el ataque al servidor.')),
+      );
+    }
   }
 }
