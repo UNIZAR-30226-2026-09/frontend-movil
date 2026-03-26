@@ -38,6 +38,38 @@ class PlayerState {
   }
 }
 
+class AttackResultState {
+  final String origen;
+  final String destino;
+  final List<int> dadosAtacante;
+  final List<int> dadosDefensor;
+  final int bajasAtacante;
+  final int bajasDefensor;
+  final bool victoria;
+
+  AttackResultState({
+    required this.origen,
+    required this.destino,
+    required this.dadosAtacante,
+    required this.dadosDefensor,
+    required this.bajasAtacante,
+    required this.bajasDefensor,
+    required this.victoria,
+  });
+
+  factory AttackResultState.fromJson(Map<String, dynamic> json) {
+    return AttackResultState(
+      origen: (json['origen'] ?? '').toString(),
+      destino: (json['destino'] ?? '').toString(),
+      dadosAtacante: List<int>.from(json['dados_atacante'] ?? const []),
+      dadosDefensor: List<int>.from(json['dados_defensor'] ?? const []),
+      bajasAtacante: json['bajas_atacante'] ?? 0,
+      bajasDefensor: json['bajas_defensor'] ?? 0,
+      victoria: json['victoria'] ?? false,
+    );
+  }
+}
+
 // --- EL ESTADO GLOBAL (MEZCLA SERVIDOR + UI) ---
 
 class GameState {
@@ -46,6 +78,8 @@ class GameState {
   final String? destinoSeleccionado;
   final bool esperandoDestino;
   final Set<String> comarcasResaltadas;
+  final AttackResultState? ultimoResultadoAtaque;
+  final int versionResultadoAtaque;
 
   // Estado del Servidor (La verdad absoluta que nos manda el backend)
   final Map<String, TerritoryState> mapa; 
@@ -58,6 +92,8 @@ class GameState {
     this.destinoSeleccionado,
     this.esperandoDestino = false,
     this.comarcasResaltadas = const {},
+    this.ultimoResultadoAtaque,
+    this.versionResultadoAtaque = 0,
     this.mapa = const {},
     this.jugadores = const {},
     this.turnoDe = '',
@@ -71,18 +107,23 @@ class GameState {
     String? destinoSeleccionado,
     bool? esperandoDestino,
     Set<String>? comarcasResaltadas,
+    AttackResultState? ultimoResultadoAtaque,
+    int? versionResultadoAtaque,
     Map<String, TerritoryState>? mapa,
     Map<String, PlayerState>? jugadores,
     String? turnoDe,
     String? faseActual,
     bool clearOrigen = false, 
     bool clearDestino = false,
+    bool clearResultadoAtaque = false,
   }) {
     return GameState(
       origenSeleccionado: clearOrigen ? null : (origenSeleccionado ?? this.origenSeleccionado),
       destinoSeleccionado: clearDestino ? null : (destinoSeleccionado ?? this.destinoSeleccionado),
       esperandoDestino: esperandoDestino ?? this.esperandoDestino,
       comarcasResaltadas: comarcasResaltadas ?? this.comarcasResaltadas,
+      ultimoResultadoAtaque: clearResultadoAtaque ? null : (ultimoResultadoAtaque ?? this.ultimoResultadoAtaque),
+      versionResultadoAtaque: versionResultadoAtaque ?? this.versionResultadoAtaque,
       mapa: mapa ?? this.mapa,
       jugadores: jugadores ?? this.jugadores,
       turnoDe: turnoDe ?? this.turnoDe,
@@ -107,11 +148,16 @@ class GameNotifier extends Notifier<GameState> {
     final nuevosJugadores = jugadoresJson.map((key, value) => MapEntry(key, PlayerState.fromJson(value)));
 
     // Pegamos el cambiazo al estado global. Si el backend no manda turno o fase, conservamos lo que teníamos.
+    final faseNormalizada =
+        (jsonPartida['fase_actual'] ?? jsonPartida['nueva_fase'] ?? state.faseActual)
+            .toString()
+            .toLowerCase();
+
     state = state.copyWith(
       mapa: nuevoMapa,
       jugadores: nuevosJugadores,
-      turnoDe: jsonPartida['turno_actual'] ?? state.turnoDe,
-      faseActual: jsonPartida['fase_actual'] ?? state.faseActual,
+      turnoDe: jsonPartida['turno_actual'] ?? jsonPartida['turno_de'] ?? jsonPartida['jugador_activo'] ?? state.turnoDe,
+      faseActual: faseNormalizada,
     );
   }
 
@@ -171,6 +217,17 @@ class GameNotifier extends Notifier<GameState> {
       esperandoDestino: false,
       comarcasResaltadas: const {},
     );
+  }
+
+  void registrarResultadoAtaque(Map<String, dynamic> payload) {
+    state = state.copyWith(
+      ultimoResultadoAtaque: AttackResultState.fromJson(payload),
+      versionResultadoAtaque: state.versionResultadoAtaque + 1,
+    );
+  }
+
+  void limpiarResultadoAtaque() {
+    state = state.copyWith(clearResultadoAtaque: true);
   }
 }
 

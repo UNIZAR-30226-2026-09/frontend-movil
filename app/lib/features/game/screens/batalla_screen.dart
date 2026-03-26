@@ -17,6 +17,10 @@ class BatallaScreen extends ConsumerStatefulWidget {
 
 class _BatallaScreenState extends ConsumerState<BatallaScreen> {
     late final Future<GameMap> _mapFuture;
+
+    String _formatName(String id) {
+      return id.split('_').map((word) => word.isEmpty ? '' : '${word[0].toUpperCase()}${word.substring(1)}').join(' ');
+    }
     
     @override
     void initState() {
@@ -26,6 +30,48 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<GameState>(gameProvider, (previous, next) {
+      final prevVersion = previous?.versionResultadoAtaque ?? 0;
+      final hayNuevoResultado =
+          next.ultimoResultadoAtaque != null && next.versionResultadoAtaque > prevVersion;
+
+      if (!hayNuevoResultado) {
+        return;
+      }
+
+      final resultado = next.ultimoResultadoAtaque!;
+      final titulo = 'Ataque en ${_formatName(resultado.destino)}';
+      final mensaje =
+          'Has perdido ${resultado.bajasAtacante} tropa(s). '
+          'El enemigo perdio ${resultado.bajasDefensor} tropa(s). '
+          '${resultado.victoria ? 'Territorio conquistado.' : 'El territorio resiste.'}';
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) {
+          return;
+        }
+
+        showDialog<void>(
+          context: context,
+          builder: (dialogContext) {
+            return AlertDialog(
+              title: Text(titulo),
+              content: Text(mensaje),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(dialogContext).pop();
+                    ref.read(gameProvider.notifier).limpiarResultadoAtaque();
+                  },
+                  child: const Text('Aceptar'),
+                ),
+              ],
+            );
+          },
+        );
+      });
+    });
+
     return Scaffold(
       resizeToAvoidBottomInset: false,
       appBar: AppBar(title: Text(widget.title)),
