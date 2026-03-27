@@ -134,8 +134,20 @@ class GameState {
 
 // 3. Notificador (El controlador del estado)
 class GameNotifier extends Notifier<GameState> {
+  static const List<String> _faseOrden = <String>[
+    'reclutamiento',
+    'ataque',
+    'retirada',
+    'fortificacion',
+    'reabastecimiento',
+  ];
+
   @override
   GameState build() => GameState();
+
+  String _normalizarFase(String fase) {
+    return fase.trim().toLowerCase();
+  }
 
   // Esta es la función mágica que llamaremos cada vez que el WebSocket escupa un JSON
   void actualizarDesdeServidor(Map<String, dynamic> jsonPartida) {
@@ -228,6 +240,19 @@ class GameNotifier extends Notifier<GameState> {
 
   void limpiarResultadoAtaque() {
     state = state.copyWith(clearResultadoAtaque: true);
+  }
+
+  void avanzarFasePanel() {
+    final faseActual = _normalizarFase(state.faseActual);
+    final currentIndex = _faseOrden.indexOf(faseActual);
+
+    if (currentIndex == -1) {
+      state = state.copyWith(faseActual: _faseOrden.first);
+      return;
+    }
+
+    final nextIndex = (currentIndex + 1) % _faseOrden.length;
+    state = state.copyWith(faseActual: _faseOrden[nextIndex]);
   }
 }
 

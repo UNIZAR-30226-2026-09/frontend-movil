@@ -169,6 +169,9 @@ class _InteractiveGameMapState extends ConsumerState<InteractiveGameMap> {
           child: PanelControlGuerra(
             tropas: _getTropasJugadorActual(gameState),
             faseActual: gameState.faseActual,
+            onNextPhasePressed: () {
+              ref.read(gameProvider.notifier).avanzarFasePanel();
+            },
           ),
         ),
       ],

@@ -30,24 +30,46 @@ class HexagonClipper extends CustomClipper<Path> {
 class PanelControlGuerra extends StatelessWidget {
   final int tropas;
   final String faseActual;
+  final VoidCallback onNextPhasePressed;
 
   // Mapeo de fases a índices (0-4)
   static const Map<String, int> faseIndex = {
-    'Reclutamiento': 0,
-    'Ataque': 1,
-    'Retirada': 2,
-    'Fortificacion': 3,
-    'Reabastecimiento': 4,
+    'reclutamiento': 0,
+    'ataque': 1,
+    'retirada': 2,
+    'fortificacion': 3,
+    'reabastecimiento': 4,
   };
+
+  static const List<String> faseDisplay = <String>[
+    'RECLUTAMIENTO',
+    'ATAQUE',
+    'RETIRADA',
+    'FORTIFICACION',
+    'REABASTECIMIENTO',
+  ];
 
   const PanelControlGuerra({
     super.key,
     required this.tropas,
     required this.faseActual,
+    required this.onNextPhasePressed,
   });
 
+  String _normalizarFase(String fase) {
+    return fase.trim().toLowerCase();
+  }
+
   int _getFaseIndex() {
-    return faseIndex[faseActual] ?? 0;
+    return faseIndex[_normalizarFase(faseActual)] ?? 0;
+  }
+
+  String _getFaseDisplay(int index) {
+    return faseDisplay[index];
+  }
+
+  bool _isUltimaFase(int index) {
+    return index == faseDisplay.length - 1;
   }
 
   @override
@@ -55,6 +77,7 @@ class PanelControlGuerra extends StatelessWidget {
     final panelHeight = 130.0;
     final panelWidth = panelHeight * 2.1;
     final faseIndexActual = _getFaseIndex();
+    final textoBoton = _isUltimaFase(faseIndexActual) ? 'FIN TURNO' : 'SIGUIENTE';
 
     return Align(
       alignment: Alignment.bottomCenter,
@@ -97,7 +120,7 @@ class PanelControlGuerra extends StatelessWidget {
               right: panelWidth * 0.25,
               child: Center(
                 child: Text(
-                  faseActual.toUpperCase(),
+                  _getFaseDisplay(faseIndexActual),
                   style: TextStyle(
                     color: const Color(0xFFC6A664),
                     fontWeight: FontWeight.bold,
@@ -172,13 +195,23 @@ class PanelControlGuerra extends StatelessWidget {
               left: panelWidth * 0.265,
               right: panelWidth * 0.25,
               child: Center(
-                child: Text(
-                  'SIGUIENTE',
-                  style: TextStyle(
-                    color: const Color(0xFFC6A664),
-                    fontWeight: FontWeight.bold,
-                    fontSize: panelHeight * 0.07,
-                    letterSpacing: 0.6,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: onNextPhasePressed,
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: panelHeight * 0.03,
+                      vertical: panelHeight * 0.01,
+                    ),
+                    child: Text(
+                      textoBoton,
+                      style: TextStyle(
+                        color: const Color(0xFFC6A664),
+                        fontWeight: FontWeight.bold,
+                        fontSize: panelHeight * 0.07,
+                        letterSpacing: 0.6,
+                      ),
+                    ),
                   ),
                 ),
               ),
