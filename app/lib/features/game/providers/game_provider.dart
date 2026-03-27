@@ -265,6 +265,21 @@ class GameNotifier extends Notifier<GameState> {
     final nextIndex = (currentIndex + 1) % _faseOrden.length;
     state = state.copyWith(faseActual: _faseOrden[nextIndex]);
   }
+
+  // Actualización quirúrgica de un solo territorio — la usamos cuando el backend
+  // manda TROPAS_COLOCADAS en vez del mapa completo para no machacar el estado entero
+  void actualizarTerritorio({required String territorioId, required int units}) {
+    final mapaActual = Map<String, TerritoryState>.from(state.mapa);
+    final territorioActual = mapaActual[territorioId];
+    if (territorioActual == null) return;
+
+    mapaActual[territorioId] = TerritoryState(
+      ownerId: territorioActual.ownerId,
+      units: units,
+    );
+
+    state = state.copyWith(mapa: mapaActual);
+  }
 }
 
 // 4. Proveedor Global

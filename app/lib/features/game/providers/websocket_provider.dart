@@ -6,7 +6,6 @@ import '../../auth/providers/auth_provider.dart';
 import '../../../shared/api/websocket_service.dart';
 import 'game_provider.dart';
 
-// El estado que guardaremos (puedes ampliarlo luego con mensajes recibidos)
 class WebSocketState {
   final bool isConnected;
   final int? currentPartidaId;
@@ -27,7 +26,6 @@ class WebSocketNotifier extends Notifier<WebSocketState> {
     final baseUrl = dotenv.env['API_BASE_URL'] ?? 'ws://127.0.0.1:8000/api/v1';
     _wsService = WebSocketService(baseUrl: baseUrl);
 
-    // Inicializamos el listener crítico de ciclo de vida (Requisito T47)
     _lifecycleListener = AppLifecycleListener(
       onPause: () {
         debugPrint('📱 App en Segundo Plano -> Cortando WS');
@@ -42,7 +40,6 @@ class WebSocketNotifier extends Notifier<WebSocketState> {
       },
     );
 
-    // Es importante destruir el listener si el provider muere
     ref.onDispose(() {
       _lifecycleListener?.dispose();
       _wsService.disconnect();
@@ -51,7 +48,6 @@ class WebSocketNotifier extends Notifier<WebSocketState> {
     return WebSocketState(isConnected: false);
   }
 
-  /// Función para entrar a la partida por primera vez
   Future<void> connectToPartida(int partidaId) async {
     _currentPartidaId = partidaId;
     state = WebSocketState(isConnected: state.isConnected, currentPartidaId: _currentPartidaId);
@@ -59,43 +55,49 @@ class WebSocketNotifier extends Notifier<WebSocketState> {
   }
 
   Future<void> _reconnect() async {
-    // Obtenemos el usuario entero desde el estado de Riverpod
     final authState = ref.read(authProvider);
     final user = authState.user;
 
     if (user != null && user.username.isNotEmpty && _currentPartidaId != null) {
-      // Limpiamos cualquier conexión previa colgada antes de conectar
       _wsService.disconnect();
-
       _wsService.connect(user.username, _currentPartidaId!);
       state = WebSocketState(isConnected: true, currentPartidaId: _currentPartidaId);
-      
-      // Aquí nos suscribimos para escuchar lo que dice el servidor
+
       _wsService.stream?.listen(
         (message) {
           debugPrint('📩 Evento WS recibido: $message');
           try {
-            // Transformamos el string puro en un Mapa de Dart
             final data = jsonDecode(message);
-            if (data is Map<String, dynamic> && data['tipo_evento'] == 'ATAQUE_RESULTADO') {
+            if (data is! Map<String, dynamic>) return;
+
+            final tipoEvento = data['tipo_evento'];
+
+            // Resultado de un ataque — lo registramos aparte para mostrar el popup de dados
+            if (tipoEvento == 'ATAQUE_RESULTADO') {
               ref.read(gameProvider.notifier).registrarResultadoAtaque(data);
             }
 
-            if (data is Map<String, dynamic>) {
-              final tipoEvento = data['tipo_evento'];
-              final esEventoDeEstado =
-                  tipoEvento == 'CAMBIO_FASE' ||
-                  tipoEvento == 'ACTUALIZACION_MAPA' ||
-                  tipoEvento == 'PARTIDA_INICIADA';
-
-              if (esEventoDeEstado) {
-                ref.read(gameProvider.notifier).actualizarDesdeServidor(data);
-              }
-            }
-            
-            // Si el JSON trae información del mapa o de la partida, actualizamos el estado global
-            if (data is Map<String, dynamic> && (data.containsKey('mapa') || data.containsKey('fase_actual'))) {
+            // Eventos que actualizan fase, turno o el mapa completo
+            if (tipoEvento == 'CAMBIO_FASE' ||
+                tipoEvento == 'ACTUALIZACION_MAPA' ||
+                tipoEvento == 'PARTIDA_INICIADA') {
               ref.read(gameProvider.notifier).actualizarDesdeServidor(data);
+            }
+
+            // Si el JSON trae mapa o fase aunque no sea uno de los eventos anteriores,
+            // actualizamos igualmente — por si el backend manda algo inesperado
+            if (data.containsKey('mapa') || data.containsKey('fase_actual')) {
+              ref.read(gameProvider.notifier).actualizarDesdeServidor(data);
+            }
+
+            // TROPAS_COLOCADAS solo actualiza un territorio y la reserva del jugador.
+            // No manda el mapa completo así que actualizamos quirúrgicamente en vez de
+            // llamar a actualizarDesdeServidor que machaca todo.
+            if (tipoEvento == 'TROPAS_COLOCADAS') {
+              ref.read(gameProvider.notifier).actualizarTerritorio(
+                territorioId: data['territorio'] as String,
+                units: data['tropas_totales_ahora'] as int,
+              );
             }
           } catch (e) {
             debugPrint('⚠️ Error parseando el JSON del WebSocket: $e');
@@ -118,14 +120,11 @@ class WebSocketNotifier extends Notifier<WebSocketState> {
     }
   }
 
-  /// Función para que la UI mande un ataque o coloque tropas
   void emitirEvento(String tipoEvento, Map<String, dynamic> datos) {
-    // Le inyectamos a la fuerza el campo 'accion' que FastAPI pide a gritos
     final payloadParaFastAPI = {
       'accion': tipoEvento,
-      ...datos, // Esparcimos el resto de datos (origen, destino, tropas...)
+      ...datos,
     };
-    
     _wsService.sendEvent(tipoEvento, payloadParaFastAPI);
   }
 }

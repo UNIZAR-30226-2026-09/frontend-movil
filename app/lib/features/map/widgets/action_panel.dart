@@ -133,9 +133,8 @@ class _ActionPanelState extends ConsumerState<ActionPanel> {
                       label: const Text('Atacar'),
                     ),
                     ElevatedButton.icon(
-                      // 'reclutamiento' en minúsculas — igual que llega del backend
-                      onPressed: gameState.faseActual == 'reclutamiento' && esMiTurno
-                          ? () => debugPrint('Reforzando $origenSeleccionado')
+                      onPressed: gameState.faseActual == 'refuerzo' && esMiTurno && origenSeleccionado != null
+                          ? () => _mostrarDialogoRefuerzo(context, ref, origenSeleccionado)
                           : null,
                       icon: const Icon(Icons.add_box),
                       label: const Text('Reforzar'),
@@ -147,6 +146,112 @@ class _ActionPanelState extends ConsumerState<ActionPanel> {
           ),
         ),
       ),
+    );
+  }
+
+  Future<void> _mostrarDialogoRefuerzo(
+    BuildContext context,
+    WidgetRef ref,
+    String territorio,
+  ) async {
+    // Tropas disponibles en reserva del jugador actual
+    final username = ref.read(authProvider).user?.username ?? '';
+    final reserva = ref.read(gameProvider).jugadores[username]?.tropasReserva ?? 0;
+
+    if (reserva <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No tienes tropas en reserva.')),
+      );
+      return;
+    }
+
+    int tropasAEnviar = 1;
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (_, setDialogState) {
+            return AlertDialog(
+              title: Text('Reforzar ${_formatName(territorio)}'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('Reserva disponible: $reserva', style: const TextStyle(fontStyle: FontStyle.italic)),
+                  const SizedBox(height: 16),
+                  Text(
+                    '$tropasAEnviar',
+                    style: Theme.of(context).textTheme.displayMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.remove_circle_outline, size: 36),
+                        onPressed: tropasAEnviar > 1
+                            ? () => setDialogState(() => tropasAEnviar--)
+                            : null,
+                      ),
+                      Expanded(
+                        child: Slider(
+                          value: tropasAEnviar.toDouble(),
+                          min: 1,
+                          max: reserva.toDouble(),
+                          onChanged: (v) => setDialogState(() => tropasAEnviar = v.toInt()),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.add_circle_outline, size: 36),
+                        onPressed: tropasAEnviar < reserva
+                            ? () => setDialogState(() => tropasAEnviar++)
+                            : null,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    ref.read(gameProvider.notifier).cancelarAtaque();
+                    Navigator.of(dialogContext).pop();
+                  },
+                  child: const Text('Cancelar'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    final partidaId = ref.read(webSocketProvider).currentPartidaId;
+                    if (partidaId == null) return;
+
+                    try {
+                      final dio = ref.read(dioProvider);
+                      await dio.post(
+                        '/partidas/$partidaId/colocar_tropas',
+                        data: {
+                          'territorio_id': territorio,
+                          'tropas': tropasAEnviar,
+                        },
+                      );
+                      if (!dialogContext.mounted) return;
+                      Navigator.of(dialogContext).pop();
+                    } on DioException catch (e) {
+                      final detalle = e.response?.data?.toString() ?? e.message;
+                      debugPrint('🔴 ERROR refuerzo: $detalle');
+                      if (!dialogContext.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Error: $detalle')),
+                      );
+                    }
+                  },
+                  child: const Text('Reforzar'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 
