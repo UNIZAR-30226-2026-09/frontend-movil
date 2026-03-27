@@ -36,7 +36,7 @@ class MenubatallasScreen extends StatelessWidget {
                   const SizedBox(height: 28),
                   OutlinedButton(
                     onPressed: () {
-                      context.push(AppRoutes.lobbyPath(1));
+                      context.push(AppRoutes.lobbyPath(84));
                     },
                     style: OutlinedButton.styleFrom(
                       backgroundColor: const Color(0xFF252530).withOpacity(0.92),

@@ -149,29 +149,40 @@ class GameNotifier extends Notifier<GameState> {
     return fase.trim().toLowerCase();
   }
 
-  // Esta es la función mágica que llamaremos cada vez que el WebSocket escupa un JSON
   void actualizarDesdeServidor(Map<String, dynamic> jsonPartida) {
-    // Parseamos el mapa: recorremos las claves (comarcas) y creamos los objetos TerritoryState
-    final mapaJson = jsonPartida['mapa'] as Map<String, dynamic>? ?? {};
-    final nuevoMapa = mapaJson.map((key, value) => MapEntry(key, TerritoryState.fromJson(value)));
+  // Solo actualizamos el mapa si el servidor lo manda explícitamente.
+  // CAMBIO_FASE no manda mapa — si lo machacáramos con vacío perderíamos
+  // todo el estado visual cada vez que cambia la fase.
+  final mapaJson = jsonPartida['mapa'] as Map<String, dynamic>?;
+  final nuevoMapa = mapaJson != null
+      ? mapaJson.map((key, value) => MapEntry(key, TerritoryState.fromJson(value)))
+      : null; // null = "no toques el mapa que ya tienes"
 
-    // Parseamos los datos de los jugadores (reservas, etc)
-    final jugadoresJson = jsonPartida['jugadores'] as Map<String, dynamic>? ?? {};
-    final nuevosJugadores = jugadoresJson.map((key, value) => MapEntry(key, PlayerState.fromJson(value)));
+  final jugadoresJson = jsonPartida['jugadores'] as Map<String, dynamic>?;
+  final nuevosJugadores = jugadoresJson != null
+      ? jugadoresJson.map((key, value) => MapEntry(key, PlayerState.fromJson(value)))
+      : null; // null = "no toques los jugadores que ya tienes"
 
-    // Pegamos el cambiazo al estado global. Si el backend no manda turno o fase, conservamos lo que teníamos.
-    final faseNormalizada =
-        (jsonPartida['fase_actual'] ?? jsonPartida['nueva_fase'] ?? state.faseActual)
-            .toString()
-            .toLowerCase();
+  // Buscamos la fase en todos los campos posibles que usa el backend
+  final faseRaw = jsonPartida['fase_actual'] 
+      ?? jsonPartida['nueva_fase'] 
+      ?? state.faseActual;
+  final faseNormalizada = faseRaw.toString().toLowerCase();
 
-    state = state.copyWith(
-      mapa: nuevoMapa,
-      jugadores: nuevosJugadores,
-      turnoDe: jsonPartida['turno_actual'] ?? jsonPartida['turno_de'] ?? jsonPartida['jugador_activo'] ?? state.turnoDe,
-      faseActual: faseNormalizada,
-    );
-  }
+  // Buscamos el turno en todos los campos posibles
+  final turnoRaw = jsonPartida['turno_actual'] 
+      ?? jsonPartida['turno_de'] 
+      ?? jsonPartida['jugador_activo'] 
+      ?? state.turnoDe;
+
+  state = state.copyWith(
+    // Si nuevoMapa es null, copyWith conserva el mapa anterior
+    mapa: nuevoMapa,
+    jugadores: nuevosJugadores,
+    turnoDe: turnoRaw.toString(),
+    faseActual: faseNormalizada,
+  );
+}
 
   void seleccionarComarca(String id, {List<String>? vecinosDelNodoTocado}) async {
     if (state.esperandoDestino) {

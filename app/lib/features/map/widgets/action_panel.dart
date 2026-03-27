@@ -1,8 +1,10 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soberania/features/auth/providers/auth_provider.dart';
 import 'package:soberania/features/game/providers/game_provider.dart';
+import 'package:soberania/features/game/providers/websocket_provider.dart';
 
 class ActionPanel extends ConsumerStatefulWidget {
   const ActionPanel({super.key});
@@ -14,7 +16,6 @@ class ActionPanel extends ConsumerStatefulWidget {
 class _ActionPanelState extends ConsumerState<ActionPanel> {
   bool _dialogoAtaqueAbierto = false;
 
-  // Limpiamos el nombre feo de la bbdd (hoya_de_huesca -> Hoya De Huesca)
   String _formatName(String id) {
     return id.split('_').map((word) => word.isEmpty ? '' : '${word[0].toUpperCase()}${word.substring(1)}').join(' ');
   }
@@ -28,38 +29,25 @@ class _ActionPanelState extends ConsumerState<ActionPanel> {
     final esMiTurno = username.isNotEmpty && gameState.turnoDe == username;
     final puedeAtacar = gameState.faseActual == 'ataque_convencional' && esMiTurno;
 
-    // Escuchador para abrir el popup cuando se selecciona un destino
     ref.listen<GameState>(gameProvider, (previous, next) {
       final destinoAcabaDeSeleccionarse =
           (previous?.destinoSeleccionado == null) && next.destinoSeleccionado != null;
 
-      if (!destinoAcabaDeSeleccionarse || _dialogoAtaqueAbierto) {
-        return;
-      }
+      if (!destinoAcabaDeSeleccionarse || _dialogoAtaqueAbierto) return;
 
       final origen = next.origenSeleccionado;
       final destino = next.destinoSeleccionado;
-      if (origen == null || destino == null) {
-        return;
-      }
+      if (origen == null || destino == null) return;
 
       _dialogoAtaqueAbierto = true;
       final unidadesDisponibles = next.mapa[origen]?.units ?? 0;
 
-      _mostrarDialogoAtaque(
-        context,
-        ref,
-        origen,
-        destino,
-        unidadesDisponibles,
-      ).whenComplete(() {
-        _dialogoAtaqueAbierto = false;
-      });
+      _mostrarDialogoAtaque(context, ref, origen, destino, unidadesDisponibles)
+          .whenComplete(() => _dialogoAtaqueAbierto = false);
     });
 
     final double panelHeight = gameState.esperandoDestino ? 280.0 : 220.0;
     final bool isVisible = origenSeleccionado != null;
-
     final territoryData = origenSeleccionado != null ? gameState.mapa[origenSeleccionado] : null;
     final owner = territoryData?.ownerId ?? 'Neutral';
     final units = territoryData?.units ?? 0;
@@ -74,12 +62,12 @@ class _ActionPanelState extends ConsumerState<ActionPanel> {
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: Theme.of(context).cardColor, 
+          color: Theme.of(context).cardColor,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.3), 
-              blurRadius: 10, 
+              color: Colors.black.withValues(alpha: 0.3),
+              blurRadius: 10,
               offset: const Offset(0, -2),
             )
           ],
@@ -105,7 +93,7 @@ class _ActionPanelState extends ConsumerState<ActionPanel> {
                         ref.read(gameProvider.notifier).seleccionarComarca(origenSeleccionado);
                       }
                     },
-                  )
+                  ),
                 ],
               ),
               const Divider(),
@@ -122,12 +110,13 @@ class _ActionPanelState extends ConsumerState<ActionPanel> {
               ),
               if (gameState.esperandoDestino) ...[
                 const SizedBox(height: 12),
-                const Text('Selecciona el territorio objetivo en el mapa...', style: TextStyle(fontStyle: FontStyle.italic)),
+                const Text(
+                  'Selecciona el territorio objetivo en el mapa...',
+                  style: TextStyle(fontStyle: FontStyle.italic),
+                ),
                 const SizedBox(height: 8),
                 TextButton(
-                  onPressed: () {
-                    ref.read(gameProvider.notifier).cancelarAtaque();
-                  },
+                  onPressed: () => ref.read(gameProvider.notifier).cancelarAtaque(),
                   child: const Text('Cancelar'),
                 ),
               ],
@@ -138,25 +127,22 @@ class _ActionPanelState extends ConsumerState<ActionPanel> {
                   children: [
                     ElevatedButton.icon(
                       onPressed: puedeAtacar
-                          ? () {
-                              ref.read(gameProvider.notifier).prepararAtaque();
-                            }
+                          ? () => ref.read(gameProvider.notifier).prepararAtaque()
                           : null,
                       icon: const Icon(Icons.sports_kabaddi),
                       label: const Text('Atacar'),
                     ),
                     ElevatedButton.icon(
-                      onPressed: gameState.faseActual == 'REFUERZO'
-                          ? () {
-                              debugPrint('Reforzando $origenSeleccionado');
-                            }
+                      // 'reclutamiento' en minúsculas — igual que llega del backend
+                      onPressed: gameState.faseActual == 'reclutamiento' && esMiTurno
+                          ? () => debugPrint('Reforzando $origenSeleccionado')
                           : null,
                       icon: const Icon(Icons.add_box),
                       label: const Text('Reforzar'),
                     ),
                   ],
-                )
-              ]
+                ),
+              ],
             ],
           ),
         ),
@@ -164,7 +150,6 @@ class _ActionPanelState extends ConsumerState<ActionPanel> {
     );
   }
 
-  // --- POPUP REESCRITO SIN TEXTFIELD PARA EVITAR BUGS DE TECLADO ---
   Future<void> _mostrarDialogoAtaque(
     BuildContext context,
     WidgetRef ref,
@@ -172,13 +157,12 @@ class _ActionPanelState extends ConsumerState<ActionPanel> {
     String destino,
     int unidadesDisponibles,
   ) async {
-    // Si tienes 0 unidades fallaría, le forzamos a 1 como mínimo para la UI
-    int tropasAEnviar = unidadesDisponibles > 1 ? unidadesDisponibles - 1 : 1; 
+    int tropasAEnviar = unidadesDisponibles > 1 ? unidadesDisponibles - 1 : 1;
     int maxTropas = unidadesDisponibles > 0 ? unidadesDisponibles : 1;
 
     await showDialog<void>(
       context: context,
-      barrierDismissible: false, // Obliga a tocar un botón para cerrar
+      barrierDismissible: false,
       builder: (dialogContext) {
         return StatefulBuilder(
           builder: (statefulContext, setDialogState) {
@@ -189,14 +173,10 @@ class _ActionPanelState extends ConsumerState<ActionPanel> {
                 children: [
                   const Text('¿Cuántas tropas enviarás al frente?', textAlign: TextAlign.center),
                   const SizedBox(height: 20),
-                  
-                  // El número gigante molón
                   Text(
                     '$tropasAEnviar',
                     style: Theme.of(context).textTheme.displayMedium?.copyWith(fontWeight: FontWeight.bold),
                   ),
-                  
-                  // Los botones de +/- que salvan el día
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -206,15 +186,12 @@ class _ActionPanelState extends ConsumerState<ActionPanel> {
                             ? () => setDialogState(() => tropasAEnviar--)
                             : null,
                       ),
-                      // Slider opcional en medio
                       Expanded(
                         child: Slider(
                           value: tropasAEnviar.toDouble(),
                           min: 1,
                           max: maxTropas.toDouble(),
-                          onChanged: (val) {
-                            setDialogState(() => tropasAEnviar = val.toInt());
-                          },
+                          onChanged: (val) => setDialogState(() => tropasAEnviar = val.toInt()),
                         ),
                       ),
                       IconButton(
@@ -269,11 +246,21 @@ class _ActionPanelState extends ConsumerState<ActionPanel> {
     required int tropasAEnviar,
   }) async {
     final dio = ref.read(dioProvider);
-    const ataquePath = '/partidas/67/ataque';
+
+    // Leemos el ID de la partida activa del WebSocket provider.
+    // Cuando Alexis conecte el lobby, esto llega automáticamente.
+    final partidaId = ref.read(webSocketProvider).currentPartidaId;
+
+    if (partidaId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Error: no hay partida activa conectada.')),
+      );
+      return;
+    }
 
     try {
       await dio.post(
-        ataquePath,
+        '/partidas/$partidaId/ataque',
         data: {
           'territorio_origen_id': origen,
           'territorio_destino_id': destino,
@@ -281,19 +268,18 @@ class _ActionPanelState extends ConsumerState<ActionPanel> {
         },
       );
 
-      if (!dialogContext.mounted) {
-        return;
-      }
-
+      if (!dialogContext.mounted) return;
       dialogContext.pop();
       ref.read(gameProvider.notifier).cancelarAtaque();
-    } catch (_) {
-      if (!dialogContext.mounted) {
-        return;
-      }
 
+    } on DioException catch (e) {
+      // Imprimimos el detalle real del error para saber qué falla
+      final detalle = e.response?.data?.toString() ?? e.message;
+      debugPrint('🔴 ERROR ATAQUE ${e.response?.statusCode}: $detalle');
+
+      if (!dialogContext.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No se pudo enviar el ataque al servidor.')),
+        SnackBar(content: Text('Error ${e.response?.statusCode}: $detalle')),
       );
     }
   }

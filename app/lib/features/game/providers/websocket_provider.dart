@@ -53,7 +53,7 @@ class WebSocketNotifier extends Notifier<WebSocketState> {
 
   /// Función para entrar a la partida por primera vez
   Future<void> connectToPartida(int partidaId) async {
-    _currentPartidaId = 67;
+    _currentPartidaId = partidaId;
     state = WebSocketState(isConnected: state.isConnected, currentPartidaId: _currentPartidaId);
     await _reconnect();
   }

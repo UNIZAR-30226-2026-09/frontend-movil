@@ -7,6 +7,9 @@ import '../models/territory_model.dart';
 import '../config/map_data.dart';
 import '../../game/providers/game_provider.dart'; 
 import 'panel_control.dart';
+import 'package:dio/dio.dart';
+import 'package:soberania/features/auth/providers/auth_provider.dart';
+import 'package:soberania/features/game/providers/websocket_provider.dart';
 
 typedef OnTapComarca = void Function(Comarca comarca);
 
@@ -161,21 +164,72 @@ class _InteractiveGameMapState extends ConsumerState<InteractiveGameMap> {
         ),
 
         // --- CAPA 2: EL PANEL DE CONTROL FLOTANTE ---
-        // Al estar fuera del InteractiveViewer, no le afecta el zoom
-        Positioned(
+          // Al estar fuera del InteractiveViewer, no le afecta el zoom
+          Positioned(
           bottom: 0,
           left: 0,
           right: 0,
           child: PanelControlGuerra(
             tropas: _getTropasJugadorActual(gameState),
             faseActual: gameState.faseActual,
-            onNextPhasePressed: () {
-              ref.read(gameProvider.notifier).avanzarFasePanel();
-            },
+            turnoDe: gameState.turnoDe,
+            usernamePropio: ref.read(authProvider).user?.username ?? '',
+            // Construimos el mapa de colores dinámicamente desde el estado del juego.
+            // Usamos una paleta fija por posición — cuando el backend mande el color
+            // real de cada jugador, solo hay que cambiar esto.
+            coloresPorJugador: _buildColoresPorJugador(gameState),
+            onNextPhasePressed: () => _pasarFase(context),
           ),
         ),
       ],
     );
+  }
+
+  // Construye el mapa username->color para el panel lateral.
+  // Asigna colores por orden de aparición hasta que el backend nos mande
+  // el color real de cada jugador en el estado de la partida.
+  Map<String, Color> _buildColoresPorJugador(GameState gameState) {
+    const paleta = [
+      Color(0xFF4CAF50), // verde
+      Color(0xFF2196F3), // azul
+      Color(0xFFF44336), // rojo
+      Color(0xFFFF9800), // naranja
+      Color(0xFF9C27B0), // morado
+      Color(0xFF00BCD4), // cyan
+    ];
+
+    final jugadores = gameState.jugadores.keys.toList();
+    return {
+      for (var i = 0; i < jugadores.length; i++)
+        jugadores[i]: paleta[i % paleta.length],
+    };
+  }
+
+  // Llama al endpoint real de pasar fase. Si el backend rechaza (403 = no es
+  // tu turno, o cualquier otro error), avanzamos el estado LOCAL para no
+  // bloquear las pruebas de UI.
+  Future<void> _pasarFase(BuildContext context) async {
+    final partidaId = ref.read(webSocketProvider).currentPartidaId;
+
+    if (partidaId == null) {
+      // Sin partida conectada, solo movemos la UI localmente
+      ref.read(gameProvider.notifier).avanzarFasePanel();
+      return;
+    }
+
+    try {
+      final dio = ref.read(dioProvider);
+      await dio.post('/partidas/$partidaId/pasar_fase');
+      // Si llega aquí, el backend emitirá CAMBIO_FASE por WS y el estado
+      // se actualizará solo — no hace falta hacer nada más.
+    } on DioException catch (e) {
+      // 403 = no es tu turno. Para debug avanzamos igual en local.
+      final status = e.response?.statusCode ?? 0;
+      debugPrint('⚠️ pasar_fase devolvió $status — avanzando fase en local para pruebas');
+      if (context.mounted) {
+        ref.read(gameProvider.notifier).avanzarFasePanel();
+      }
+    }
   }
 
   

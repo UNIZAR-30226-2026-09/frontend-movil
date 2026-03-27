@@ -99,15 +99,29 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
       floatingActionButton: FloatingActionButton(
         backgroundColor: Colors.purple,
         onPressed: () {
+          // Inyectamos un estado fake completo con tropas repartidas entre nick y pepe
+          // para poder probar el flujo de ataque sin depender del backend de inicio de partida.
+          // Cuando el backend empuje PARTIDA_INICIADA con el mapa real, esto se sobreescribirá solo.
           const fakeJsonString = '''
           {
-            "fase_actual": "ESPERA",
+            "fase_actual": "ataque_convencional",
             "turno_actual": "nick",
             "jugadores": {
-              "nick": {"tropas_reserva": 0},
-              "roldi": {"tropas_reserva": 0}
+              "nick": {"tropas_reserva": 5},
+              "pepe": {"tropas_reserva": 3}
             },
-            "mapa": {}
+            "mapa": {
+              "hoya_de_huesca": {"owner_id": "nick", "units": 8},
+              "alto_gallego": {"owner_id": "nick", "units": 6},
+              "la_jacetania": {"owner_id": "nick", "units": 4},
+              "sobrarbe": {"owner_id": "nick", "units": 5},
+              "la_ribagorza": {"owner_id": "nick", "units": 3},
+              "monegros": {"owner_id": "pepe", "units": 7},
+              "bajo_aragon_caspe": {"owner_id": "pepe", "units": 4},
+              "zaragoza": {"owner_id": "pepe", "units": 9},
+              "ribera_alta_del_ebro": {"owner_id": "pepe", "units": 3},
+              "campo_de_zaragoza": {"owner_id": "pepe", "units": 5}
+            }
           }
           ''';
           final fakeJson = jsonDecode(fakeJsonString);
