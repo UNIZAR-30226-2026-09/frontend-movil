@@ -115,7 +115,6 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
         },
         child: const Icon(Icons.bug_report, color: Colors.white),
       ),
-      bottomNavigationBar: const AppBottomNavBar(currentIndex: 2),
     );
   }
 }

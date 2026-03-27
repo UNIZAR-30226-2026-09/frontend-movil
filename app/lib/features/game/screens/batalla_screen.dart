@@ -74,7 +74,6 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
 
     return Scaffold(
       resizeToAvoidBottomInset: false,
-      appBar: AppBar(title: Text(widget.title)),
       body: FutureBuilder<GameMap>(
         future: _mapFuture,
         builder: (context, snapshot) {
@@ -102,6 +101,18 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
                 maxScale: 5.0,
               ),
               const ActionPanel(),
+              SafeArea(
+                child: Align(
+                  alignment: Alignment.topLeft,
+                  child: Padding(
+                    padding: const EdgeInsets.all(12.0),
+                    child: IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.arrow_back_rounded),
+                    ),
+                  ),
+                ),
+              ),
             ],
           );
         },

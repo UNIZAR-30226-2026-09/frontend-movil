@@ -94,7 +94,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ],
                     ),
                     child: IconButton(
-                      onPressed: () => context.pop(),
+                      onPressed: () => context.go(AppRoutes.inicio),
                       icon: const Icon(
                         Icons.arrow_back_rounded,
                       ),
@@ -106,7 +106,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             Align(
               alignment: const Alignment(-0.08, 0),
               child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24),
+                padding: const EdgeInsets.all(12),
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 400),
                   child: Container(
@@ -142,10 +142,42 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           const SizedBox(height: 24),
                           TextFormField(
                             controller: _usernameController,
-                            decoration: const InputDecoration(
+                            style: const TextStyle(color: Colors.white),
+                            decoration: InputDecoration(
                               labelText: 'Usuario',
                               hintText: 'Nombre de guerra...',
-                              border: OutlineInputBorder(),
+                              filled: true,
+                              fillColor: const Color(0xFF1A1A24).withOpacity(0.85),
+                              labelStyle: const TextStyle(color: Color(0xFFA0A0B0)),
+                              hintStyle: const TextStyle(color: Color(0xFFA0A0B0)),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: const BorderSide(
+                                  color: Color(0xFF8C6D3F),
+                                  width: 1,
+                                )
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: const BorderSide(
+                                  color: Color(0xFFC5A059),
+                                  width: 1.5,
+                                ),
+                              ),
+                              errorBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: const BorderSide(
+                                  color: Colors.redAccent,
+                                  width: 1,
+                                ),
+                              ),
+                              focusedErrorBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: const BorderSide(
+                                  color: Colors.redAccent,
+                                  width: 1.5,
+                                ),
+                              ),
                             ),
                             validator: (value) {
                               if (value == null || value.trim().isEmpty) {
@@ -158,15 +190,48 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           TextFormField(
                             controller: _passwordController,
                             obscureText: _obscurePassword,
+                            style: const TextStyle(color: Colors.white),
                             decoration: InputDecoration(
                               labelText: 'Contraseña',
                               hintText: 'Mínimo 8 caracteres',
-                              border: const OutlineInputBorder(),
+                              filled: true,
+                              fillColor: const Color(0xFF1A1A24).withOpacity(0.85),
+                              labelStyle: const TextStyle(color: Color(0xFFA0A0B0)),
+                              hintStyle: const TextStyle(color: Color(0xFFA0A0B0)),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: const BorderSide(
+                                  color: Color(0xFF8C6D3F),
+                                  width: 1,
+                                ),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: const BorderSide(
+                                  color: Color(0xFFC5A059),
+                                  width: 1.5,
+                                ),
+                              ),
+                              errorBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: const BorderSide(
+                                  color: Colors.redAccent,
+                                  width: 1,
+                                ),
+                              ),
+                              focusedErrorBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: const BorderSide(
+                                  color: Colors.redAccent,
+                                  width: 1.5,
+                                ),
+                              ),
                               suffixIcon: IconButton(
                                 icon: Icon(
                                   _obscurePassword
                                       ? Icons.visibility
                                       : Icons.visibility_off,
+                                  color: const Color(0xFFA0A0B0),
                                 ),
                                 onPressed: () {
                                   setState(() {
@@ -213,7 +278,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 : () {
                                     context.go(AppRoutes.registro);
                                   },
-                            child: const Text('¿No tienes cuenta? Regístrate'),
+                            child: const Text('¿No tienes cuenta? Regístrate aquí'),
                           ),
                         ],
                       ),

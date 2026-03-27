@@ -38,7 +38,7 @@ final GoRouter appRouter = GoRouter(
     ),
     GoRoute(
       path: AppRoutes.perfil,
-      builder: (BuildContext context, GoRouterState state) => const PerfilScreen(title: 'Perfil'),
+      builder: (BuildContext context, GoRouterState state) => const PerfilScreen(),
     ),
     GoRoute(
       path: AppRoutes.alianzas,
@@ -46,7 +46,7 @@ final GoRouter appRouter = GoRouter(
     ),
     GoRoute(
       path: AppRoutes.batallas,
-      builder: (BuildContext context, GoRouterState state) => const MenubatallasScreen(title: 'Batallas'),
+      builder: (BuildContext context, GoRouterState state) => const MenubatallasScreen(),
     ),   
     GoRoute(
       path: AppRoutes.batalla,
