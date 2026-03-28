@@ -29,4 +29,22 @@ class MatchmakingService {
       rethrow;
     }
   }
+
+  Future<PublicMatchModel> createMatch({
+    required int maxPlayers,
+    required String visibility,
+    required int timerSeconds,
+  }) async {
+    print('CREATE MATCH HEADERS: ${dio.options.headers}');
+    final response = await dio.post(
+      '/partidas',
+      data: {
+        'config_max_players': maxPlayers,
+        'config_visibility': visibility,
+        'config_timer_seconds': timerSeconds,
+      },
+    );
+    print('CREATE MATCH RESPONSE: ${response.data}');
+    return PublicMatchModel.fromJson(response.data as Map<String, dynamic>);
+  }
 }

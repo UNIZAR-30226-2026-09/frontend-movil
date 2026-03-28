@@ -21,6 +21,9 @@ class AuthInterceptor extends Interceptor {
       options.headers['Authorization'] = 'Bearer $token';
     }
 
+    print('REQUEST URL: ${options.uri}');
+    print('REQUEST HEADERS: ${options.headers}');
+
     // Se deja continuar la petición.
     handler.next(options);
   }

@@ -15,12 +15,14 @@ class MatchmakingState {
   final List<PublicMatchModel> matches;
   final String? errorMessage;
   final bool isJoining;
+  final bool isCreating;
 
   const MatchmakingState({
     required this.isLoading,
     required this.matches,
     this.errorMessage,
     required this.isJoining,
+    required this.isCreating,
   });
 
   MatchmakingState copyWith({
@@ -28,6 +30,7 @@ class MatchmakingState {
     List<PublicMatchModel>? matches,
     Object? errorMessage = _noChange,
     bool? isJoining,
+    bool? isCreating,
   }) {
     return MatchmakingState(
       isLoading: isLoading ?? this.isLoading,
@@ -36,6 +39,7 @@ class MatchmakingState {
           ? this.errorMessage
           : errorMessage as String?,
       isJoining: isJoining ?? this.isJoining,
+      isCreating: isCreating ?? this.isCreating,
     );
   }
 }
@@ -53,6 +57,7 @@ class MatchmakingNotifier extends StateNotifier<MatchmakingState> {
             matches: [],
             errorMessage: null,
             isJoining: false,
+            isCreating: false,
           ),
         );
 
@@ -110,6 +115,38 @@ class MatchmakingNotifier extends StateNotifier<MatchmakingState> {
         errorMessage: 'Error al unirse a la partida',
       );
       return false;
+    }
+  }
+
+  Future<PublicMatchModel?> createMatch({
+    required int maxPlayers,
+    required String visibility,
+    required int timerSeconds,
+  }) async {
+    state = state.copyWith(
+      isCreating: true,
+      errorMessage: null,
+    );
+
+    try {
+      final match = await matchmakingService.createMatch(
+        maxPlayers: maxPlayers,
+        visibility: visibility,
+        timerSeconds: timerSeconds,
+      );
+
+      state = state.copyWith(
+        isCreating: false,
+        errorMessage: null,
+      );
+
+      return match;
+    } catch (_) {
+      state = state.copyWith(
+        isCreating: false,
+        errorMessage: 'Error al crear la partida',
+      );
+      return null;
     }
   }
 }
