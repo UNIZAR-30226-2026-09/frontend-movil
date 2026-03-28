@@ -10,6 +10,7 @@ import 'panel_control.dart';
 import 'package:dio/dio.dart';
 import 'package:soberania/features/auth/providers/auth_provider.dart';
 import 'package:soberania/features/game/providers/websocket_provider.dart';
+import '../../../shared/api/dio_provider.dart';
 
 typedef OnTapComarca = void Function(Comarca comarca);
 

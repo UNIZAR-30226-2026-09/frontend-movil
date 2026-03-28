@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:soberania/features/auth/providers/auth_provider.dart';
 import 'package:soberania/features/game/providers/game_provider.dart';
 import 'package:soberania/features/game/providers/websocket_provider.dart';
+import '../../../shared/api/dio_provider.dart';
 
 class ActionPanel extends ConsumerStatefulWidget {
   const ActionPanel({super.key});

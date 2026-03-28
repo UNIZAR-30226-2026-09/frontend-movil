@@ -6,9 +6,9 @@ import '../models/auth_token_response.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
 import '../services/secure_storage_service.dart';
-import '../../../shared/api/dio_client.dart';
+import '../../../shared/api/dio_provider.dart';
 
-/* Provider que expone el servicio de almacenamiento seguro.
+/*/* Provider que expone el servicio de almacenamiento seguro.
    Se usa para guardar, leer y eliminar el token JWT.
  */
 final secureStorageProvider = Provider<SecureStorageService>((ref) {
@@ -23,6 +23,7 @@ final dioProvider = Provider<Dio>((ref) {
   final secureStorage = ref.read(secureStorageProvider);
   return DioClient(secureStorage).dio;
 });
+*/
 
 /* Provider que expone el servicio de autenticación.
    Este servicio agrupa las llamadas HTTP relacionadas con login, registro y obtención del usuario autenticado.

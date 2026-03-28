@@ -9,6 +9,7 @@ import 'package:soberania/features/game/providers/websocket_provider.dart';
 import 'package:soberania/features/map/services/map_loader.dart';
 import 'package:soberania/features/map/widgets/action_panel.dart';
 import 'package:soberania/features/map/widgets/interactive_game_map.dart';
+import '../../../shared/api/dio_provider.dart';
 
 class BatallaScreen extends ConsumerStatefulWidget {
   const BatallaScreen({super.key, required this.title});

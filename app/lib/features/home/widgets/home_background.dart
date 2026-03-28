@@ -19,7 +19,7 @@ class HomeBackground extends StatelessWidget {
             alignment: Alignment.center,
           ),
         ),
-        SafeArea(
+        Positioned.fill(
           child: child,
         ),
       ],

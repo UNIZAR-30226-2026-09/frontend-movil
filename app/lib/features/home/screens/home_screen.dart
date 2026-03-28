@@ -20,8 +20,7 @@ class HomeScreen extends ConsumerWidget {
       body: HomeBackground(
         child: Stack(
           children: [
-            Align(
-              alignment: const Alignment(-0.14, 0),
+            Center(
               child: Wrap(
                 spacing: 24,
                 runSpacing: 16,
@@ -56,7 +55,7 @@ class HomeScreen extends ConsumerWidget {
           ],
         ),
       ),
-      bottomNavigationBar: const AppBottomNavBar(currentIndex: 0),
+      //bottomNavigationBar: const AppBottomNavBar(currentIndex: 0),
     );
   }
 }
