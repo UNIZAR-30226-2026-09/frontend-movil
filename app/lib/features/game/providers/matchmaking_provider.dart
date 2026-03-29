@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/legacy.dart';
 import '../../../shared/api/dio_provider.dart';
 import '../models/partida_publica_model.dart';
 import '../services/matchmaking_service.dart';
+import '../models/respuesta_unirse_partida.dart';
 
 final matchmakingServiceProvider = Provider<MatchmakingService>((ref) {
   final dio = ref.read(dioProvider);
@@ -96,25 +97,25 @@ class MatchmakingNotifier extends StateNotifier<MatchmakingState> {
     }
   }
 
-  Future<bool> joinMatch(String codigo) async {
+  Future<RespuestaUnirsePartida?> joinMatch(String codigo) async {
     state = state.copyWith(
       isJoining: true,
       errorMessage: null,
     );
 
     try {
-      await matchmakingService.joinMatchByCode(codigo);
+      final joinResponse = await matchmakingService.joinMatchByCode(codigo);
       state = state.copyWith(
         isJoining: false,
         errorMessage: null,
       );
-      return true;
+      return joinResponse;
     } catch (_) {
       state = state.copyWith(
         isJoining: false,
         errorMessage: 'Error al unirse a la partida',
       );
-      return false;
+      return null;
     }
   }
 

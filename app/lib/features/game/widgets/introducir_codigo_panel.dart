@@ -40,13 +40,15 @@ class _IntroducirCodigoPanelState
       return;
     }
 
-    final success = await ref.read(matchmakingProvider.notifier).joinMatch(codigo);
+    final joinResponse = await ref.read(matchmakingProvider.notifier).joinMatch(codigo);
 
     if (!mounted) return;
 
-    if (success) {
+    if (joinResponse != null && joinResponse.jugadoresEnSala.isNotEmpty) {
+      final partidaId = joinResponse.jugadoresEnSala.first.partidaId;
+
       widget.onClose();
-      context.push(AppRoutes.lobbyPath(84));
+      context.push(AppRoutes.lobbyPath(partidaId));
     } else {
       final errorMessage = ref.read(matchmakingProvider).errorMessage ??
           'No se pudo unir a la partida';

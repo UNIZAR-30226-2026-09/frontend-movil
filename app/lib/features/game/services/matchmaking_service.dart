@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import '../models/partida_publica_model.dart';
+import '../models/respuesta_unirse_partida.dart';
 
 class MatchmakingService {
   final Dio dio;
@@ -16,12 +17,16 @@ class MatchmakingService {
         .toList();
   }
 
-  Future<void> joinMatchByCode(String codigo) async {
+  Future<RespuestaUnirsePartida> joinMatchByCode(String codigo) async {
     try {
       print('JOIN URL: /partidas/$codigo/unirse');
       final response = await dio.post('/partidas/$codigo/unirse');
       print('JOIN RESPONSE: ${response.data}');
       print('JOIN STATUS: ${response.statusCode}');
+
+      return RespuestaUnirsePartida.fromJson(
+        response.data as Map<String, dynamic>,
+      );
     } on DioException catch (e) {
       print('JOIN ERROR TYPE: ${e.type}');
       print('JOIN ERROR STATUS: ${e.response?.statusCode}');
