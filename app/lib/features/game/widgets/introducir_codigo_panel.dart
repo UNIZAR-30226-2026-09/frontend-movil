@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../app/router/app_routes.dart';
 import '../providers/matchmaking_provider.dart';
+import '../providers/lobby_info_provider.dart';
 
 class IntroducirCodigoPanel extends ConsumerStatefulWidget {
   const IntroducirCodigoPanel({
@@ -46,6 +47,12 @@ class _IntroducirCodigoPanelState
 
     if (joinResponse != null && joinResponse.jugadoresEnSala.isNotEmpty) {
       final partidaId = joinResponse.jugadoresEnSala.first.partidaId;
+
+      ref.read(lobbyInfoProvider.notifier).setFromJoinResponse(
+        partidaId: partidaId,
+        creador: joinResponse.creador,
+        jugadoresEnSala: joinResponse.jugadoresEnSala,
+      );
 
       widget.onClose();
       context.push(AppRoutes.lobbyPath(partidaId));

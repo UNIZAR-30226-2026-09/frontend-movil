@@ -52,4 +52,8 @@ class MatchmakingService {
     print('CREATE MATCH RESPONSE: ${response.data}');
     return PublicMatchModel.fromJson(response.data as Map<String, dynamic>);
   }
+  Future<void> leaveMatch(int partidaId) async {
+    await dio.post('/partidas/$partidaId/abandonar');
+  }
 }
+

@@ -127,6 +127,15 @@ class WebSocketNotifier extends Notifier<WebSocketState> {
     };
     _wsService.sendEvent(tipoEvento, payloadParaFastAPI);
   }
+
+  void disconnect() {
+    _wsService.disconnect();
+    state = WebSocketState(
+      isConnected: false,
+      currentPartidaId: null,
+    );
+    _currentPartidaId = null;
+  }
 }
 
 final webSocketProvider = NotifierProvider<WebSocketNotifier, WebSocketState>(

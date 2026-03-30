@@ -4,6 +4,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../../app/router/app_routes.dart';
 import '../providers/matchmaking_provider.dart';
+import '../providers/lobby_info_provider.dart';
+import '../../auth/providers/auth_provider.dart';
+import '../models/jugador_partida_model.dart';
 
 class CrearPartidaPanel extends ConsumerStatefulWidget {
   const CrearPartidaPanel({
@@ -32,6 +35,23 @@ class _CrearPartidaPanelState extends ConsumerState<CrearPartidaPanel> {
     if (!mounted) return;
 
     if (match != null) {
+      final usuarioActual = ref.read(authProvider).user?.username;
+      ref.read(lobbyInfoProvider.notifier).setFromCreatedMatch(
+        partidaId: match.id,
+        creador: usuarioActual ?? '',
+        codigoInvitacion: match.codigoInvitacion,
+        maxPlayers: match.configMaxPlayers,
+        visibility: match.configVisibility,
+        jugadoresEnSala: [
+          JugadorPartidaModel(
+            usuarioId: usuarioActual ?? '',
+            partidaId: match.id,
+            turno: 0,
+            estadoJugador: 'vivo',
+          ),
+        ],
+      );
+
       widget.onClose();
       context.push(AppRoutes.lobbyPath(match.id));
     } else {

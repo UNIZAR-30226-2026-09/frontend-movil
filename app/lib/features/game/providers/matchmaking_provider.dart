@@ -17,6 +17,7 @@ class MatchmakingState {
   final String? errorMessage;
   final bool isJoining;
   final bool isCreating;
+  final bool isLeaving;
 
   const MatchmakingState({
     required this.isLoading,
@@ -24,6 +25,7 @@ class MatchmakingState {
     this.errorMessage,
     required this.isJoining,
     required this.isCreating,
+    required this.isLeaving,
   });
 
   MatchmakingState copyWith({
@@ -32,6 +34,7 @@ class MatchmakingState {
     Object? errorMessage = _noChange,
     bool? isJoining,
     bool? isCreating,
+    bool? isLeaving,
   }) {
     return MatchmakingState(
       isLoading: isLoading ?? this.isLoading,
@@ -41,6 +44,7 @@ class MatchmakingState {
           : errorMessage as String?,
       isJoining: isJoining ?? this.isJoining,
       isCreating: isCreating ?? this.isCreating,
+      isLeaving: isLeaving ?? this.isLeaving,
     );
   }
 }
@@ -59,6 +63,7 @@ class MatchmakingNotifier extends StateNotifier<MatchmakingState> {
             errorMessage: null,
             isJoining: false,
             isCreating: false,
+            isLeaving: false,
           ),
         );
 
@@ -150,7 +155,33 @@ class MatchmakingNotifier extends StateNotifier<MatchmakingState> {
       return null;
     }
   }
+
+  Future<bool> leaveMatch(int partidaId) async {
+    state = state.copyWith(
+      isLeaving: true,
+      errorMessage: null,
+    );
+  
+    try {
+      await matchmakingService.leaveMatch(partidaId);
+  
+      state = state.copyWith(
+        isLeaving: false,
+        errorMessage: null,
+      );
+  
+      return true;
+    } catch (_) {
+      state = state.copyWith(
+        isLeaving: false,
+        errorMessage: 'No se pudo abandonar la partida',
+      );
+      return false;
+    }
+  }
 }
+
+
 
 final matchmakingProvider =
     StateNotifierProvider<MatchmakingNotifier, MatchmakingState>((ref) {

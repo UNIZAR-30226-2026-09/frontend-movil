@@ -280,6 +280,10 @@ class GameNotifier extends Notifier<GameState> {
 
     state = state.copyWith(mapa: mapaActual);
   }
+
+  void resetState() {
+    state = GameState();
+  }
 }
 
 // 4. Proveedor Global
