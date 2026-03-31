@@ -191,18 +191,15 @@ class _InteractiveGameMapState extends ConsumerState<InteractiveGameMap> {
   // el color real de cada jugador en el estado de la partida.
   Map<String, Color> _buildColoresPorJugador(GameState gameState) {
     const paleta = [
-      Color(0xFF4CAF50), // verde
-      Color(0xFF2196F3), // azul
-      Color(0xFFF44336), // rojo
-      Color(0xFFFF9800), // naranja
-      Color(0xFF9C27B0), // morado
-      Color(0xFF00BCD4), // cyan
+      Color(0xFF4CAF50), // jugador 1 — verde
+      Color(0xFF2196F3), // jugador 2 — azul
+      Color(0xFFF44336), // jugador 3 — rojo
+      Color(0xFFFF9800), // jugador 4 — naranja
     ];
 
-    final jugadores = gameState.jugadores.keys.toList();
     return {
-      for (var i = 0; i < jugadores.length; i++)
-        jugadores[i]: paleta[i % paleta.length],
+      for (final entry in gameState.jugadores.entries)
+        entry.key: paleta[(entry.value.numeroJugador - 1).clamp(0, 3)],
     };
   }
 
