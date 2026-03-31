@@ -1,7 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:soberania/features/auth/providers/auth_provider.dart';
 import 'package:soberania/features/game/providers/game_provider.dart';
 import 'package:soberania/features/game/providers/websocket_provider.dart';
@@ -18,7 +17,10 @@ class _ActionPanelState extends ConsumerState<ActionPanel> {
   bool _dialogoAtaqueAbierto = false;
 
   String _formatName(String id) {
-    return id.split('_').map((word) => word.isEmpty ? '' : '${word[0].toUpperCase()}${word.substring(1)}').join(' ');
+    return id
+        .split('_')
+        .map((word) => word.isEmpty ? '' : '${word[0].toUpperCase()}${word.substring(1)}')
+        .join(' ');
   }
 
   @override
@@ -29,6 +31,7 @@ class _ActionPanelState extends ConsumerState<ActionPanel> {
     final origenSeleccionado = gameState.origenSeleccionado;
     final esMiTurno = username.isNotEmpty && gameState.turnoDe == username;
     final puedeAtacar = gameState.faseActual == 'ataque_convencional' && esMiTurno;
+    final puedeFortificar = gameState.faseActual == 'fortificacion' && esMiTurno;
 
     ref.listen<GameState>(gameProvider, (previous, next) {
       final destinoAcabaDeSeleccionarse =
@@ -41,10 +44,18 @@ class _ActionPanelState extends ConsumerState<ActionPanel> {
       if (origen == null || destino == null) return;
 
       _dialogoAtaqueAbierto = true;
-      final unidadesDisponibles = next.mapa[origen]?.units ?? 0;
 
-      _mostrarDialogoAtaque(context, ref, origen, destino, unidadesDisponibles)
-          .whenComplete(() => _dialogoAtaqueAbierto = false);
+      // En ataque mostramos confirmación, en fortificación mostramos el slider de tropas
+      if (next.faseActual == 'ataque_convencional') {
+        _mostrarDialogoAtaque(context, ref, origen, destino)
+            .whenComplete(() => _dialogoAtaqueAbierto = false);
+      } else if (next.faseActual == 'fortificacion') {
+        final tropasOrigen = next.mapa[origen]?.units ?? 0;
+        _mostrarDialogoFortificacion(context, ref, origen, destino, tropasOrigen)
+            .whenComplete(() => _dialogoAtaqueAbierto = false);
+      } else {
+        _dialogoAtaqueAbierto = false;
+      }
     });
 
     final double panelHeight = gameState.esperandoDestino ? 280.0 : 220.0;
@@ -70,7 +81,7 @@ class _ActionPanelState extends ConsumerState<ActionPanel> {
               color: Colors.black.withValues(alpha: 0.3),
               blurRadius: 10,
               offset: const Offset(0, -2),
-            )
+            ),
           ],
         ),
         child: SingleChildScrollView(
@@ -111,9 +122,12 @@ class _ActionPanelState extends ConsumerState<ActionPanel> {
               ),
               if (gameState.esperandoDestino) ...[
                 const SizedBox(height: 12),
-                const Text(
-                  'Selecciona el territorio objetivo en el mapa...',
-                  style: TextStyle(fontStyle: FontStyle.italic),
+                Text(
+                  // El texto cambia según la fase para que el usuario sepa qué está haciendo
+                  puedeAtacar
+                      ? 'Selecciona el territorio a atacar...'
+                      : 'Selecciona el territorio destino...',
+                  style: const TextStyle(fontStyle: FontStyle.italic),
                 ),
                 const SizedBox(height: 8),
                 TextButton(
@@ -135,10 +149,17 @@ class _ActionPanelState extends ConsumerState<ActionPanel> {
                     ),
                     ElevatedButton.icon(
                       onPressed: gameState.faseActual == 'refuerzo' && esMiTurno && origenSeleccionado != null
-                          ? () => _mostrarDialogoRefuerzo(context, ref, origenSeleccionado)
+                          ? () => _mostrarDialogoRefuerzo(context, ref, origenSeleccionado!)
                           : null,
                       icon: const Icon(Icons.add_box),
                       label: const Text('Reforzar'),
+                    ),
+                    ElevatedButton.icon(
+                      onPressed: puedeFortificar && origenSeleccionado != null && units > 1
+                          ? () => ref.read(gameProvider.notifier).prepararAtaque()
+                          : null,
+                      icon: const Icon(Icons.fort),
+                      label: const Text('Mover'),
                     ),
                   ],
                 ),
@@ -150,12 +171,161 @@ class _ActionPanelState extends ConsumerState<ActionPanel> {
     );
   }
 
+  // --- DIÁLOGO DE ATAQUE — ahora es solo una confirmación, sin slider ---
+  // El backend resuelve el combate completo (all-in) solo.
+  Future<void> _mostrarDialogoAtaque(
+    BuildContext context,
+    WidgetRef ref,
+    String origen,
+    String destino,
+  ) async {
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Text('Atacar ${_formatName(destino)}'),
+          content: Text(
+            '¿Confirmas el ataque de ${_formatName(origen)} a ${_formatName(destino)}?\n\n'
+            'Todas tus tropas lucharán hasta conquistar o quedarse con 1.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                ref.read(gameProvider.notifier).cancelarAtaque();
+                Navigator.of(dialogContext).pop();
+              },
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                await _enviarAtaquePorHttp(
+                  context: context,
+                  dialogContext: dialogContext,
+                  ref: ref,
+                  origen: origen,
+                  destino: destino,
+                );
+              },
+              child: const Text('¡Atacar!'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // --- DIÁLOGO DE FORTIFICACIÓN — slider para elegir cuántas tropas mover ---
+  Future<void> _mostrarDialogoFortificacion(
+    BuildContext context,
+    WidgetRef ref,
+    String origen,
+    String destino,
+    int tropasOrigen,
+  ) async {
+    // Dejamos siempre al menos 1 en origen
+    final maxMover = (tropasOrigen - 1).clamp(1, tropasOrigen - 1);
+    int tropasAMover = maxMover;
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (_, setDialogState) {
+            return AlertDialog(
+              title: Text('Mover tropas a ${_formatName(destino)}'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'De ${_formatName(origen)} → ${_formatName(destino)}',
+                    style: const TextStyle(fontStyle: FontStyle.italic),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    '$tropasAMover',
+                    style: Theme.of(context).textTheme.displayMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.remove_circle_outline, size: 36),
+                        onPressed: tropasAMover > 1
+                            ? () => setDialogState(() => tropasAMover--)
+                            : null,
+                      ),
+                      Expanded(
+                        child: Slider(
+                          value: tropasAMover.toDouble(),
+                          min: 1,
+                          max: maxMover.toDouble(),
+                          onChanged: (v) => setDialogState(() => tropasAMover = v.toInt()),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.add_circle_outline, size: 36),
+                        onPressed: tropasAMover < maxMover
+                            ? () => setDialogState(() => tropasAMover++)
+                            : null,
+                      ),
+                    ],
+                  ),
+                  Text('Disponibles: $tropasOrigen (mín. 1 se queda en origen)'),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    ref.read(gameProvider.notifier).cancelarAtaque();
+                    Navigator.of(dialogContext).pop();
+                  },
+                  child: const Text('Cancelar'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    final partidaId = ref.read(webSocketProvider).currentPartidaId;
+                    if (partidaId == null) return;
+
+                    try {
+                      final dio = ref.read(dioProvider);
+                      await dio.post(
+                        '/partidas/$partidaId/fortificar',
+                        data: {
+                          'origen': origen,
+                          'destino': destino,
+                          'tropas': tropasAMover,
+                        },
+                      );
+                      if (!dialogContext.mounted) return;
+                      Navigator.of(dialogContext).pop();
+                      ref.read(gameProvider.notifier).cancelarAtaque();
+                    } on DioException catch (e) {
+                      final detalle = e.response?.data?.toString() ?? e.message;
+                      debugPrint('🔴 ERROR fortificacion: $detalle');
+                      if (!dialogContext.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Error: $detalle')),
+                      );
+                    }
+                  },
+                  child: const Text('Mover'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   Future<void> _mostrarDialogoRefuerzo(
     BuildContext context,
     WidgetRef ref,
     String territorio,
   ) async {
-    // Tropas disponibles en reserva del jugador actual
     final username = ref.read(authProvider).user?.username ?? '';
     final reserva = ref.read(gameProvider).jugadores[username]?.tropasReserva ?? 0;
 
@@ -183,9 +353,7 @@ class _ActionPanelState extends ConsumerState<ActionPanel> {
                   const SizedBox(height: 16),
                   Text(
                     '$tropasAEnviar',
-                    style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: Theme.of(context).textTheme.displayMedium?.copyWith(fontWeight: FontWeight.bold),
                   ),
                   Row(
                     children: [
@@ -256,105 +424,14 @@ class _ActionPanelState extends ConsumerState<ActionPanel> {
     );
   }
 
-  Future<void> _mostrarDialogoAtaque(
-    BuildContext context,
-    WidgetRef ref,
-    String origen,
-    String destino,
-    int unidadesDisponibles,
-  ) async {
-    int tropasAEnviar = unidadesDisponibles > 1 ? unidadesDisponibles - 1 : 1;
-    int maxTropas = unidadesDisponibles > 0 ? unidadesDisponibles : 1;
-
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) {
-        return StatefulBuilder(
-          builder: (statefulContext, setDialogState) {
-            return AlertDialog(
-              title: Text('Atacar a ${_formatName(destino)}'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text('¿Cuántas tropas enviarás al frente?', textAlign: TextAlign.center),
-                  const SizedBox(height: 20),
-                  Text(
-                    '$tropasAEnviar',
-                    style: Theme.of(context).textTheme.displayMedium?.copyWith(fontWeight: FontWeight.bold),
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.remove_circle_outline, size: 36),
-                        onPressed: tropasAEnviar > 1
-                            ? () => setDialogState(() => tropasAEnviar--)
-                            : null,
-                      ),
-                      Expanded(
-                        child: Slider(
-                          value: tropasAEnviar.toDouble(),
-                          min: 1,
-                          max: maxTropas.toDouble(),
-                          onChanged: (val) => setDialogState(() => tropasAEnviar = val.toInt()),
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.add_circle_outline, size: 36),
-                        onPressed: tropasAEnviar < maxTropas
-                            ? () => setDialogState(() => tropasAEnviar++)
-                            : null,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Text('Disponibles en origen: $unidadesDisponibles'),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    ref.read(gameProvider.notifier).cancelarAtaque();
-                    dialogContext.pop();
-                  },
-                  child: const Text('Cancelar'),
-                ),
-                ElevatedButton(
-                  onPressed: unidadesDisponibles > 0
-                      ? () async {
-                          await _enviarAtaquePorHttp(
-                            context: context,
-                            dialogContext: dialogContext,
-                            ref: ref,
-                            origen: origen,
-                            destino: destino,
-                            tropasAEnviar: tropasAEnviar,
-                          );
-                        }
-                      : null,
-                  child: const Text('¡Atacar!'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
   Future<void> _enviarAtaquePorHttp({
     required BuildContext context,
     required BuildContext dialogContext,
     required WidgetRef ref,
     required String origen,
     required String destino,
-    required int tropasAEnviar,
   }) async {
     final dio = ref.read(dioProvider);
-
-    // Leemos el ID de la partida activa del WebSocket provider.
-    // Cuando Alexis conecte el lobby, esto llega automáticamente.
     final partidaId = ref.read(webSocketProvider).currentPartidaId;
 
     if (partidaId == null) {
@@ -365,21 +442,19 @@ class _ActionPanelState extends ConsumerState<ActionPanel> {
     }
 
     try {
+      // Sin tropas_a_mover — el backend resuelve el combate completo solo
       await dio.post(
         '/partidas/$partidaId/ataque',
         data: {
           'territorio_origen_id': origen,
           'territorio_destino_id': destino,
-          'tropas_a_mover': tropasAEnviar,
         },
       );
 
       if (!dialogContext.mounted) return;
-      dialogContext.pop();
+      Navigator.of(dialogContext).pop();
       ref.read(gameProvider.notifier).cancelarAtaque();
-
     } on DioException catch (e) {
-      // Imprimimos el detalle real del error para saber qué falla
       final detalle = e.response?.data?.toString() ?? e.message;
       debugPrint('🔴 ERROR ATAQUE ${e.response?.statusCode}: $detalle');
 

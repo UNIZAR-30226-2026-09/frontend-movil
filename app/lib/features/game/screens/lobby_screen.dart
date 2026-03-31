@@ -1,9 +1,11 @@
 import 'dart:convert';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/router/app_routes.dart';
+import '../../../shared/api/dio_provider.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../providers/game_provider.dart';
 import '../providers/websocket_provider.dart';
@@ -46,9 +48,21 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
           'No se pudo abandonar la partida';
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(errorMessage),
-        ),
+        SnackBar(content: Text(errorMessage)),
+      );
+    }
+  }
+
+  Future<void> _handleIniciarPartida() async {
+    try {
+      final dio = ref.read(dioProvider);
+      await dio.post('/partidas/${widget.partidaId}/empezar');
+      // No navegamos aquí — esperamos el evento PARTIDA_INICIADA por WS
+      // para que todos los jugadores naveguen a la vez
+    } on DioException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al iniciar: ${e.response?.data}')),
       );
     }
   }
@@ -61,19 +75,37 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     final lobbyInfo = ref.watch(lobbyInfoProvider);
 
     final usuarioActual = authState.user?.username;
-    //final jugadoresConectados = gameState.jugadores.keys.toList();
     final jugadoresWs = gameState.jugadores.keys.toList();
     final jugadoresIniciales = lobbyInfo.jugadoresEnSala
         .map((j) => j.usuarioId)
         .toList();
 
-    final jugadoresConectados =
-        jugadoresWs.isNotEmpty ? jugadoresWs : jugadoresIniciales;
+    // Fusionamos ambas fuentes — los iniciales (HTTP) más los que lleguen por WS.
+    // Sin esto, cuando llega NUEVO_JUGADOR solo aparece el recién unido y desaparece el creador.
+    final jugadoresConectados = {...jugadoresIniciales, ...jugadoresWs}.toList();
     final creador = lobbyInfo.creador;
     final codigoInvitacion = lobbyInfo.codigoInvitacion;
     final maxJugadores = lobbyInfo.maxPlayers;
     final visibilidad = lobbyInfo.visibility;
     final matchmakingState = ref.watch(matchmakingProvider);
+    final esCreador = usuarioActual == creador;
+
+    // Cuando el backend emite PARTIDA_INICIADA, el gameProvider actualiza faseActual
+    // de 'ESPERA' a 'refuerzo' y manda el mapa — eso es la señal para navegar.
+    // Lo hacemos aquí en la UI para que todos los jugadores naveguen a la vez.
+    ref.listen<GameState>(gameProvider, (previous, next) {
+      final estabaEnEspera = previous?.faseActual == 'ESPERA' || 
+                             previous?.faseActual == '' ||
+                             previous?.faseActual == 'espera';
+      final yaEmpezado = next.faseActual != 'ESPERA' && 
+                       next.faseActual != 'espera' &&
+                       next.faseActual.isNotEmpty && 
+                       next.mapa.isNotEmpty;
+
+      if (estabaEnEspera && yaEmpezado) {
+        context.go(AppRoutes.batalla);
+      }
+    });
 
     return Scaffold(
       body: SafeArea(
@@ -157,13 +189,13 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                                   : 'Conectando...',
                               iconColor: wsState.isConnected
                                   ? Colors.green
-                                  : Colors.red,                                                              
+                                  : Colors.red,
                             ),
                             _InfoChip(
                               icon: Icons.group,
                               label: '${jugadoresConectados.length} jugadores',
                             ),
-                            if(maxJugadores != null)
+                            if (maxJugadores != null)
                               _InfoChip(
                                 icon: Icons.groups_2,
                                 label: 'Máximo: $maxJugadores',
@@ -189,7 +221,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: const Color(0xFFA0A0B0)
+                      color: Color(0xFFA0A0B0),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -198,12 +230,12 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                         ? Container(
                             decoration: BoxDecoration(
                               color: const Color(0xFF252530),
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(
-                                  color: const Color(0xFF8C6D3F),
-                                  width: 1,
-                                ),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: const Color(0xFF8C6D3F),
+                                width: 1,
                               ),
+                            ),
                             child: const Center(
                               child: Text(
                                 'Esperando Jugadores...',
@@ -250,8 +282,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                                     children: [
                                       CircleAvatar(
                                         radius: 18,
-                                        backgroundColor:
-                                            const Color(0xFF252530),
+                                        backgroundColor: const Color(0xFF252530),
                                         child: Icon(
                                           Icons.person,
                                           color: isCurrentUser
@@ -279,16 +310,13 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                                                 if (isCurrentUser)
                                                   _MiniTag(
                                                     text: 'Tú',
-                                                    backgroundColor:
-                                                        const Color(0xFFC5A059),
-                                                    textColor:
-                                                        const Color(0xFF1A1A24),
+                                                    backgroundColor: const Color(0xFFC5A059),
+                                                    textColor: const Color(0xFF1A1A24),
                                                   ),
                                                 if (isCreator)
                                                   const _MiniTag(
                                                     text: 'Creador',
-                                                    backgroundColor:
-                                                        Colors.blueGrey,
+                                                    backgroundColor: Colors.blueGrey,
                                                     textColor: Colors.white,
                                                   ),
                                               ],
@@ -303,134 +331,47 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                                             ),
                                           ],
                                         ),
-                                      ),                                      
+                                      ),
                                     ],
                                   ),
                                 );
-                              },    
+                              },
                             ),
                           ),
                   ),
                   const SizedBox(height: 18),
-                  ElevatedButton(
-                    onPressed: jugadoresConectados.isNotEmpty
-                        ? () => context.push(AppRoutes.batalla)
-                        : null,
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                    ),
-                    child: const Text(
-                      'IR AL MAPA',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
+                  // El creador ve el botón de iniciar, el resto espera
+                  if (esCreador)
+                    ElevatedButton(
+                      onPressed: jugadoresConectados.length >= 2
+                          ? _handleIniciarPartida
+                          : null,
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
+                      child: const Text(
+                        'INICIAR PARTIDA',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    )
+                  else
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      child: Center(
+                        child: Text(
+                          'Esperando a que el creador inicie la partida...',
+                          style: TextStyle(color: Color(0xFFA0A0B0)),
+                        ),
                       ),
                     ),
-                  ),
                 ],
               ),
             ),
           ],
         ),
-      ),
-
-
-      /*body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              color: wsState.isConnected ? Colors.green.shade100 : Colors.red.shade100,
-              child: Row(
-                children: [
-                  Icon(
-                    wsState.isConnected ? Icons.wifi : Icons.wifi_off,
-                    color: wsState.isConnected ? Colors.green : Colors.red,
-                  ),
-                  const SizedBox(width: 10),
-                  Text(
-                    wsState.isConnected ? 'Conectado al servidor' : 'Conectando...',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-            
-            const Text(
-              'Jugadores en la sala:',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 10),
-
-            Expanded(
-              child: jugadoresConectados.isEmpty
-                  ? const Center(child: Text('Esperando jugadores...'))
-                  : ListView.builder(
-                      itemCount: jugadoresConectados.length,
-                      itemBuilder: (context, index) {
-                        final nombreJugador = jugadoresConectados[index];
-                        return Card(
-                          child: ListTile(
-                            leading: const CircleAvatar(
-                              child: Icon(Icons.person),
-                            ),
-                            title: Text(nombreJugador),
-                            trailing: gameState.turnoDe == nombreJugador 
-                                ? const Icon(Icons.star, color: Colors.amber) 
-                                : null,
-                          ),
-                        );
-                      },
-                    ),
-            ),
-
-            ElevatedButton(
-              onPressed: jugadoresConectados.isNotEmpty 
-                  ? () => context.push(AppRoutes.batalla) 
-                  : null,
-              child: const Text('IR AL MAPA', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            ),
-          ],
-        ),
-      ),
-      */
-
-      // BOTÓN TEMPORAL PARA DESBLOQUEAR EL PASO AL MAPA
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.purple,
-        onPressed: () {
-          // Inyectamos un estado fake completo con tropas repartidas entre nick y pepe
-          // para poder probar el flujo de ataque sin depender del backend de inicio de partida.
-          // Cuando el backend empuje PARTIDA_INICIADA con el mapa real, esto se sobreescribirá solo.
-          const fakeJsonString = '''
-          {
-            "fase_actual": "ataque_convencional",
-            "turno_actual": "nick",
-            "jugadores": {
-              "nick": {"tropas_reserva": 5},
-              "pepe": {"tropas_reserva": 3}
-            },
-            "mapa": {
-              "hoya_de_huesca": {"owner_id": "nick", "units": 8},
-              "alto_gallego": {"owner_id": "nick", "units": 6},
-              "la_jacetania": {"owner_id": "nick", "units": 4},
-              "sobrarbe": {"owner_id": "nick", "units": 5},
-              "la_ribagorza": {"owner_id": "nick", "units": 3},
-              "monegros": {"owner_id": "pepe", "units": 7},
-              "bajo_aragon_caspe": {"owner_id": "pepe", "units": 4},
-              "zaragoza": {"owner_id": "pepe", "units": 9},
-              "ribera_alta_del_ebro": {"owner_id": "pepe", "units": 3},
-              "campo_de_zaragoza": {"owner_id": "pepe", "units": 5}
-            }
-          }
-          ''';
-          final fakeJson = jsonDecode(fakeJsonString);
-          ref.read(gameProvider.notifier).actualizarDesdeServidor(fakeJson);
-        },
-        child: const Icon(Icons.bug_report, color: Colors.white),
       ),
     );
   }

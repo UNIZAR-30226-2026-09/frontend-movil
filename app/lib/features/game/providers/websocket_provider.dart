@@ -72,33 +72,99 @@ class WebSocketNotifier extends Notifier<WebSocketState> {
 
             final tipoEvento = data['tipo_evento'];
 
-            // Resultado de un ataque — lo registramos aparte para mostrar el popup de dados
+            // --- ATAQUE_RESULTADO ---
+            // Registramos para el popup Y actualizamos tropas de ambos territorios.
+            // NO cambiamos el dueño aquí — el evento es broadcast y no incluye
+            // el atacante, así que el cambio de owner lo dejamos para MOVIMIENTO_CONQUISTA.
             if (tipoEvento == 'ATAQUE_RESULTADO') {
               ref.read(gameProvider.notifier).registrarResultadoAtaque(data);
+
+              final origen = data['origen'] as String?;
+              final destino = data['destino'] as String?;
+              final tropasOrigen = data['tropas_restantes_origen'] as int?;
+              final tropasDestino = data['tropas_restantes_defensor'] as int?;
+
+              if (origen != null && tropasOrigen != null) {
+                ref.read(gameProvider.notifier).actualizarTerritorio(
+                  territorioId: origen,
+                  units: tropasOrigen,
+                );
+              }
+              // Solo actualizamos unidades del destino — el dueño lo cambia MOVIMIENTO_CONQUISTA
+              if (destino != null && tropasDestino != null) {
+                ref.read(gameProvider.notifier).actualizarTerritorio(
+                  territorioId: destino,
+                  units: tropasDestino,
+                );
+              }
             }
 
-            // Eventos que actualizan fase, turno o el mapa completo
+            // --- MOVIMIENTO_CONQUISTA ---
+            // Aquí sí tenemos el jugador correcto en el payload — cambiamos dueño y tropas.
+            // Lo procesamos quirúrgicamente y NO lo dejamos pasar al bloque genérico de abajo.
+            if (tipoEvento == 'MOVIMIENTO_CONQUISTA') {
+              final origen = data['origen'] as String?;
+              final destino = data['destino'] as String?;
+              final tropas = data['tropas'] as int? ?? 0;
+              final jugador = data['jugador'] as String?;
+
+              if (origen != null && destino != null) {
+                final mapaActual = ref.read(gameProvider).mapa;
+                final tropasOrigen = (mapaActual[origen]?.units ?? 0) - tropas;
+                final tropasDestino = (mapaActual[destino]?.units ?? 0) + tropas;
+
+                ref.read(gameProvider.notifier).actualizarTerritorio(
+                  territorioId: origen,
+                  units: tropasOrigen,
+                );
+                // Al mover la conquista el destino ya es nuestro — usamos el jugador del payload
+                if (jugador != null) {
+                  ref.read(gameProvider.notifier).actualizarTerritorioConDueno(
+                    territorioId: destino,
+                    units: tropasDestino,
+                    nuevoOwner: jugador,
+                  );
+                } else {
+                  ref.read(gameProvider.notifier).actualizarTerritorio(
+                    territorioId: destino,
+                    units: tropasDestino,
+                  );
+                }
+              }
+              // Salimos — no dejamos que este evento entre al bloque genérico
+              return;
+            }
+
+            // --- TROPAS_COLOCADAS ---
+            // Actualización quirúrgica de un territorio — igual que MOVIMIENTO_CONQUISTA,
+            // lo procesamos aquí y no lo dejamos pasar al bloque genérico.
+            if (tipoEvento == 'TROPAS_COLOCADAS') {
+              ref.read(gameProvider.notifier).actualizarTerritorio(
+                territorioId: data['territorio'] as String,
+                units: data['tropas_totales_ahora'] as int,
+              );
+              return;
+            }
+
+            // --- NUEVO_JUGADOR ---
+            if (tipoEvento == 'NUEVO_JUGADOR') {
+              final username = data['jugador'] as String?;
+              if (username != null) {
+                ref.read(gameProvider.notifier).agregarJugador(username);
+              }
+              return;
+            }
+
+            // --- Eventos de estado global (fase, turno, mapa completo) ---
+            // Solo estos tres eventos pasan por actualizarDesdeServidor.
+            // El bloque genérico de 'mapa'/'fase_actual' lo quitamos para evitar
+            // dobles actualizaciones en eventos que ya procesamos arriba.
             if (tipoEvento == 'CAMBIO_FASE' ||
                 tipoEvento == 'ACTUALIZACION_MAPA' ||
                 tipoEvento == 'PARTIDA_INICIADA') {
               ref.read(gameProvider.notifier).actualizarDesdeServidor(data);
             }
 
-            // Si el JSON trae mapa o fase aunque no sea uno de los eventos anteriores,
-            // actualizamos igualmente — por si el backend manda algo inesperado
-            if (data.containsKey('mapa') || data.containsKey('fase_actual')) {
-              ref.read(gameProvider.notifier).actualizarDesdeServidor(data);
-            }
-
-            // TROPAS_COLOCADAS solo actualiza un territorio y la reserva del jugador.
-            // No manda el mapa completo así que actualizamos quirúrgicamente en vez de
-            // llamar a actualizarDesdeServidor que machaca todo.
-            if (tipoEvento == 'TROPAS_COLOCADAS') {
-              ref.read(gameProvider.notifier).actualizarTerritorio(
-                territorioId: data['territorio'] as String,
-                units: data['tropas_totales_ahora'] as int,
-              );
-            }
           } catch (e) {
             debugPrint('⚠️ Error parseando el JSON del WebSocket: $e');
           }

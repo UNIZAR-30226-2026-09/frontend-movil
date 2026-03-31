@@ -149,6 +149,31 @@ class GameNotifier extends Notifier<GameState> {
     return fase.trim().toLowerCase();
   }
 
+  // Añade un jugador a la lista cuando llega NUEVO_JUGADOR por WS.
+  // Lo metemos con tropas_reserva 0 porque en el lobby aún no han empezado.
+  // Cuando PARTIDA_INICIADA llegue, actualizarDesdeServidor sobreescribirá esto con los datos reales.
+  void agregarJugador(String username) {
+    if (state.jugadores.containsKey(username)) return; // ya está, no duplicamos
+
+    final jugadoresActualizados = Map<String, PlayerState>.from(state.jugadores);
+    jugadoresActualizados[username] = PlayerState(tropasReserva: 0);
+    state = state.copyWith(jugadores: jugadoresActualizados);
+  }
+
+  // Como actualizarTerritorio pero también cambia el dueño — necesario tras conquista
+  void actualizarTerritorioConDueno({
+    required String territorioId,
+    required int units,
+    required String nuevoOwner,
+  }) {
+    final mapaActual = Map<String, TerritoryState>.from(state.mapa);
+    mapaActual[territorioId] = TerritoryState(
+      ownerId: nuevoOwner,
+      units: units,
+    );
+    state = state.copyWith(mapa: mapaActual);
+  }
+
   void actualizarDesdeServidor(Map<String, dynamic> jsonPartida) {
   // Solo actualizamos el mapa si el servidor lo manda explícitamente.
   // CAMBIO_FASE no manda mapa — si lo machacáramos con vacío perderíamos
