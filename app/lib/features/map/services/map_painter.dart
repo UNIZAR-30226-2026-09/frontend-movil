@@ -14,33 +14,23 @@ class MapPainter extends CustomPainter {
   final double viewerScale;
   final double labelMinScale;
   final double labelFontSizePx;
+  final Map<String, Color> coloresPorJugador;
 
   MapPainter({
     required this.comarcas,
     required this.comarcaPaths,
     required this.gameState, 
     required this.viewerScale,
+    required this.coloresPorJugador,
     this.labelMinScale = 2.0,
     this.labelFontSizePx = 12.0,
   });
 
   // Función interna para asignar siempre el mismo color a un mismo jugador
   Color _getPlayerColor(String username) {
-    if (username.isEmpty) return Colors.grey.shade400; // Territorio neutral
-    
-    final playerColors = [
-      Colors.red.shade600,
-      Colors.blue.shade600,
-      Colors.green.shade600,
-      Colors.orange.shade600,
-      Colors.purple.shade600,
-      Colors.teal.shade600,
-      Colors.pink.shade600,
-      Colors.indigo.shade600,
-    ];
-    // Usamos el hash del nombre para que siempre le toque el mismo color en la partida
-    int hash = username.hashCode.abs();
-    return playerColors[hash % playerColors.length];
+    if (username.isEmpty) return Colors.grey.shade400;
+    // Usamos el mapa precalculado — si no está, fallback gris
+    return coloresPorJugador[username] ?? Colors.grey.shade400;
   }
 
   @override
