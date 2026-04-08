@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
 import '../config/map_data.dart';
 import '../models/territory_model.dart';
-import '../../../shared/utils/color_utils.dart'; 
-import '../../game/providers/game_provider.dart'; 
+import '../../../shared/utils/color_utils.dart';
+import '../../game/providers/game_provider.dart';
+import '../../../app/theme/app_theme.dart';
 
 class MapPainter extends CustomPainter {
   final List<Comarca> comarcas;
   final Map<String, Path> comarcaPaths;
-  
+
   // Estado completo del juego (Cerebro)
-  final GameState gameState; 
+  final GameState gameState;
 
   final double viewerScale;
   final double labelMinScale;
@@ -18,29 +19,19 @@ class MapPainter extends CustomPainter {
   MapPainter({
     required this.comarcas,
     required this.comarcaPaths,
-    required this.gameState, 
+    required this.gameState,
     required this.viewerScale,
     this.labelMinScale = 2.0,
     this.labelFontSizePx = 12.0,
   });
 
-  // Función interna para asignar siempre el mismo color a un mismo jugador
   Color _getPlayerColor(String username) {
-    if (username.isEmpty) return Colors.grey.shade400; // Territorio neutral
-    
-    final playerColors = [
-      Colors.red.shade600,
-      Colors.blue.shade600,
-      Colors.green.shade600,
-      Colors.orange.shade600,
-      Colors.purple.shade600,
-      Colors.teal.shade600,
-      Colors.pink.shade600,
-      Colors.indigo.shade600,
-    ];
-    // Usamos el hash del nombre para que siempre le toque el mismo color en la partida
-    int hash = username.hashCode.abs();
-    return playerColors[hash % playerColors.length];
+    if (username.isEmpty) return AppTheme.mapLandNeutral;
+
+    final numeroJugador = gameState.jugadores[username]?.numeroJugador;
+    if (numeroJugador == null) return AppTheme.mapLandNeutral;
+
+    return ColorUtils.getPlayerColor(numeroJugador);
   }
 
   @override
@@ -50,12 +41,15 @@ class MapPainter extends CustomPainter {
     final baseStroke = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.0
-      ..color = const Color(0xFF333333);
+      ..color = AppTheme.secondary;
 
     final selectedStroke = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3.0
-      ..color = Colors.white;
+      ..color = ColorUtils.bordeColor;
+
+    final oceanPaint = Paint()..color = AppTheme.mapOcean;
+    canvas.drawRect(Offset.zero & size, oceanPaint);
 
     // Lógica de Escala y Posicionamiento de la cámara
     final scaleX = size.width / MapPaths.viewBoxWidth;
@@ -79,15 +73,15 @@ class MapPainter extends CustomPainter {
       final territoryData = gameState.mapa[comarca.id];
 
       if (comarca.id == gameState.origenSeleccionado) {
-        fillPaint.color = ColorUtils.origenColor; 
+        fillPaint.color = ColorUtils.origenColor;
       } else if (gameState.comarcasResaltadas.contains(comarca.id)) {
-        fillPaint.color = ColorUtils.resaltadoColor; 
+        fillPaint.color = ColorUtils.resaltadoColor;
       } else if (territoryData != null && territoryData.ownerId.isNotEmpty) {
         // T48: Si tiene dueño, la pintamos del color del jugador
         fillPaint.color = _getPlayerColor(territoryData.ownerId);
       } else {
         // Si no tiene dueño (inicio del juego), color base de la región
-        fillPaint.color = ColorUtils.getColorRegion(comarca.regionId); 
+        fillPaint.color = ColorUtils.getColorRegion(comarca.regionId);
       }
 
       canvas.drawPath(path, fillPaint);
@@ -98,11 +92,11 @@ class MapPainter extends CustomPainter {
       final path = comarcaPaths[comarca.id];
       if (path == null) continue;
 
-      if (gameState.comarcasResaltadas.contains(comarca.id) || 
+      if (gameState.comarcasResaltadas.contains(comarca.id) ||
           comarca.id == gameState.origenSeleccionado) {
-        canvas.drawPath(path, selectedStroke); 
+        canvas.drawPath(path, selectedStroke);
       } else {
-        canvas.drawPath(path, baseStroke); 
+        canvas.drawPath(path, baseStroke);
       }
     }
 
@@ -131,7 +125,9 @@ class MapPainter extends CustomPainter {
 
         // T48: Sacamos las tropas del territorio (o mostramos "-" si no hay datos)
         final territoryData = gameState.mapa[comarca.id];
-        final tropas = territoryData != null ? territoryData.units.toString() : "0";
+        final tropas = territoryData != null
+            ? territoryData.units.toString()
+            : "0";
 
         final center = bounds.center;
 
@@ -141,7 +137,7 @@ class MapPainter extends CustomPainter {
             TextSpan(
               text: "${comarca.name}\n",
               style: TextStyle(
-                color: Colors.black.withValues(alpha: 0.9 * t),
+                color: AppTheme.text.withValues(alpha: 0.9 * t),
                 fontSize: fontWorld * 0.7, // Nombre un poco más pequeño
                 fontWeight: FontWeight.w700,
               ),
@@ -149,7 +145,7 @@ class MapPainter extends CustomPainter {
             TextSpan(
               text: "🛡️ $tropas",
               style: TextStyle(
-                color: Colors.black.withValues(alpha: 1.0 * t),
+                color: AppTheme.text.withValues(alpha: 1.0 * t),
                 fontSize: fontWorld * 1.1, // Tropas más grandes
                 fontWeight: FontWeight.w900,
               ),
@@ -175,7 +171,8 @@ class MapPainter extends CustomPainter {
         canvas.save();
         canvas.clipPath(path);
 
-        final bgPaint = Paint()..color = Colors.white.withValues(alpha: (0.65 + 0.25 * t));
+        final bgPaint = Paint()
+          ..color = AppTheme.bg.withValues(alpha: (0.65 + 0.25 * t));
         canvas.drawRRect(
           RRect.fromRectAndRadius(bgRect, Radius.circular(radius)),
           bgPaint,
@@ -192,7 +189,7 @@ class MapPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant MapPainter oldDelegate) =>
-      oldDelegate.gameState != gameState || 
+      oldDelegate.gameState != gameState ||
       oldDelegate.viewerScale != viewerScale ||
       oldDelegate.comarcas != comarcas;
 }

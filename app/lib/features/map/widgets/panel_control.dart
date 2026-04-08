@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../app/theme/app_theme.dart';
 
 // CustomClipper para hexágonos verticales — sin tocar
 class HexagonClipper extends CustomClipper<Path> {
@@ -70,7 +71,9 @@ class PanelControlGuerra extends StatelessWidget {
     const panelHeight = 130.0;
     final panelWidth = panelHeight * 2.1;
     final faseIndexActual = _getFaseIndex();
-    final textoBoton = _isUltimaFase(faseIndexActual) ? 'FIN TURNO' : 'SIGUIENTE';
+    final textoBoton = _isUltimaFase(faseIndexActual)
+        ? 'FIN TURNO'
+        : 'SIGUIENTE';
 
     // Solo habilitamos el botón si es nuestro turno
     final esMiTurno = turnoDe == usernamePropio;
@@ -101,7 +104,10 @@ class PanelControlGuerra extends StatelessWidget {
               fit: StackFit.expand,
               children: [
                 // 1. IMAGEN DE FONDO
-                Image.asset('assets/images/panel_mando.png', fit: BoxFit.contain),
+                Image.asset(
+                  'assets/images/panel_mando.png',
+                  fit: BoxFit.contain,
+                ),
 
                 // 2. RETRATO DE PERFIL (círculo izquierdo)
                 Positioned(
@@ -131,7 +137,7 @@ class PanelControlGuerra extends StatelessWidget {
                     child: Text(
                       _getFaseDisplay(faseIndexActual),
                       style: TextStyle(
-                        color: const Color(0xFFC6A664),
+                        color: AppTheme.primary,
                         fontWeight: FontWeight.bold,
                         fontSize: panelHeight * 0.07,
                         letterSpacing: 0.6,
@@ -162,12 +168,16 @@ class PanelControlGuerra extends StatelessWidget {
                               decoration: BoxDecoration(
                                 boxShadow: [
                                   BoxShadow(
-                                    color: const Color(0xFFFDD835).withValues(alpha: 0.9),
+                                    color: AppTheme.borderGoldVivo.withValues(
+                                      alpha: 0.9,
+                                    ),
                                     blurRadius: 4,
                                     spreadRadius: 1,
                                   ),
                                   BoxShadow(
-                                    color: const Color(0xFFFDD835).withValues(alpha: 0.5),
+                                    color: AppTheme.borderGoldVivo.withValues(
+                                      alpha: 0.5,
+                                    ),
                                     blurRadius: 8,
                                     spreadRadius: 1,
                                   ),
@@ -175,7 +185,9 @@ class PanelControlGuerra extends StatelessWidget {
                               ),
                               child: ClipPath(
                                 clipper: HexagonClipper(),
-                                child: Container(color: const Color(0xFFFDD835)),
+                                child: Container(
+                                  color: AppTheme.borderGoldVivo,
+                                ),
                               ),
                             );
                           } else {
@@ -214,8 +226,8 @@ class PanelControlGuerra extends StatelessWidget {
                           style: TextStyle(
                             // Gris apagado si no es tu turno, dorado si sí
                             color: esMiTurno
-                                ? const Color(0xFFC6A664)
-                                : const Color(0xFF666666),
+                                ? AppTheme.primary
+                                : AppTheme.disabled,
                             fontWeight: FontWeight.bold,
                             fontSize: panelHeight * 0.07,
                             letterSpacing: 0.6,
@@ -241,7 +253,7 @@ class PanelControlGuerra extends StatelessWidget {
                       child: Text(
                         '$tropas',
                         style: TextStyle(
-                          color: const Color(0xFFC6A664),
+                          color: AppTheme.primary,
                           fontSize: panelHeight * 0.25,
                           fontWeight: FontWeight.bold,
                         ),
@@ -279,7 +291,7 @@ class _PanelJugadores extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.65),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFC6A664).withValues(alpha: 0.4)),
+        border: Border.all(color: AppTheme.primary.withValues(alpha: 0.4)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -289,7 +301,7 @@ class _PanelJugadores extends StatelessWidget {
           const Text(
             'TURNO',
             style: TextStyle(
-              color: Color(0xFFC6A664),
+              color: AppTheme.primary,
               fontSize: 9,
               fontWeight: FontWeight.bold,
               letterSpacing: 1.2,
@@ -318,7 +330,13 @@ class _PanelJugadores extends StatelessWidget {
                       shape: BoxShape.circle,
                       // Brillo en el jugador activo
                       boxShadow: esTurnoDeEste
-                          ? [BoxShadow(color: color.withValues(alpha: 0.8), blurRadius: 6, spreadRadius: 1)]
+                          ? [
+                              BoxShadow(
+                                color: color.withValues(alpha: 0.8),
+                                blurRadius: 6,
+                                spreadRadius: 1,
+                              ),
+                            ]
                           : null,
                     ),
                   ),
@@ -327,15 +345,23 @@ class _PanelJugadores extends StatelessWidget {
                     // "(tú)" para que sepas quién eres sin leer el nombre entero
                     esTuyo ? '$username (tú)' : username,
                     style: TextStyle(
-                      color: esTurnoDeEste ? Colors.white : Colors.white54,
+                      color: esTurnoDeEste
+                          ? AppTheme.text
+                          : AppTheme.textSecondary,
                       fontSize: esTurnoDeEste ? 11 : 10,
-                      fontWeight: esTurnoDeEste ? FontWeight.bold : FontWeight.normal,
+                      fontWeight: esTurnoDeEste
+                          ? FontWeight.bold
+                          : FontWeight.normal,
                     ),
                   ),
                   // Flecha indicando turno activo
                   if (esTurnoDeEste) ...[
                     const SizedBox(width: 4),
-                    const Icon(Icons.play_arrow, color: Color(0xFFC6A664), size: 12),
+                    const Icon(
+                      Icons.play_arrow,
+                      color: AppTheme.primary,
+                      size: 12,
+                    ),
                   ],
                 ],
               ),

@@ -22,7 +22,6 @@ class LobbyScreen extends ConsumerStatefulWidget {
 }
 
 class _LobbyScreenState extends ConsumerState<LobbyScreen> {
-  
   @override
   void initState() {
     super.initState();
@@ -33,8 +32,9 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
   }
 
   Future<void> _handleLeaveMatch() async {
-    final success =
-        await ref.read(matchmakingProvider.notifier).leaveMatch(widget.partidaId);
+    final success = await ref
+        .read(matchmakingProvider.notifier)
+        .leaveMatch(widget.partidaId);
 
     if (!mounted) return;
 
@@ -44,12 +44,13 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
       ref.read(webSocketProvider.notifier).disconnect();
       context.go(AppRoutes.batallas);
     } else {
-      final errorMessage = ref.read(matchmakingProvider).errorMessage ??
+      final errorMessage =
+          ref.read(matchmakingProvider).errorMessage ??
           'No se pudo abandonar la partida';
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(errorMessage)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(errorMessage)));
     }
   }
 
@@ -82,7 +83,10 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
 
     // Fusionamos ambas fuentes — los iniciales (HTTP) más los que lleguen por WS.
     // Sin esto, cuando llega NUEVO_JUGADOR solo aparece el recién unido y desaparece el creador.
-    final jugadoresConectados = {...jugadoresIniciales, ...jugadoresWs}.toList();
+    final jugadoresConectados = {
+      ...jugadoresIniciales,
+      ...jugadoresWs,
+    }.toList();
     final creador = lobbyInfo.creador;
     final codigoInvitacion = lobbyInfo.codigoInvitacion;
     final maxJugadores = lobbyInfo.maxPlayers;
@@ -94,13 +98,15 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     // de 'ESPERA' a 'refuerzo' y manda el mapa — eso es la señal para navegar.
     // Lo hacemos aquí en la UI para que todos los jugadores naveguen a la vez.
     ref.listen<GameState>(gameProvider, (previous, next) {
-      final estabaEnEspera = previous?.faseActual == 'ESPERA' || 
-                             previous?.faseActual == '' ||
-                             previous?.faseActual == 'espera';
-      final yaEmpezado = next.faseActual != 'ESPERA' && 
-                       next.faseActual != 'espera' &&
-                       next.faseActual.isNotEmpty && 
-                       next.mapa.isNotEmpty;
+      final estabaEnEspera =
+          previous?.faseActual == 'ESPERA' ||
+          previous?.faseActual == '' ||
+          previous?.faseActual == 'espera';
+      final yaEmpezado =
+          next.faseActual != 'ESPERA' &&
+          next.faseActual != 'espera' &&
+          next.faseActual.isNotEmpty &&
+          next.mapa.isNotEmpty;
 
       if (estabaEnEspera && yaEmpezado) {
         context.go(AppRoutes.batalla);
@@ -148,12 +154,14 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                               ),
                             ),
                             OutlinedButton.icon(
-                              onPressed: matchmakingState.isLeaving ? null : _handleLeaveMatch,
+                              onPressed: matchmakingState.isLeaving
+                                  ? null
+                                  : _handleLeaveMatch,
                               style: OutlinedButton.styleFrom(
                                 backgroundColor: const Color(0xFF1A1A24),
-                                foregroundColor: Colors.redAccent,
+                                foregroundColor: const Color(0xFFD32F2F),
                                 side: const BorderSide(
-                                  color: Colors.redAccent,
+                                  color: Color(0xFFD32F2F),
                                   width: 1.2,
                                 ),
                                 shape: RoundedRectangleBorder(
@@ -164,7 +172,9 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                                   ? const SizedBox(
                                       width: 16,
                                       height: 16,
-                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
                                     )
                                   : const Icon(Icons.logout_rounded, size: 18),
                               label: const Text(
@@ -188,8 +198,8 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                                   ? 'Conectado'
                                   : 'Conectando...',
                               iconColor: wsState.isConnected
-                                  ? Colors.green
-                                  : Colors.red,
+                                  ? const Color(0xFF388E3C)
+                                  : const Color(0xFFD32F2F),
                             ),
                             _InfoChip(
                               icon: Icons.group,
@@ -261,10 +271,13 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                               separatorBuilder: (_, __) =>
                                   const SizedBox(height: 10),
                               itemBuilder: (context, index) {
-                                final nombreJugador = jugadoresConectados[index];
-                                final isCurrentUser = nombreJugador == usuarioActual;
+                                final nombreJugador =
+                                    jugadoresConectados[index];
+                                final isCurrentUser =
+                                    nombreJugador == usuarioActual;
                                 final isCreator = nombreJugador == creador;
-                                final playerState = gameState.jugadores[nombreJugador];
+                                final playerState =
+                                    gameState.jugadores[nombreJugador];
 
                                 return Container(
                                   padding: const EdgeInsets.all(10),
@@ -282,7 +295,9 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                                     children: [
                                       CircleAvatar(
                                         radius: 18,
-                                        backgroundColor: const Color(0xFF252530),
+                                        backgroundColor: const Color(
+                                          0xFF252530,
+                                        ),
                                         child: Icon(
                                           Icons.person,
                                           color: isCurrentUser
@@ -293,7 +308,8 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                                       const SizedBox(width: 14),
                                       Expanded(
                                         child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
                                           children: [
                                             Text(
                                               nombreJugador,
@@ -310,13 +326,17 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                                                 if (isCurrentUser)
                                                   _MiniTag(
                                                     text: 'Tú',
-                                                    backgroundColor: const Color(0xFFC5A059),
-                                                    textColor: const Color(0xFF1A1A24),
+                                                    backgroundColor:
+                                                        const Color(0xFFC5A059),
+                                                    textColor: const Color(
+                                                      0xFF1A1A24,
+                                                    ),
                                                   ),
                                                 if (isCreator)
                                                   const _MiniTag(
                                                     text: 'Creador',
-                                                    backgroundColor: Colors.blueGrey,
+                                                    backgroundColor:
+                                                        Colors.blueGrey,
                                                     textColor: Colors.white,
                                                   ),
                                               ],
@@ -378,11 +398,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
 }
 
 class _InfoChip extends StatelessWidget {
-  const _InfoChip({
-    required this.icon,
-    required this.label,
-    this.iconColor,
-  });
+  const _InfoChip({required this.icon, required this.label, this.iconColor});
 
   final IconData icon;
   final String label;
@@ -395,10 +411,7 @@ class _InfoChip extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFF1A1A24),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: const Color(0xFF8C6D3F),
-          width: 1,
-        ),
+        border: Border.all(color: const Color(0xFF8C6D3F), width: 1),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

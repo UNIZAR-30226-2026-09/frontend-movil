@@ -24,13 +24,14 @@ class _RegistrarScreenState extends ConsumerState<RegistrarScreen> {
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _confirmPasswordController = TextEditingController();
+  final TextEditingController _confirmPasswordController =
+      TextEditingController();
 
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
 
   @override
-  void dispose(){
+  void dispose() {
     // Libera los controladores cuando la pantalla se destruye
     // para evitar fugas de memoria.
     _usernameController.dispose();
@@ -45,15 +46,17 @@ class _RegistrarScreenState extends ConsumerState<RegistrarScreen> {
   Future<void> _handleRegister() async {
     if (!_formKey.currentState!.validate()) return;
 
-    await ref.read(authProvider.notifier).register(
-      username: _usernameController.text.trim(),
-      email: _emailController.text.trim(),
-      password: _passwordController.text.trim(),
-    );
+    await ref
+        .read(authProvider.notifier)
+        .register(
+          username: _usernameController.text.trim(),
+          email: _emailController.text.trim(),
+          password: _passwordController.text.trim(),
+        );
   }
 
   @override
-  Widget build(BuildContext context){
+  Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
 
     /// Escucha cambios en el estado de autenticación para volver
@@ -65,7 +68,7 @@ class _RegistrarScreenState extends ConsumerState<RegistrarScreen> {
 
       // Si venimos de loading y terminamos en unauthenticated sin error,
       // asumimos que el registro ha ido bien.
-      if (wasLoading && isNowUnauthenticated && next.errorMessage == null){
+      if (wasLoading && isNowUnauthenticated && next.errorMessage == null) {
         context.go(AppRoutes.login);
       }
     });
@@ -100,7 +103,7 @@ class _RegistrarScreenState extends ConsumerState<RegistrarScreen> {
                       ],
                     ),
                     child: IconButton(
-                      onPressed: () => context.go(AppRoutes.inicio), 
+                      onPressed: () => context.go(AppRoutes.inicio),
                       icon: const Icon(Icons.arrow_back_rounded),
                     ),
                   ),
@@ -150,13 +153,22 @@ class _RegistrarScreenState extends ConsumerState<RegistrarScreen> {
                             style: const TextStyle(color: Colors.white),
                             decoration: InputDecoration(
                               isDense: true,
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
                               labelText: 'Usuario',
                               hintText: 'Nombre de guerra...',
                               filled: true,
-                              fillColor: const Color(0xFF1A1A24).withOpacity(0.85),
-                              labelStyle: const TextStyle(color: Color(0xFFA0A0B0)),
-                              hintStyle: const TextStyle(color: Color(0xFFA0A0B0)),
+                              fillColor: const Color(
+                                0xFF1A1A24,
+                              ).withOpacity(0.85),
+                              labelStyle: const TextStyle(
+                                color: Color(0xFFA0A0B0),
+                              ),
+                              hintStyle: const TextStyle(
+                                color: Color(0xFFA0A0B0),
+                              ),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(10),
                                 borderSide: const BorderSide(
@@ -164,7 +176,7 @@ class _RegistrarScreenState extends ConsumerState<RegistrarScreen> {
                                   width: 1,
                                 ),
                               ),
-                              
+
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(10),
                                 borderSide: const BorderSide(
@@ -176,7 +188,7 @@ class _RegistrarScreenState extends ConsumerState<RegistrarScreen> {
                               errorBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(10),
                                 borderSide: const BorderSide(
-                                  color: Colors.redAccent,
+                                  color: Color(0xFFD32F2F),
                                   width: 1,
                                 ),
                               ),
@@ -184,13 +196,13 @@ class _RegistrarScreenState extends ConsumerState<RegistrarScreen> {
                               focusedErrorBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(10),
                                 borderSide: const BorderSide(
-                                  color: Colors.redAccent,
+                                  color: Color(0xFFD32F2F),
                                   width: 1.5,
                                 ),
                               ),
                             ),
-                            validator:(value) {
-                              if(value == null || value.trim().isEmpty){
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
                                 return 'Introduce un nombre de usuario';
                               }
                               return null;
@@ -204,15 +216,22 @@ class _RegistrarScreenState extends ConsumerState<RegistrarScreen> {
                             style: const TextStyle(color: Colors.white),
                             decoration: InputDecoration(
                               isDense: true,
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
                               labelText: 'Correo electrónico',
                               hintText: 'tu@correo.com',
                               filled: true,
-                              fillColor: const Color(0xFF1A1A24).withOpacity(0.85),
-                              labelStyle:
-                                  const TextStyle(color: Color(0xFFA0A0B0)),
-                              hintStyle:
-                                  const TextStyle(color: Color(0xFFA0A0B0)),
+                              fillColor: const Color(
+                                0xFF1A1A24,
+                              ).withOpacity(0.85),
+                              labelStyle: const TextStyle(
+                                color: Color(0xFFA0A0B0),
+                              ),
+                              hintStyle: const TextStyle(
+                                color: Color(0xFFA0A0B0),
+                              ),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(10),
                                 borderSide: const BorderSide(
@@ -230,14 +249,14 @@ class _RegistrarScreenState extends ConsumerState<RegistrarScreen> {
                               errorBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(10),
                                 borderSide: const BorderSide(
-                                  color: Colors.redAccent,
+                                  color: Color(0xFFD32F2F),
                                   width: 1,
                                 ),
                               ),
                               focusedErrorBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(10),
                                 borderSide: const BorderSide(
-                                  color: Colors.redAccent,
+                                  color: Color(0xFFD32F2F),
                                   width: 1.5,
                                 ),
                               ),
@@ -260,15 +279,22 @@ class _RegistrarScreenState extends ConsumerState<RegistrarScreen> {
                             style: const TextStyle(color: Colors.white),
                             decoration: InputDecoration(
                               isDense: true,
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
                               labelText: 'Contraseña',
                               hintText: 'Mínimo 8 caracteres',
                               filled: true,
-                              fillColor: const Color(0xFF1A1A24).withOpacity(0.85),
-                              labelStyle:
-                                  const TextStyle(color: Color(0xFFA0A0B0)),
-                              hintStyle:
-                                  const TextStyle(color: Color(0xFFA0A0B0)),
+                              fillColor: const Color(
+                                0xFF1A1A24,
+                              ).withOpacity(0.85),
+                              labelStyle: const TextStyle(
+                                color: Color(0xFFA0A0B0),
+                              ),
+                              hintStyle: const TextStyle(
+                                color: Color(0xFFA0A0B0),
+                              ),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(10),
                                 borderSide: const BorderSide(
@@ -286,14 +312,14 @@ class _RegistrarScreenState extends ConsumerState<RegistrarScreen> {
                               errorBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(10),
                                 borderSide: const BorderSide(
-                                  color: Colors.redAccent,
+                                  color: Color(0xFFD32F2F),
                                   width: 1,
                                 ),
                               ),
                               focusedErrorBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(10),
                                 borderSide: const BorderSide(
-                                  color: Colors.redAccent,
+                                  color: Color(0xFFD32F2F),
                                   width: 1.5,
                                 ),
                               ),
@@ -326,13 +352,22 @@ class _RegistrarScreenState extends ConsumerState<RegistrarScreen> {
                             style: const TextStyle(color: Colors.white),
                             decoration: InputDecoration(
                               isDense: true,
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
                               labelText: 'Confirmar contraseña',
                               hintText: 'Repite tu contraseña',
                               filled: true,
-                              fillColor: const Color(0xFF1A1A24).withOpacity(0.85),
-                              labelStyle: const TextStyle(color: Color(0xFFA0A0B0)),
-                              hintStyle: const TextStyle(color: Color(0xFFA0A0B0)),
+                              fillColor: const Color(
+                                0xFF1A1A24,
+                              ).withOpacity(0.85),
+                              labelStyle: const TextStyle(
+                                color: Color(0xFFA0A0B0),
+                              ),
+                              hintStyle: const TextStyle(
+                                color: Color(0xFFA0A0B0),
+                              ),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(10),
                                 borderSide: const BorderSide(
@@ -350,14 +385,14 @@ class _RegistrarScreenState extends ConsumerState<RegistrarScreen> {
                               errorBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(10),
                                 borderSide: const BorderSide(
-                                  color: Colors.redAccent,
+                                  color: Color(0xFFD32F2F),
                                   width: 1,
                                 ),
                               ),
                               focusedErrorBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(10),
                                 borderSide: const BorderSide(
-                                  color: Colors.redAccent,
+                                  color: Color(0xFFD32F2F),
                                   width: 1.5,
                                 ),
                               ),
@@ -370,7 +405,8 @@ class _RegistrarScreenState extends ConsumerState<RegistrarScreen> {
                                 ),
                                 onPressed: () {
                                   setState(() {
-                                    _obscureConfirmPassword = !_obscureConfirmPassword;
+                                    _obscureConfirmPassword =
+                                        !_obscureConfirmPassword;
                                   });
                                 },
                               ),
@@ -379,20 +415,20 @@ class _RegistrarScreenState extends ConsumerState<RegistrarScreen> {
                               if (value == null || value.trim().isEmpty) {
                                 return 'Confirma tu contraseña';
                               }
-                              if (value.trim() != _passwordController.text.trim()) {
+                              if (value.trim() !=
+                                  _passwordController.text.trim()) {
                                 return 'Las contraseñas no coinciden';
                               }
                               return null;
                             },
                           ),
 
-
                           const SizedBox(height: 12),
 
                           if (authState.errorMessage != null) ...[
                             Text(
                               authState.errorMessage!,
-                              style: const TextStyle(color: Colors.redAccent),
+                              style: const TextStyle(color: Color(0xFFD32F2F)),
                               textAlign: TextAlign.center,
                             ),
                             const SizedBox(height: 16),
@@ -401,35 +437,35 @@ class _RegistrarScreenState extends ConsumerState<RegistrarScreen> {
                           SizedBox(
                             width: double.infinity,
                             child: ElevatedButton(
-                              onPressed: isLoading ? null : _handleRegister, 
+                              onPressed: isLoading ? null : _handleRegister,
                               child: isLoading
-                                ? const SizedBox(
-                                    height: 20,
-                                    width: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Text('Registrarse'),
+                                  ? const SizedBox(
+                                      height: 20,
+                                      width: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Text('Registrarse'),
                             ),
                           ),
                           const SizedBox(height: 1),
 
                           TextButton(
                             onPressed: isLoading
-                              ? null
-                              : () {
-                                context.go(AppRoutes.login);
-                                },
+                                ? null
+                                : () {
+                                    context.go(AppRoutes.login);
+                                  },
                             child: const Text('¿Ya eres veterano? Entra aquí'),
                           ),
                         ],
                       ),
                     ),
-                  ), 
+                  ),
                 ),
               ),
-            )
+            ),
           ],
         ),
       ),

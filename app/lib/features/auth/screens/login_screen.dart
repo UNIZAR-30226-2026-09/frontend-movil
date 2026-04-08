@@ -41,14 +41,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
      a través del provider de autenticación.
   */
   Future<void> _handleLogin() async {
-    if(!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) return;
 
-    await ref.read(authProvider.notifier).login(
-      username: _usernameController.text.trim(),
-      password: _passwordController.text.trim(),
-    );
+    await ref
+        .read(authProvider.notifier)
+        .login(
+          username: _usernameController.text.trim(),
+          password: _passwordController.text.trim(),
+        );
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -58,7 +59,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
        cuando el login se complete correctamente.
     */
     ref.listen<AuthState>(authProvider, (previous, next) {
-      if(next.status == AuthStatus.authenticated){
+      if (next.status == AuthStatus.authenticated) {
         context.go(AppRoutes.inicio);
       }
     });
@@ -95,9 +96,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                     child: IconButton(
                       onPressed: () => context.go(AppRoutes.inicio),
-                      icon: const Icon(
-                        Icons.arrow_back_rounded,
-                      ),
+                      icon: const Icon(Icons.arrow_back_rounded),
                     ),
                   ),
                 ),
@@ -147,15 +146,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               labelText: 'Usuario',
                               hintText: 'Nombre de guerra...',
                               filled: true,
-                              fillColor: const Color(0xFF1A1A24).withOpacity(0.85),
-                              labelStyle: const TextStyle(color: Color(0xFFA0A0B0)),
-                              hintStyle: const TextStyle(color: Color(0xFFA0A0B0)),
+                              fillColor: const Color(
+                                0xFF1A1A24,
+                              ).withOpacity(0.85),
+                              labelStyle: const TextStyle(
+                                color: Color(0xFFA0A0B0),
+                              ),
+                              hintStyle: const TextStyle(
+                                color: Color(0xFFA0A0B0),
+                              ),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(10),
                                 borderSide: const BorderSide(
                                   color: Color(0xFF8C6D3F),
                                   width: 1,
-                                )
+                                ),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(10),
@@ -167,14 +172,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               errorBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(10),
                                 borderSide: const BorderSide(
-                                  color: Colors.redAccent,
+                                  color: Color(0xFFD32F2F),
                                   width: 1,
                                 ),
                               ),
                               focusedErrorBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(10),
                                 borderSide: const BorderSide(
-                                  color: Colors.redAccent,
+                                  color: Color(0xFFD32F2F),
                                   width: 1.5,
                                 ),
                               ),
@@ -195,9 +200,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               labelText: 'Contraseña',
                               hintText: 'Mínimo 8 caracteres',
                               filled: true,
-                              fillColor: const Color(0xFF1A1A24).withOpacity(0.85),
-                              labelStyle: const TextStyle(color: Color(0xFFA0A0B0)),
-                              hintStyle: const TextStyle(color: Color(0xFFA0A0B0)),
+                              fillColor: const Color(
+                                0xFF1A1A24,
+                              ).withOpacity(0.85),
+                              labelStyle: const TextStyle(
+                                color: Color(0xFFA0A0B0),
+                              ),
+                              hintStyle: const TextStyle(
+                                color: Color(0xFFA0A0B0),
+                              ),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(10),
                                 borderSide: const BorderSide(
@@ -215,14 +226,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               errorBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(10),
                                 borderSide: const BorderSide(
-                                  color: Colors.redAccent,
+                                  color: Color(0xFFD32F2F),
                                   width: 1,
                                 ),
                               ),
                               focusedErrorBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(10),
                                 borderSide: const BorderSide(
-                                  color: Colors.redAccent,
+                                  color: Color(0xFFD32F2F),
                                   width: 1.5,
                                 ),
                               ),
@@ -251,7 +262,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           if (authState.errorMessage != null) ...[
                             Text(
                               authState.errorMessage!,
-                              style: const TextStyle(color: Colors.redAccent),
+                              style: const TextStyle(color: Color(0xFFD32F2F)),
                               textAlign: TextAlign.center,
                             ),
                             const SizedBox(height: 16),
@@ -278,7 +289,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 : () {
                                     context.go(AppRoutes.registro);
                                   },
-                            child: const Text('¿No tienes cuenta? Regístrate aquí'),
+                            child: const Text(
+                              '¿No tienes cuenta? Regístrate aquí',
+                            ),
                           ),
                         ],
                       ),

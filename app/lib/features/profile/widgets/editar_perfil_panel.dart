@@ -5,10 +5,7 @@ import '../../auth/providers/auth_provider.dart';
 import '../providers/profile_provider.dart';
 
 class EditarPerfilPanel extends ConsumerStatefulWidget {
-  const EditarPerfilPanel({
-    super.key,
-    required this.onClose,
-  });
+  const EditarPerfilPanel({super.key, required this.onClose});
 
   final VoidCallback onClose;
 
@@ -56,14 +53,14 @@ class _EditarPerfilPanelState extends ConsumerState<EditarPerfilPanel> {
 
     if (!emailCambiado && !passwordInformada) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No has cambiado ningún dato'),
-        ),
+        const SnackBar(content: Text('No has cambiado ningún dato')),
       );
       return;
     }
 
-    final ok = await ref.read(profileProvider.notifier).updateProfile(
+    final ok = await ref
+        .read(profileProvider.notifier)
+        .updateProfile(
           email: emailCambiado ? email : null,
           password: passwordInformada ? newPassword : null,
         );
@@ -94,27 +91,19 @@ class _EditarPerfilPanelState extends ConsumerState<EditarPerfilPanel> {
     final isLoading = profileState.status == ProfileActionStatus.loading;
     final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
     final screenHeight = MediaQuery.of(context).size.height;
-  
+
     final maxPanelHeight = keyboardInset > 0
         ? screenHeight * 0.72
         : screenHeight * 0.78;
-  
+
     return AnimatedPadding(
       duration: const Duration(milliseconds: 180),
       curve: Curves.easeOut,
-      padding: EdgeInsets.fromLTRB(
-        16,
-        24,
-        16,
-        keyboardInset + 24,
-      ),
+      padding: EdgeInsets.fromLTRB(16, 24, 16, keyboardInset + 24),
       child: Align(
         alignment: Alignment.center,
         child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxWidth: 700,
-            maxHeight: maxPanelHeight,
-          ),
+          constraints: BoxConstraints(maxWidth: 700, maxHeight: maxPanelHeight),
           child: Material(
             color: Colors.transparent,
             child: Container(
@@ -123,10 +112,7 @@ class _EditarPerfilPanelState extends ConsumerState<EditarPerfilPanel> {
               decoration: BoxDecoration(
                 color: const Color(0xFF252530).withOpacity(0.96),
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: const Color(0xFFC5A059),
-                  width: 1.2,
-                ),
+                border: Border.all(color: const Color(0xFFC5A059), width: 1.2),
                 boxShadow: const [
                   BoxShadow(
                     color: Colors.black54,
@@ -166,7 +152,7 @@ class _EditarPerfilPanelState extends ConsumerState<EditarPerfilPanel> {
                     ],
                   ),
                   const SizedBox(height: 18),
-  
+
                   Expanded(
                     child: Container(
                       padding: const EdgeInsets.all(18),
@@ -224,7 +210,8 @@ class _EditarPerfilPanelState extends ConsumerState<EditarPerfilPanel> {
                                 obscureText: _obscureNewPassword,
                                 style: const TextStyle(color: Colors.white),
                                 decoration: _inputDecoration(
-                                  hintText: 'Déjalo vacío si no quieres cambiarla',
+                                  hintText:
+                                      'Déjalo vacío si no quieres cambiarla',
                                   suffixIcon: IconButton(
                                     icon: Icon(
                                       _obscureNewPassword
@@ -281,23 +268,23 @@ class _EditarPerfilPanelState extends ConsumerState<EditarPerfilPanel> {
                                 ),
                                 validator: (value) {
                                   final repeated = value?.trim() ?? '';
-                                  final newPassword =
-                                      _newPasswordController.text.trim();
-  
-                                  if (newPassword.isEmpty &&
-                                      repeated.isEmpty) {
+                                  final newPassword = _newPasswordController
+                                      .text
+                                      .trim();
+
+                                  if (newPassword.isEmpty && repeated.isEmpty) {
                                     return null;
                                   }
-  
+
                                   if (newPassword.isNotEmpty &&
                                       repeated.isEmpty) {
                                     return 'Repite la nueva contraseña';
                                   }
-  
+
                                   if (repeated != newPassword) {
                                     return 'Las contraseñas no coinciden';
                                   }
-  
+
                                   return null;
                                 },
                               ),
@@ -340,40 +327,25 @@ class _EditarPerfilPanelState extends ConsumerState<EditarPerfilPanel> {
       hintText: hintText,
       suffixIcon: suffixIcon,
       isDense: true,
-      contentPadding: const EdgeInsets.symmetric(
-        horizontal: 12,
-        vertical: 12,
-      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       filled: true,
       fillColor: const Color(0xFF252530),
       hintStyle: const TextStyle(color: Color(0xFFA0A0B0)),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(
-          color: Color(0xFF8C6D3F),
-          width: 1,
-        ),
+        borderSide: const BorderSide(color: Color(0xFF8C6D3F), width: 1),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(
-          color: Color(0xFFC5A059),
-          width: 1.5,
-        ),
+        borderSide: const BorderSide(color: Color(0xFFC5A059), width: 1.5),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(
-          color: Colors.redAccent,
-          width: 1,
-        ),
+        borderSide: const BorderSide(color: Color(0xFFD32F2F), width: 1),
       ),
       focusedErrorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(
-          color: Colors.redAccent,
-          width: 1.5,
-        ),
+        borderSide: const BorderSide(color: Color(0xFFD32F2F), width: 1.5),
       ),
     );
   }

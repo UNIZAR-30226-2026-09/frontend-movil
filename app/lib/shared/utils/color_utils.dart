@@ -1,21 +1,42 @@
 import 'package:flutter/material.dart';
+import '../../app/theme/app_theme.dart';
 
 class ColorUtils {
-  /// Colores de las regiones (Identidad visual del mapa)
   static Color getColorRegion(String regionId) {
     switch (regionId) {
-      case 'frontera_pirenaica': return const Color(0xFF4ADE80);
-      case 'estepas_y_condados': return const Color(0xFFFACC15);
-      case 'alto_ebro':          return const Color(0xFF60A5FA);
-      case 'campos_serrania':    return const Color(0xFFC084FC);
-      case 'valles_matarrana':   return const Color(0xFFF87171);
-      case 'sierras_sur':        return const Color(0xFFFB923C);
-      default:                   return const Color(0xFFCBD5E1);
+      case 'frontera_pirenaica':
+        return AppTheme.regionPirineosBase;
+      case 'estepas_y_condados':
+        return AppTheme.regionEstepasBase;
+      case 'alto_ebro':
+        return AppTheme.regionEbroBase;
+      case 'campos_serrania':
+        return AppTheme.regionCamposBase;
+      case 'valles_matarrana':
+        return AppTheme.regionVallesBase;
+      case 'sierras_sur':
+        return AppTheme.regionSierrasBase;
+      default:
+        return AppTheme.mapLandNeutral;
     }
   }
 
-  /// Colores de estado 
-  static const Color origenColor = Color(0xFF3B82F6);    // Azul (Seleccionada)
-  static const Color resaltadoColor = Color(0xFFEAB308); // Dorado (Atacables)
-  static const Color bordeColor = Colors.white;
+  static Color getPlayerColor(int numeroJugador) {
+    switch (numeroJugador) {
+      case 1:
+        return AppTheme.player1;
+      case 2:
+        return AppTheme.player2;
+      case 3:
+        return AppTheme.player3;
+      case 4:
+        return AppTheme.player4;
+      default:
+        return AppTheme.mapLandNeutral;
+    }
+  }
+
+  static const Color origenColor = AppTheme.mapSelectOrigin;
+  static const Color resaltadoColor = AppTheme.mapSelectTarget;
+  static const Color bordeColor = AppTheme.borderGoldVivo;
 }

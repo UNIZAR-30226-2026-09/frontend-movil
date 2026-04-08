@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'; 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:vector_math/vector_math_64.dart';
 import '../services/map_loader.dart';
 import '../services/map_painter.dart';
 import '../models/territory_model.dart';
 import '../config/map_data.dart';
-import '../../game/providers/game_provider.dart'; 
+import '../../game/providers/game_provider.dart';
 import 'panel_control.dart';
 import 'package:dio/dio.dart';
 import 'package:soberania/features/auth/providers/auth_provider.dart';
 import 'package:soberania/features/game/providers/websocket_provider.dart';
 import '../../../shared/api/dio_provider.dart';
+import '../../../shared/utils/color_utils.dart';
 
 typedef OnTapComarca = void Function(Comarca comarca);
 
@@ -84,7 +85,7 @@ class _InteractiveGameMapState extends ConsumerState<InteractiveGameMap> {
   int _getTropasJugadorActual(GameState gameState) {
     // Si no hay jugador en turno, devuelve 0
     if (gameState.turnoDe.isEmpty) return 0;
-    
+
     // Obtiene le tropas de reserva del jugador actual
     final jugadorActual = gameState.jugadores[gameState.turnoDe];
     return jugadorActual?.tropasReserva ?? 0;
@@ -106,7 +107,7 @@ class _InteractiveGameMapState extends ConsumerState<InteractiveGameMap> {
       ..scale(scale)
       // ignore: deprecated_member_use
       ..translate(-MapPaths.viewBoxX, -MapPaths.viewBoxY);
-    
+
     final inv = Matrix4.inverted(m);
     final v = Vector3(scenePoint.dx, scenePoint.dy, 0);
     final out = inv.transform3(v);
@@ -116,7 +117,7 @@ class _InteractiveGameMapState extends ConsumerState<InteractiveGameMap> {
   @override
   Widget build(BuildContext context) {
     // 5. ESCUCHAMOS EL ESTADO DEL JUEGO (T43)
-    final gameState = ref.watch(gameProvider); 
+    final gameState = ref.watch(gameProvider);
     final panAllowed = _currentScale > widget.minScale + _eps;
 
     return Stack(
@@ -125,7 +126,10 @@ class _InteractiveGameMapState extends ConsumerState<InteractiveGameMap> {
         Positioned.fill(
           child: LayoutBuilder(
             builder: (context, constraints) {
-              final viewport = Size(constraints.maxWidth, constraints.maxHeight);
+              final viewport = Size(
+                constraints.maxWidth,
+                constraints.maxHeight,
+              );
               _lastViewportSize = viewport;
 
               return InteractiveViewer(
@@ -141,9 +145,12 @@ class _InteractiveGameMapState extends ConsumerState<InteractiveGameMap> {
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onTapDown: (details) {
-                      final mapPoint = _sceneToMap(details.localPosition, viewport);
+                      final mapPoint = _sceneToMap(
+                        details.localPosition,
+                        viewport,
+                      );
                       final hit = _hitTestComarca(mapPoint);
-                      
+
                       if (hit != null) {
                         widget.onTapComarca?.call(hit);
                       }
@@ -153,7 +160,7 @@ class _InteractiveGameMapState extends ConsumerState<InteractiveGameMap> {
                         comarcas: widget.gameMap.comarcas,
                         comarcaPaths: widget.gameMap.comarcaPaths,
                         // 7. PASAMOS EL ESTADO COMPLETO AL PAINTER
-                        gameState: gameState, 
+                        gameState: gameState,
                         viewerScale: _currentScale,
                       ),
                     ),
@@ -165,8 +172,8 @@ class _InteractiveGameMapState extends ConsumerState<InteractiveGameMap> {
         ),
 
         // --- CAPA 2: EL PANEL DE CONTROL FLOTANTE ---
-          // Al estar fuera del InteractiveViewer, no le afecta el zoom
-          Positioned(
+        // Al estar fuera del InteractiveViewer, no le afecta el zoom
+        Positioned(
           bottom: 0,
           left: 0,
           right: 0,
@@ -190,16 +197,9 @@ class _InteractiveGameMapState extends ConsumerState<InteractiveGameMap> {
   // Asigna colores por orden de aparición hasta que el backend nos mande
   // el color real de cada jugador en el estado de la partida.
   Map<String, Color> _buildColoresPorJugador(GameState gameState) {
-    const paleta = [
-      Color(0xFF4CAF50), // jugador 1 — verde
-      Color(0xFF2196F3), // jugador 2 — azul
-      Color(0xFFF44336), // jugador 3 — rojo
-      Color(0xFFFF9800), // jugador 4 — naranja
-    ];
-
     return {
       for (final entry in gameState.jugadores.entries)
-        entry.key: paleta[(entry.value.numeroJugador - 1).clamp(0, 3)],
+        entry.key: ColorUtils.getPlayerColor(entry.value.numeroJugador),
     };
   }
 
@@ -223,23 +223,23 @@ class _InteractiveGameMapState extends ConsumerState<InteractiveGameMap> {
     } on DioException catch (e) {
       // 403 = no es tu turno. Para debug avanzamos igual en local.
       final status = e.response?.statusCode ?? 0;
-      debugPrint('⚠️ pasar_fase devolvió $status — avanzando fase en local para pruebas');
+      debugPrint(
+        '⚠️ pasar_fase devolvió $status — avanzando fase en local para pruebas',
+      );
       if (context.mounted) {
         ref.read(gameProvider.notifier).avanzarFasePanel();
       }
     }
   }
 
-  
-
   double _getScale(Matrix4 m) {
     return m.storage[0];
   }
-  
+
   Offset _getTranslation(Matrix4 m) {
     return Offset(m.storage[12], m.storage[13]);
   }
-  
+
   Matrix4 _setTranslation(Matrix4 m, Offset t) {
     final next = Matrix4.copy(m);
     next.storage[12] = t.dx;
@@ -279,7 +279,11 @@ class _InteractiveGameMapState extends ConsumerState<InteractiveGameMap> {
 
     // Si estamos en zoom mínimo, bloqueado
     if (s <= widget.minScale + _eps) {
-      final locked = Matrix4.diagonal3Values(widget.minScale, widget.minScale, 1.0);
+      final locked = Matrix4.diagonal3Values(
+        widget.minScale,
+        widget.minScale,
+        1.0,
+      );
       _tc.value = locked;
 
       if ((_currentScale - widget.minScale).abs() > 1e-4) {
@@ -333,9 +337,9 @@ class _InteractiveGameMapState extends ConsumerState<InteractiveGameMap> {
 
     final current = _getTranslation(m);
     final target = Offset(tx, ty);
-    
+
     Offset finalOffset;
-    
+
     if (outsideX || outsideY) {
       const smooth = 0.2;
       finalOffset = Offset(
@@ -345,10 +349,10 @@ class _InteractiveGameMapState extends ConsumerState<InteractiveGameMap> {
     } else {
       finalOffset = target;
     }
-    
+
     final clamped = _setTranslation(m, finalOffset);
     _tc.value = clamped;
-    
+
     final newScale = _getScale(_tc.value);
     if ((newScale - _currentScale).abs() > 1e-4) {
       setState(() => _currentScale = newScale);
