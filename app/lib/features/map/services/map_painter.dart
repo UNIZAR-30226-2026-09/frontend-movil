@@ -15,23 +15,31 @@ class MapPainter extends CustomPainter {
   final double viewerScale;
   final double labelMinScale;
   final double labelFontSizePx;
+  final Map<String, Color> coloresPorJugador;
 
   MapPainter({
     required this.comarcas,
     required this.comarcaPaths,
     required this.gameState,
     required this.viewerScale,
+    required this.coloresPorJugador,
     this.labelMinScale = 2.0,
     this.labelFontSizePx = 12.0,
   });
 
   Color _getPlayerColor(String username) {
+<<<<<<< HEAD
     if (username.isEmpty) return AppTheme.mapLandNeutral;
 
     final numeroJugador = gameState.jugadores[username]?.numeroJugador;
     if (numeroJugador == null) return AppTheme.mapLandNeutral;
 
     return ColorUtils.getPlayerColor(numeroJugador);
+=======
+    if (username.isEmpty) return Colors.grey.shade400;
+    // Usamos el mapa precalculado — si no está, fallback gris
+    return coloresPorJugador[username] ?? Colors.grey.shade400;
+>>>>>>> 03d3e3d9f4356443eca8bd47f63816267b67d9d1
   }
 
   @override

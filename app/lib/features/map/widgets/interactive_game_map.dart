@@ -162,6 +162,7 @@ class _InteractiveGameMapState extends ConsumerState<InteractiveGameMap> {
                         // 7. PASAMOS EL ESTADO COMPLETO AL PAINTER
                         gameState: gameState,
                         viewerScale: _currentScale,
+                        coloresPorJugador: _buildColoresPorJugador(gameState),
                       ),
                     ),
                   ),
