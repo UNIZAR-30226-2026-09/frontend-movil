@@ -9,6 +9,7 @@ import 'package:soberania/features/game/providers/websocket_provider.dart';
 import 'package:soberania/features/map/services/map_loader.dart';
 import 'package:soberania/features/map/widgets/action_panel.dart';
 import 'package:soberania/features/map/widgets/interactive_game_map.dart';
+import '../../../app/theme/app_theme.dart';
 import '../../../shared/api/dio_provider.dart';
 
 class BatallaScreen extends ConsumerStatefulWidget {
@@ -126,10 +127,127 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
                   ),
                 ),
               ),
+              Positioned(
+                right: 10,
+                bottom: 26,
+                child: SafeArea(
+                  top: false,
+                  left: false,
+                  minimum: const EdgeInsets.only(right: 4, bottom: 4),
+                  child: Material(
+                    color: AppTheme.secondary,
+                    shape: const CircleBorder(
+                      side: BorderSide(color: AppTheme.primary, width: 1.6),
+                    ),
+                    elevation: 6,
+                    child: InkWell(
+                      customBorder: const CircleBorder(),
+                      onTap: () => _mostrarArbolTecnologicoModal(context),
+                      child: const SizedBox(
+                        width: 78,
+                        height: 78,
+                        child: Icon(
+                          Icons.park_rounded,
+                          color: AppTheme.primary,
+                          size: 38,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ],
           );
         },
       ),
+    );
+  }
+
+  Future<void> _mostrarArbolTecnologicoModal(BuildContext context) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        final media = MediaQuery.of(context);
+        final availableHeight =
+            media.size.height - media.padding.top - media.padding.bottom;
+
+        return SizedBox(
+          height: media.size.height,
+          child: SafeArea(
+            child: Center(
+              child: SizedBox(
+                width: media.size.width - 24,
+                height: availableHeight * 0.82,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: AppTheme.surface,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: AppTheme.primary, width: 1.6),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.45),
+                        blurRadius: 20,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 12,
+                        ),
+                        decoration: const BoxDecoration(
+                          color: AppTheme.bg,
+                          borderRadius: BorderRadius.vertical(
+                            top: Radius.circular(12),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.park_rounded, color: AppTheme.primary),
+                            const SizedBox(width: 10),
+                            const Expanded(
+                              child: Text(
+                                'ARBOL TECNOLOGICO',
+                                style: TextStyle(
+                                  color: AppTheme.primary,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 0.6,
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              onPressed: () => Navigator.of(context).pop(),
+                              icon: const Icon(
+                                Icons.close_rounded,
+                                color: AppTheme.primary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Divider(height: 1, color: AppTheme.secondary),
+                      const Expanded(
+                        child: SingleChildScrollView(
+                          padding: EdgeInsets.all(16),
+                          child: Text(
+                            'Aqui se mostrara el arbol tecnologico.\n\n',
+                            style: TextStyle(color: AppTheme.text, height: 1.45),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
