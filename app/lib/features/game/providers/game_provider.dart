@@ -168,15 +168,32 @@ class GameNotifier extends Notifier<GameState> {
   }
 
   void actualizarDesdeServidor(Map<String, dynamic> jsonPartida) {
-    final mapaJson = jsonPartida['mapa'] as Map<String, dynamic>?;
-    final nuevoMapa = mapaJson != null
-        ? mapaJson.map((key, value) => MapEntry(key, TerritoryState.fromJson(value)))
-        : null;
+    // Partimos del estado actual y sobrescribimos solo lo que venga del payload.
+    // Asi evitamos perder datos en eventos parciales (ej: CAMBIO_FASE).
+    Map<String, TerritoryState> mapaActualizado = Map<String, TerritoryState>.from(state.mapa);
+    Map<String, PlayerState> jugadoresActualizados = Map<String, PlayerState>.from(state.jugadores);
 
-    final jugadoresJson = jsonPartida['jugadores'] as Map<String, dynamic>?;
-    final nuevosJugadores = jugadoresJson != null
-        ? jugadoresJson.map((key, value) => MapEntry(key, PlayerState.fromJson(value)))
-        : null;
+    final mapaJsonRaw = jsonPartida['mapa'];
+    if (mapaJsonRaw is Map) {
+      final mapaJson = Map<String, dynamic>.from(mapaJsonRaw);
+      mapaActualizado = mapaJson.map((key, value) {
+        final valueMap = value is Map
+            ? Map<String, dynamic>.from(value)
+            : <String, dynamic>{};
+        return MapEntry(key, TerritoryState.fromJson(valueMap));
+      });
+    }
+
+    final jugadoresJsonRaw = jsonPartida['jugadores'];
+    if (jugadoresJsonRaw is Map) {
+      final jugadoresJson = Map<String, dynamic>.from(jugadoresJsonRaw);
+      jugadoresActualizados = jugadoresJson.map((key, value) {
+        final valueMap = value is Map
+            ? Map<String, dynamic>.from(value)
+            : <String, dynamic>{};
+        return MapEntry(key, PlayerState.fromJson(valueMap));
+      });
+    }
 
     final faseRaw = jsonPartida['fase_actual'] 
         ?? jsonPartida['nueva_fase'] 
@@ -188,12 +205,58 @@ class GameNotifier extends Notifier<GameState> {
         ?? jsonPartida['jugador_activo'] 
         ?? state.turnoDe;
 
+    // CAMBIO_FASE suele venir sin bloque de jugadores. Si trae tropas_recibidas,
+    // las sumamos al jugador activo para que el HUD se actualice al instante.
+    final tropasRecibidasRaw = jsonPartida['tropas_recibidas'];
+    final tropasRecibidas = tropasRecibidasRaw is int
+        ? tropasRecibidasRaw
+        : (tropasRecibidasRaw is num
+            ? tropasRecibidasRaw.toInt()
+            : int.tryParse(tropasRecibidasRaw?.toString() ?? '') ?? 0);
+    final jugadorActivo = turnoRaw.toString();
+    final faseEsRefuerzo = faseNormalizada == 'refuerzo' || faseNormalizada == 'reclutamiento';
+
+    if (tropasRecibidas > 0 &&
+        faseEsRefuerzo &&
+        jugadorActivo.isNotEmpty &&
+        jugadoresJsonRaw == null) {
+      final jugadorPrevio = jugadoresActualizados[jugadorActivo];
+      final reservaPrevia = jugadorPrevio?.tropasReserva ?? 0;
+
+      jugadoresActualizados[jugadorActivo] = PlayerState(
+        tropasReserva: reservaPrevia + tropasRecibidas,
+        numeroJugador: jugadorPrevio?.numeroJugador ?? 1,
+      );
+    }
+
     state = state.copyWith(
-      mapa: nuevoMapa,
-      jugadores: nuevosJugadores,
+      mapa: mapaActualizado,
+      jugadores: Map<String, PlayerState>.from(jugadoresActualizados),
       turnoDe: turnoRaw.toString(),
       faseActual: faseNormalizada,
     );
+  }
+
+  void restarTropasReserva({
+    required String jugadorId,
+    required int tropas,
+  }) {
+    if (jugadorId.isEmpty || tropas <= 0) return;
+
+    final jugadorActual = state.jugadores[jugadorId];
+    if (jugadorActual == null) return;
+
+    final nuevaReserva = (jugadorActual.tropasReserva - tropas) < 0
+        ? 0
+        : (jugadorActual.tropasReserva - tropas);
+
+    final jugadoresActualizados = Map<String, PlayerState>.from(state.jugadores);
+    jugadoresActualizados[jugadorId] = PlayerState(
+      tropasReserva: nuevaReserva,
+      numeroJugador: jugadorActual.numeroJugador,
+    );
+
+    state = state.copyWith(jugadores: jugadoresActualizados);
   }
 
   void seleccionarComarca(String id, {List<String>? vecinosDelNodoTocado}) async {

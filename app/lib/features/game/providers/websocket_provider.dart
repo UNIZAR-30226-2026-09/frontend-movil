@@ -9,17 +9,56 @@ import 'game_provider.dart';
 class WebSocketState {
   final bool isConnected;
   final int? currentPartidaId;
+  final int versionEventoSistema;
+  final String? tipoEventoSistema;
+  final String? jugadorEventoSistema;
+  final String? ganadorEventoSistema;
+  final String? mensajeEventoSistema;
 
   WebSocketState({
     this.isConnected = false,
     this.currentPartidaId,
+    this.versionEventoSistema = 0,
+    this.tipoEventoSistema,
+    this.jugadorEventoSistema,
+    this.ganadorEventoSistema,
+    this.mensajeEventoSistema,
   });
+
+  WebSocketState copyWith({
+    bool? isConnected,
+    int? currentPartidaId,
+    int? versionEventoSistema,
+    String? tipoEventoSistema,
+    String? jugadorEventoSistema,
+    String? ganadorEventoSistema,
+    String? mensajeEventoSistema,
+    bool clearCurrentPartidaId = false,
+  }) {
+    return WebSocketState(
+      isConnected: isConnected ?? this.isConnected,
+      currentPartidaId: clearCurrentPartidaId
+          ? null
+          : (currentPartidaId ?? this.currentPartidaId),
+      versionEventoSistema: versionEventoSistema ?? this.versionEventoSistema,
+      tipoEventoSistema: tipoEventoSistema ?? this.tipoEventoSistema,
+      jugadorEventoSistema: jugadorEventoSistema ?? this.jugadorEventoSistema,
+      ganadorEventoSistema: ganadorEventoSistema ?? this.ganadorEventoSistema,
+      mensajeEventoSistema: mensajeEventoSistema ?? this.mensajeEventoSistema,
+    );
+  }
 }
 
 class WebSocketNotifier extends Notifier<WebSocketState> {
   late WebSocketService _wsService;
   AppLifecycleListener? _lifecycleListener;
   int? _currentPartidaId;
+
+  int? _toInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value?.toString() ?? '');
+  }
 
   @override
   WebSocketState build() {
@@ -30,7 +69,7 @@ class WebSocketNotifier extends Notifier<WebSocketState> {
       onPause: () {
         debugPrint('📱 App en Segundo Plano -> Cortando WS');
         _wsService.disconnect();
-        state = WebSocketState(isConnected: false, currentPartidaId: _currentPartidaId);
+        state = state.copyWith(isConnected: false, currentPartidaId: _currentPartidaId);
       },
       onResume: () {
         debugPrint('📱 App en Primer Plano -> Recuperando WS');
@@ -50,7 +89,7 @@ class WebSocketNotifier extends Notifier<WebSocketState> {
 
   Future<void> connectToPartida(int partidaId) async {
     _currentPartidaId = partidaId;
-    state = WebSocketState(isConnected: state.isConnected, currentPartidaId: _currentPartidaId);
+    state = state.copyWith(isConnected: state.isConnected, currentPartidaId: _currentPartidaId);
     await _reconnect();
   }
 
@@ -61,7 +100,7 @@ class WebSocketNotifier extends Notifier<WebSocketState> {
     if (user != null && user.username.isNotEmpty && _currentPartidaId != null) {
       _wsService.disconnect();
       _wsService.connect(user.username, _currentPartidaId!);
-      state = WebSocketState(isConnected: true, currentPartidaId: _currentPartidaId);
+      state = state.copyWith(isConnected: true, currentPartidaId: _currentPartidaId);
 
       _wsService.stream?.listen(
         (message) {
@@ -71,6 +110,18 @@ class WebSocketNotifier extends Notifier<WebSocketState> {
             if (data is! Map<String, dynamic>) return;
 
             final tipoEvento = data['tipo_evento'];
+
+            // Eventos de sistema para UI: eliminado y fin de partida
+            if (tipoEvento == 'JUGADOR_ELIMINADO' || tipoEvento == 'FIN_PARTIDA') {
+              state = state.copyWith(
+                tipoEventoSistema: tipoEvento.toString(),
+                jugadorEventoSistema: data['jugador']?.toString(),
+                ganadorEventoSistema: (data['ganador'] ?? data['jugador_ganador'])?.toString(),
+                mensajeEventoSistema: data['mensaje']?.toString(),
+                versionEventoSistema: state.versionEventoSistema + 1,
+              );
+              return;
+            }
 
             // --- ATAQUE_RESULTADO ---
             // Registramos para el popup Y actualizamos tropas de ambos territorios.
@@ -139,10 +190,31 @@ class WebSocketNotifier extends Notifier<WebSocketState> {
             // Actualización quirúrgica de un territorio — igual que MOVIMIENTO_CONQUISTA,
             // lo procesamos aquí y no lo dejamos pasar al bloque genérico.
             if (tipoEvento == 'TROPAS_COLOCADAS') {
-              ref.read(gameProvider.notifier).actualizarTerritorio(
-                territorioId: data['territorio'] as String,
-                units: data['tropas_totales_ahora'] as int,
-              );
+              final territorioId = data['territorio']?.toString();
+              final tropasTotalesAhora = _toInt(data['tropas_totales_ahora']);
+
+              if (territorioId != null && tropasTotalesAhora != null) {
+                ref.read(gameProvider.notifier).actualizarTerritorio(
+                  territorioId: territorioId,
+                  units: tropasTotalesAhora,
+                );
+              }
+
+              // Además descontamos la reserva del jugador que acaba de colocar.
+              // Esto hace que el HUD de tropas se refresque al momento.
+              final jugador = data['jugador']?.toString();
+              final tropasColocadas =
+                  _toInt(data['tropas_añadidas']) ??
+                  _toInt(data['tropas_anadidas']) ??
+                  _toInt(data['tropas']) ??
+                  0;
+
+              if (jugador != null && jugador.isNotEmpty && tropasColocadas > 0) {
+                ref.read(gameProvider.notifier).restarTropasReserva(
+                  jugadorId: jugador,
+                  tropas: tropasColocadas,
+                );
+              }
               return;
             }
 
@@ -171,12 +243,12 @@ class WebSocketNotifier extends Notifier<WebSocketState> {
         },
         onDone: () {
           debugPrint('⭕ Stream del WS cerrado por el servidor.');
-          state = WebSocketState(isConnected: false, currentPartidaId: _currentPartidaId);
+          state = state.copyWith(isConnected: false, currentPartidaId: _currentPartidaId);
           _wsService.disconnect();
         },
         onError: (e) {
           debugPrint('🔴 Error en Stream WS: $e');
-          state = WebSocketState(isConnected: false, currentPartidaId: _currentPartidaId);
+          state = state.copyWith(isConnected: false, currentPartidaId: _currentPartidaId);
           _wsService.disconnect();
         },
         cancelOnError: true,
@@ -196,9 +268,9 @@ class WebSocketNotifier extends Notifier<WebSocketState> {
 
   void disconnect() {
     _wsService.disconnect();
-    state = WebSocketState(
+    state = state.copyWith(
       isConnected: false,
-      currentPartidaId: null,
+      clearCurrentPartidaId: true,
     );
     _currentPartidaId = null;
   }

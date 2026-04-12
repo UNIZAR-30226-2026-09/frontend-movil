@@ -82,15 +82,6 @@ class _InteractiveGameMapState extends ConsumerState<InteractiveGameMap> {
     return null;
   }
 
-  int _getTropasJugadorActual(GameState gameState) {
-    // Si no hay jugador en turno, devuelve 0
-    if (gameState.turnoDe.isEmpty) return 0;
-
-    // Obtiene le tropas de reserva del jugador actual
-    final jugadorActual = gameState.jugadores[gameState.turnoDe];
-    return jugadorActual?.tropasReserva ?? 0;
-  }
-
   Offset _sceneToMap(Offset scenePoint, Size viewport) {
     final scaleX = viewport.width / MapPaths.viewBoxWidth;
     final scaleY = viewport.height / MapPaths.viewBoxHeight;
@@ -118,6 +109,13 @@ class _InteractiveGameMapState extends ConsumerState<InteractiveGameMap> {
   Widget build(BuildContext context) {
     // 5. ESCUCHAMOS EL ESTADO DEL JUEGO (T43)
     final gameState = ref.watch(gameProvider);
+    // El HUD de tropas se pinta con watch para repintar en cuanto cambie la reserva.
+    final tropasHud = ref.watch(
+      gameProvider.select((state) {
+        if (state.turnoDe.isEmpty) return 0;
+        return state.jugadores[state.turnoDe]?.tropasReserva ?? 0;
+      }),
+    );
     final panAllowed = _currentScale > widget.minScale + _eps;
 
     return Stack(
@@ -179,7 +177,7 @@ class _InteractiveGameMapState extends ConsumerState<InteractiveGameMap> {
           left: 0,
           right: 0,
           child: PanelControlGuerra(
-            tropas: _getTropasJugadorActual(gameState),
+            tropas: tropasHud,
             faseActual: gameState.faseActual,
             turnoDe: gameState.turnoDe,
             usernamePropio: ref.read(authProvider).user?.username ?? '',

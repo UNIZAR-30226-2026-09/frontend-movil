@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -23,6 +22,7 @@ class BatallaScreen extends ConsumerStatefulWidget {
 
 class _BatallaScreenState extends ConsumerState<BatallaScreen> {
   late final Future<GameMap> _mapFuture;
+  bool _partidaTerminada = false;
 
   String _formatName(String id) {
     return id
@@ -40,6 +40,119 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
   @override
   Widget build(BuildContext context) {
     ref.listen<GameState>(gameProvider, (previous, next) {
+      final miUsuario = ref.read(authProvider).user?.username;
+      if (miUsuario == null || miUsuario.isEmpty) return;
+
+      final faseActual = next.faseActual.toLowerCase();
+      final esFaseRefuerzo = faseActual == 'refuerzo' || faseActual == 'reclutamiento';
+      final esMiTurno = next.turnoDe == miUsuario;
+      final ahoraDebeAvisar = esFaseRefuerzo && esMiTurno;
+
+      final faseAnterior = previous?.faseActual.toLowerCase();
+      final antesEraFaseRefuerzo = faseAnterior == 'refuerzo' || faseAnterior == 'reclutamiento';
+      final antesEraMiTurno = previous?.turnoDe == miUsuario;
+      final antesDebiaAvisar = antesEraFaseRefuerzo && antesEraMiTurno;
+
+      // Solo avisamos al entrar en refuerzo/reclutamiento de nuestro turno.
+      if (!ahoraDebeAvisar || antesDebiaAvisar) return;
+
+      final tropasRecibidas = next.jugadores[miUsuario]?.tropasReserva ?? 0;
+
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!mounted) return;
+
+        await showDialog<void>(
+          context: context,
+          barrierDismissible: false,
+          builder: (dialogContext) {
+            return Dialog(
+              backgroundColor: Colors.transparent,
+              insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.brown[800],
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Has recibido $tropasRecibidas tropas',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.6,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.of(dialogContext).pop();
+                      },
+                      child: const Text(
+                        'Aceptar',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      });
+    });
+
+    ref.listen<WebSocketState>(webSocketProvider, (previous, next) {
+      final prevVersion = previous?.versionEventoSistema ?? 0;
+      if (next.versionEventoSistema <= prevVersion) return;
+
+      final tipo = next.tipoEventoSistema;
+      if (tipo == null) return;
+
+      final miUsuario = ref.read(authProvider).user?.username;
+
+      if (tipo == 'JUGADOR_ELIMINADO') {
+        _partidaTerminada = true;
+        final jugador = next.jugadorEventoSistema ?? 'Desconocido';
+        final esYo = miUsuario != null && jugador == miUsuario;
+
+        final titulo = esYo ? 'Has sido eliminado' : 'Jugador eliminado';
+        final mensaje = esYo
+            ? 'Te han eliminado de la partida. Volverás al lobby.'
+            : '$jugador ha sido eliminado de la partida. Regresarás al lobby.';
+
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _mostrarDialogoSistemaYSalir(titulo, mensaje);
+        });
+        return;
+      }
+
+      if (tipo == 'PARTIDA_FINALIZADA' || tipo == 'FIN_PARTIDA') {
+        _partidaTerminada = true;
+        final ganador = next.ganadorEventoSistema;
+        final esVictoria = miUsuario != null && ganador != null && ganador == miUsuario;
+
+        final titulo = esVictoria ? '¡Victoria!' : 'Fin de la partida';
+        final mensaje =
+            next.mensajeEventoSistema ??
+            (ganador != null
+                ? 'Ganador: $ganador. Regresarás al lobby.'
+                : 'La partida ha terminado. Regresarás al lobby.');
+
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _mostrarDialogoSistemaYSalir(titulo, mensaje);
+        });
+      }
+    });
+
+    ref.listen<GameState>(gameProvider, (previous, next) {
+      // Si ya terminó la partida, no lanzamos popups de combate.
+      if (_partidaTerminada) return;
+
       final prevVersion = previous?.versionResultadoAtaque ?? 0;
       final hayNuevoResultado =
           next.ultimoResultadoAtaque != null &&
@@ -160,6 +273,32 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
           );
         },
       ),
+    );
+  }
+
+  Future<void> _mostrarDialogoSistemaYSalir(String titulo, String mensaje) async {
+    if (!mounted) return;
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Text(titulo),
+          content: Text(mensaje),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                if (mounted) {
+                  context.go('/lobby');
+                }
+              },
+              child: const Text('Aceptar'),
+            ),
+          ],
+        );
+      },
     );
   }
 
