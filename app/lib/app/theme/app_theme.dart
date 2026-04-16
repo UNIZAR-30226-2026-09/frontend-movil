@@ -8,6 +8,8 @@ class AppTheme {
   static const primary = Color(0xFFC5A059);
   static const borderGoldVivo = Color(0xFFFFD13B);
   static const secondary = Color(0xFF8C6D3F);
+  static const borderGold = Color(0xFFC5A059);
+  static const borderBronze = Color(0xFF8C6D3F);
 
   static const text = Color(0xFFF0F0F5);
   static const textSecondary = Color(0xFFA0A0B0);

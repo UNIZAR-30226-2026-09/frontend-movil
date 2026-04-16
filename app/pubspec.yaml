@@ -75,6 +75,7 @@ flutter:
     - assets/svgs/
     - assets/data/
     - assets/json/
+    - assets/icons/
     - .env
 
 

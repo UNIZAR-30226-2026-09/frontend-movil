@@ -79,6 +79,7 @@ class GameState {
   final String? origenSeleccionado;
   final String? destinoSeleccionado;
   final bool esperandoDestino;
+  final bool vistaRegiones;
   final Set<String> comarcasResaltadas;
   final AttackResultState? ultimoResultadoAtaque;
   final int versionResultadoAtaque;
@@ -92,6 +93,7 @@ class GameState {
     this.origenSeleccionado,
     this.destinoSeleccionado,
     this.esperandoDestino = false,
+    this.vistaRegiones = false,
     this.comarcasResaltadas = const {},
     this.ultimoResultadoAtaque,
     this.versionResultadoAtaque = 0,
@@ -105,6 +107,7 @@ class GameState {
     String? origenSeleccionado,
     String? destinoSeleccionado,
     bool? esperandoDestino,
+    bool? vistaRegiones,
     Set<String>? comarcasResaltadas,
     AttackResultState? ultimoResultadoAtaque,
     int? versionResultadoAtaque,
@@ -120,6 +123,7 @@ class GameState {
       origenSeleccionado: clearOrigen ? null : (origenSeleccionado ?? this.origenSeleccionado),
       destinoSeleccionado: clearDestino ? null : (destinoSeleccionado ?? this.destinoSeleccionado),
       esperandoDestino: esperandoDestino ?? this.esperandoDestino,
+      vistaRegiones: vistaRegiones ?? this.vistaRegiones,
       comarcasResaltadas: comarcasResaltadas ?? this.comarcasResaltadas,
       ultimoResultadoAtaque: clearResultadoAtaque ? null : (ultimoResultadoAtaque ?? this.ultimoResultadoAtaque),
       versionResultadoAtaque: versionResultadoAtaque ?? this.versionResultadoAtaque,
@@ -327,6 +331,11 @@ class GameNotifier extends Notifier<GameState> {
 
   void limpiarResultadoAtaque() {
     state = state.copyWith(clearResultadoAtaque: true);
+  }
+
+  void toggleVistaRegiones() {
+    // Cambio rapido entre vista tactica (comarcas) y vista territorial (regiones).
+    state = state.copyWith(vistaRegiones: !state.vistaRegiones);
   }
 
   void avanzarFasePanel() {

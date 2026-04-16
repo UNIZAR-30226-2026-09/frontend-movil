@@ -12,6 +12,7 @@ import 'package:soberania/features/auth/providers/auth_provider.dart';
 import 'package:soberania/features/game/providers/websocket_provider.dart';
 import '../../../shared/api/dio_provider.dart';
 import '../../../shared/utils/color_utils.dart';
+import '../../../app/theme/app_theme.dart';
 
 typedef OnTapComarca = void Function(Comarca comarca);
 
@@ -109,6 +110,9 @@ class _InteractiveGameMapState extends ConsumerState<InteractiveGameMap> {
   Widget build(BuildContext context) {
     // 5. ESCUCHAMOS EL ESTADO DEL JUEGO (T43)
     final gameState = ref.watch(gameProvider);
+    final localPlayerId = ref.watch(
+      authProvider.select((auth) => auth.user?.username ?? ''),
+    );
     // El HUD de tropas se pinta con watch para repintar en cuanto cambie la reserva.
     final tropasHud = ref.watch(
       gameProvider.select((state) {
@@ -116,6 +120,7 @@ class _InteractiveGameMapState extends ConsumerState<InteractiveGameMap> {
         return state.jugadores[state.turnoDe]?.tropasReserva ?? 0;
       }),
     );
+
     final panAllowed = _currentScale > widget.minScale + _eps;
 
     return Stack(
@@ -155,10 +160,12 @@ class _InteractiveGameMapState extends ConsumerState<InteractiveGameMap> {
                     },
                     child: CustomPaint(
                       painter: MapPainter(
+                        regions: widget.gameMap.regions,
                         comarcas: widget.gameMap.comarcas,
                         comarcaPaths: widget.gameMap.comarcaPaths,
                         // 7. PASAMOS EL ESTADO COMPLETO AL PAINTER
                         gameState: gameState,
+                        localPlayerId: localPlayerId,
                         viewerScale: _currentScale,
                         coloresPorJugador: _buildColoresPorJugador(gameState),
                       ),
@@ -167,6 +174,47 @@ class _InteractiveGameMapState extends ConsumerState<InteractiveGameMap> {
                 ),
               );
             },
+          ),
+        ),
+
+        // Boton de capas del mapa. Va encima del HUD para cambiar rapido de vista.
+        Positioned(
+          left: 12,
+          bottom: 110,
+          child: SafeArea(
+            top: false,
+            right: false,
+            child: Material(
+              color: const Color(0xFF1C1B22),
+              shape: const CircleBorder(
+                side: BorderSide(
+                  color: AppTheme.borderGold,
+                  width: 2.0,
+                ),
+              ),
+              elevation: 6,
+              child: Padding(
+                padding: const EdgeInsets.all(4),
+                child: IconButton(
+                  tooltip: 'Cambiar vista del mapa',
+                  constraints: const BoxConstraints(
+                    minWidth: 64,
+                    minHeight: 64,
+                  ),
+                  padding: const EdgeInsets.all(8),
+                  icon: Image.asset(
+                    'assets/icons/map_icon.png',
+                    width: 38,
+                    height: 38,
+                    fit: BoxFit.contain,
+                  ),
+                  onPressed: () {
+                    // Toggle simple: vista comarcas <-> vista regiones.
+                    ref.read(gameProvider.notifier).toggleVistaRegiones();
+                  },
+                ),
+              ),
+            ),
           ),
         ),
 
@@ -180,7 +228,7 @@ class _InteractiveGameMapState extends ConsumerState<InteractiveGameMap> {
             tropas: tropasHud,
             faseActual: gameState.faseActual,
             turnoDe: gameState.turnoDe,
-            usernamePropio: ref.read(authProvider).user?.username ?? '',
+            usernamePropio: localPlayerId,
             // Construimos el mapa de colores dinámicamente desde el estado del juego.
             // Usamos una paleta fija por posición — cuando el backend mande el color
             // real de cada jugador, solo hay que cambiar esto.

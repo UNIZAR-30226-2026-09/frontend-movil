@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:ui' as ui;
 import '../config/map_data.dart';
 import '../models/territory_model.dart';
 import '../../../shared/utils/color_utils.dart';
@@ -6,11 +7,13 @@ import '../../game/providers/game_provider.dart';
 import '../../../app/theme/app_theme.dart';
 
 class MapPainter extends CustomPainter {
+  final List<Region> regions;
   final List<Comarca> comarcas;
   final Map<String, Path> comarcaPaths;
 
   // Estado completo del juego (Cerebro)
   final GameState gameState;
+  final String localPlayerId;
 
   final double viewerScale;
   final double labelMinScale;
@@ -18,9 +21,11 @@ class MapPainter extends CustomPainter {
   final Map<String, Color> coloresPorJugador;
 
   MapPainter({
+    required this.regions,
     required this.comarcas,
     required this.comarcaPaths,
     required this.gameState,
+    required this.localPlayerId,
     required this.viewerScale,
     required this.coloresPorJugador,
     this.labelMinScale = 2.0,
@@ -31,6 +36,156 @@ class MapPainter extends CustomPainter {
     if (username.isEmpty) return AppTheme.mapLandNeutral;
     // Usamos el mapa precalculado; si no hay color para el usuario, neutral.
     return coloresPorJugador[username] ?? AppTheme.mapLandNeutral;
+  }
+
+  Path? _buildRegionUnionPath(Region region) {
+    Path? unionPath;
+
+    for (final comarcaId in region.comarcasIds) {
+      final comarcaPath = comarcaPaths[comarcaId];
+      if (comarcaPath == null) {
+        continue;
+      }
+
+      if (unionPath == null) {
+        unionPath = Path.from(comarcaPath);
+        continue;
+      }
+
+      unionPath = Path.combine(ui.PathOperation.union, unionPath, comarcaPath);
+    }
+
+    return unionPath;
+  }
+
+  int _calcularControlLocalEnRegion(Region region) {
+    if (localPlayerId.isEmpty) {
+      return 0;
+    }
+
+    int controladas = 0;
+    for (final comarcaId in region.comarcasIds) {
+      final territoryData = gameState.mapa[comarcaId];
+      if (territoryData == null) {
+        continue;
+      }
+
+      if (territoryData.ownerId == localPlayerId) {
+        controladas += 1;
+      }
+    }
+
+    return controladas;
+  }
+
+  void _paintVistaRegiones(
+    Canvas canvas,
+    Paint fillPaint,
+    Paint baseStroke,
+    Paint selectedStroke,
+    double scale,
+  ) {
+    final regionStroke = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.0
+      ..color = AppTheme.secondary;
+
+    final innerStroke = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.8
+      ..color = AppTheme.secondary.withValues(alpha: 0.55);
+
+    final textPainter = TextPainter(
+      textAlign: TextAlign.center,
+      textDirection: TextDirection.ltr,
+      maxLines: 2,
+    );
+
+    final fontWorld = 12.0 / (scale * viewerScale);
+    final radius = 6.0 / (scale * viewerScale);
+    final padX = 6.0 / (scale * viewerScale);
+    final padY = 4.0 / (scale * viewerScale);
+
+    for (final region in regions) {
+      final regionPath = _buildRegionUnionPath(region);
+      if (regionPath == null) {
+        continue;
+      }
+
+      // La vista de regiones siempre usa el color base del tema, no color de jugador.
+      fillPaint.color = ColorUtils.getColorRegion(region.id);
+      canvas.drawPath(regionPath, fillPaint);
+      canvas.drawPath(regionPath, regionStroke);
+
+      final int total = region.comarcasIds.length;
+      final int controladas = _calcularControlLocalEnRegion(region);
+
+      int porcentaje = 0;
+      if (total > 0) {
+        porcentaje = ((controladas * 100) / total).round();
+      }
+
+      final textoRegion = '${region.name}\n$controladas/$total - $porcentaje%';
+      textPainter.text = TextSpan(
+        text: textoRegion,
+        style: TextStyle(
+          color: AppTheme.text,
+          fontSize: fontWorld,
+          fontWeight: FontWeight.w800,
+          height: 1.15,
+        ),
+      );
+      textPainter.layout(maxWidth: 180.0 / (scale * viewerScale));
+
+      final center = regionPath.getBounds().center;
+      final textOffset = Offset(
+        center.dx - textPainter.width / 2,
+        center.dy - textPainter.height / 2,
+      );
+
+      final textBgRect = Rect.fromLTWH(
+        textOffset.dx - padX,
+        textOffset.dy - padY,
+        textPainter.width + padX * 2,
+        textPainter.height + padY * 2,
+      );
+
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(textBgRect, Radius.circular(radius)),
+        Paint()..color = AppTheme.bg.withValues(alpha: 0.58),
+      );
+      textPainter.paint(canvas, textOffset);
+    }
+
+    // Dejamos los bordes internos de comarca para no perder lectura del terreno.
+    for (final comarca in comarcas) {
+      final path = comarcaPaths[comarca.id];
+      if (path == null) {
+        continue;
+      }
+
+      canvas.drawPath(path, innerStroke);
+    }
+
+    // Los resaltados de ataque siguen por encima para no romper la jugabilidad.
+    for (final comarca in comarcas) {
+      final path = comarcaPaths[comarca.id];
+      if (path == null) {
+        continue;
+      }
+
+      if (comarca.id == gameState.origenSeleccionado) {
+        canvas.drawPath(path, selectedStroke);
+        continue;
+      }
+
+      if (gameState.comarcasResaltadas.contains(comarca.id)) {
+        canvas.drawPath(path, selectedStroke);
+        continue;
+      }
+
+      canvas.drawPath(path, baseStroke);
+    }
   }
 
   @override
@@ -62,6 +217,13 @@ class MapPainter extends CustomPainter {
     canvas.translate(dx, dy - extraUp);
     canvas.scale(scale);
     canvas.translate(-MapPaths.viewBoxX, -MapPaths.viewBoxY);
+
+    final bool mostrarVistaRegiones = gameState.vistaRegiones;
+    if (mostrarVistaRegiones) {
+      _paintVistaRegiones(canvas, fillPaint, baseStroke, selectedStroke, scale);
+      canvas.restore();
+      return;
+    }
 
     // 1. PINTADO DEL COLOR DE FONDO (Dueños)
     for (final comarca in comarcas) {
@@ -189,6 +351,8 @@ class MapPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant MapPainter oldDelegate) =>
       oldDelegate.gameState != gameState ||
+      oldDelegate.localPlayerId != localPlayerId ||
       oldDelegate.viewerScale != viewerScale ||
-      oldDelegate.comarcas != comarcas;
+      oldDelegate.comarcas != comarcas ||
+      oldDelegate.regions != regions;
 }
