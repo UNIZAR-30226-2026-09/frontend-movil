@@ -8,6 +8,8 @@ import 'package:soberania/features/game/providers/websocket_provider.dart';
 import 'package:soberania/features/map/services/map_loader.dart';
 import 'package:soberania/features/map/widgets/action_panel.dart';
 import 'package:soberania/features/map/widgets/interactive_game_map.dart';
+import 'package:soberania/features/game/data/tech_tree_data.dart';
+import 'package:soberania/features/game/widgets/tech_tree_view.dart';
 import '../../../app/theme/app_theme.dart';
 import '../../../shared/api/dio_provider.dart';
 
@@ -317,8 +319,8 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
           child: SafeArea(
             child: Center(
               child: SizedBox(
-                width: media.size.width - 24,
-                height: availableHeight * 0.82,
+                width: media.size.width - 8,
+                height: availableHeight * 0.9,
                 child: Container(
                   decoration: BoxDecoration(
                     color: AppTheme.surface,
@@ -332,50 +334,25 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
                       ),
                     ],
                   ),
-                  child: Column(
+                  child: Stack(
                     children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 12,
-                        ),
-                        decoration: const BoxDecoration(
-                          color: AppTheme.bg,
-                          borderRadius: BorderRadius.vertical(
-                            top: Radius.circular(12),
+                      Positioned.fill(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(4, 4, 4, 6),
+                          child: TechTreeView(
+                            nodes: TechTreeData.nodes,
+                            canvasSize: TechTreeData.canvasSize,
                           ),
                         ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.park_rounded, color: AppTheme.primary),
-                            const SizedBox(width: 10),
-                            const Expanded(
-                              child: Text(
-                                'ARBOL TECNOLOGICO',
-                                style: TextStyle(
-                                  color: AppTheme.primary,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 0.6,
-                                ),
-                              ),
-                            ),
-                            IconButton(
-                              onPressed: () => Navigator.of(context).pop(),
-                              icon: const Icon(
-                                Icons.close_rounded,
-                                color: AppTheme.primary,
-                              ),
-                            ),
-                          ],
-                        ),
                       ),
-                      const Divider(height: 1, color: AppTheme.secondary),
-                      const Expanded(
-                        child: SingleChildScrollView(
-                          padding: EdgeInsets.all(16),
-                          child: Text(
-                            'Aqui se mostrara el arbol tecnologico.\n\n',
-                            style: TextStyle(color: AppTheme.text, height: 1.45),
+                      Positioned(
+                        top: 4,
+                        right: 4,
+                        child: IconButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          icon: const Icon(
+                            Icons.close_rounded,
+                            color: AppTheme.primary,
                           ),
                         ),
                       ),

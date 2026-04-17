@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soberania/features/auth/providers/auth_provider.dart';
 import '../../../app/router/app_routes.dart';
-import '../widgets/app_bottom_nav_bar.dart';
 import '../widgets/home_background.dart';
 import '../widgets/home_action_button.dart';
 import '../widgets/home_profile_card.dart';

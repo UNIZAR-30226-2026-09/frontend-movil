@@ -47,7 +47,7 @@ class _EditarPerfilPanelState extends ConsumerState<EditarPerfilPanel> {
     final email = _emailController.text.trim();
     final newPassword = _newPasswordController.text.trim();
 
-    final emailActual = ref.read(authProvider).user?.email?.trim() ?? '';
+    final emailActual = ref.read(authProvider).user?.email.trim() ?? '';
     final emailCambiado = email.isNotEmpty && email != emailActual;
     final passwordInformada = newPassword.isNotEmpty;
 

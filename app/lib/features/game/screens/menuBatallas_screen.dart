@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../home/widgets/app_bottom_nav_bar.dart';
 import '../../home/widgets/home_background.dart';
 import '../../home/widgets/home_action_button.dart';
 import '../widgets/partida_rapida_panel.dart';

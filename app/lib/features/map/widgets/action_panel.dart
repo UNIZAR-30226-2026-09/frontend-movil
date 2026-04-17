@@ -149,7 +149,7 @@ class _ActionPanelState extends ConsumerState<ActionPanel> {
                     ),
                     ElevatedButton.icon(
                       onPressed: gameState.faseActual == 'refuerzo' && esMiTurno && origenSeleccionado != null
-                          ? () => _mostrarDialogoRefuerzo(context, ref, origenSeleccionado!)
+                          ? () => _mostrarDialogoRefuerzo(context, ref, origenSeleccionado)
                           : null,
                       icon: const Icon(Icons.add_box),
                       label: const Text('Reforzar'),
