@@ -25,11 +25,32 @@ class BatallaScreen extends ConsumerStatefulWidget {
 class _BatallaScreenState extends ConsumerState<BatallaScreen> {
   late final Future<GameMap> _mapFuture;
   bool _partidaTerminada = false;
+  bool _cargandoCatalogoTecnologias = false;
+  Map<String, int> _techPrices = const <String, int>{};
+  Map<String, String> _techDescriptions = const <String, String>{};
+  Map<String, String> _techNames = const <String, String>{};
+
+  void _onResearchPressed(String techId, int cost) {
+    final partidoId = ref.read(webSocketProvider).currentPartidaId;
+    final partidaTexto = partidoId == null ? '' : ' (partida $partidoId)';
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Investigar "$techId" cuesta $cost.$partidaTexto La compra real se activara cuando backend publique el endpoint de investigacion.',
+        ),
+      ),
+    );
+  }
 
   String _formatName(String id) {
     return id
         .split('_')
-        .map((word) => word.isEmpty ? '' : '${word[0].toUpperCase()}${word.substring(1)}')
+        .map(
+          (word) => word.isEmpty
+              ? ''
+              : '${word[0].toUpperCase()}${word.substring(1)}',
+        )
         .join(' ');
   }
 
@@ -37,6 +58,168 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
   void initState() {
     super.initState();
     _mapFuture = MapLoader.loadMap();
+
+    // Precargamos el catalogo para que el modal abra con datos frescos
+    // cuando el backend expone precios/descripciones dinamicos.
+    Future<void>.microtask(_cargarCatalogoTecnologias);
+  }
+
+  int? _toInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value?.toString() ?? '');
+  }
+
+  String _normalizeTechId(String raw) {
+    final normalized = raw
+        .trim()
+        .toLowerCase()
+        .replaceAll(RegExp(r'[\s\-]+'), '_')
+        .replaceAll(RegExp(r'[^a-z0-9_]'), '');
+
+    return normalized.replaceAll(RegExp(r'_+'), '_');
+  }
+
+  Map<String, int> _parsePrecios(Map<String, dynamic> data) {
+    final precios = <String, int>{};
+    final raw = data['precios'];
+    if (raw is! Map) return precios;
+
+    for (final entry in raw.entries) {
+      final id = _normalizeTechId(entry.key.toString());
+      if (id.isEmpty) continue;
+      final cost = _toInt(entry.value);
+      if (cost != null) {
+        precios[id] = cost;
+      }
+    }
+
+    return precios;
+  }
+
+  Map<String, dynamic>? _extractCatalogPayload(dynamic raw) {
+    if (raw is! Map) return null;
+
+    final root = Map<String, dynamic>.from(raw);
+    if (root.containsKey('precios') || root.containsKey('arbol')) {
+      return root;
+    }
+
+    final data = root['data'];
+    if (data is Map) {
+      final nested = Map<String, dynamic>.from(data);
+      if (nested.containsKey('precios') || nested.containsKey('arbol')) {
+        return nested;
+      }
+    }
+
+    final tecnologias = root['tecnologias'];
+    if (tecnologias is Map) {
+      return <String, dynamic>{
+        'arbol': Map<String, dynamic>.from(tecnologias),
+        'precios': root['precios'],
+      };
+    }
+
+    return null;
+  }
+
+  ({
+    Map<String, int> prices,
+    Map<String, String> names,
+    Map<String, String> descriptions,
+  })
+  _parseArbol(Map<String, dynamic> data) {
+    final prices = <String, int>{};
+    final names = <String, String>{};
+    final descriptions = <String, String>{};
+    final raw = data['arbol'];
+
+    void parseNode(String id, Map<String, dynamic> nodeData) {
+      final key = _normalizeTechId(id);
+      if (key.isEmpty) return;
+
+      final name = nodeData['nombre'] ?? nodeData['name'] ?? nodeData['titulo'];
+      if (name is String && name.trim().isNotEmpty) {
+        names[key] = name.trim();
+      }
+
+      final description =
+          nodeData['descripcion'] ??
+          nodeData['description'] ??
+          nodeData['detalle'];
+      if (description is String && description.trim().isNotEmpty) {
+        descriptions[key] = description.trim();
+      }
+
+      final cost = _toInt(
+        nodeData['coste'] ?? nodeData['costo'] ?? nodeData['cost'],
+      );
+      if (cost != null) {
+        prices[key] = cost;
+      }
+    }
+
+    if (raw is Map) {
+      for (final entry in raw.entries) {
+        if (entry.value is! Map) continue;
+        parseNode(
+          entry.key.toString(),
+          Map<String, dynamic>.from(entry.value as Map),
+        );
+      }
+    } else if (raw is List) {
+      for (final item in raw) {
+        if (item is! Map) continue;
+        final asMap = Map<String, dynamic>.from(item);
+        final idRaw =
+            (asMap['id'] ?? asMap['clave'] ?? asMap['key'])?.toString() ?? '';
+        final id = _normalizeTechId(idRaw);
+        if (id.isEmpty) continue;
+        parseNode(id, asMap);
+      }
+    }
+
+    return (prices: prices, names: names, descriptions: descriptions);
+  }
+
+  Future<void> _cargarCatalogoTecnologias() async {
+    if (_cargandoCatalogoTecnologias) return;
+    _cargandoCatalogoTecnologias = true;
+
+    try {
+      final dio = ref.read(dioProvider);
+      final response = await dio.get('/partidas/tecnologias');
+
+      final data = _extractCatalogPayload(response.data);
+      if (data == null) return;
+
+      final precios = _parsePrecios(data);
+      final arbol = _parseArbol(data);
+
+      if (!mounted) return;
+      setState(() {
+        final mergedPrices = <String, int>{...precios, ...arbol.prices};
+        if (mergedPrices.isNotEmpty) {
+          _techPrices = mergedPrices;
+        }
+        if (arbol.names.isNotEmpty) {
+          _techNames = arbol.names;
+        }
+        if (arbol.descriptions.isNotEmpty) {
+          _techDescriptions = arbol.descriptions;
+        }
+      });
+    } on DioException catch (e) {
+      // En main puede no existir este endpoint: mantenemos fallback local.
+      debugPrint(
+        'No se pudo cargar catalogo de tecnologias: ${e.response?.statusCode} ${e.message}',
+      );
+    } catch (e) {
+      debugPrint('Error parseando catalogo de tecnologias: $e');
+    } finally {
+      _cargandoCatalogoTecnologias = false;
+    }
   }
 
   @override
@@ -46,12 +229,14 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
       if (miUsuario == null || miUsuario.isEmpty) return;
 
       final faseActual = next.faseActual.toLowerCase();
-      final esFaseRefuerzo = faseActual == 'refuerzo' || faseActual == 'reclutamiento';
+      final esFaseRefuerzo =
+          faseActual == 'refuerzo' || faseActual == 'reclutamiento';
       final esMiTurno = next.turnoDe == miUsuario;
       final ahoraDebeAvisar = esFaseRefuerzo && esMiTurno;
 
       final faseAnterior = previous?.faseActual.toLowerCase();
-      final antesEraFaseRefuerzo = faseAnterior == 'refuerzo' || faseAnterior == 'reclutamiento';
+      final antesEraFaseRefuerzo =
+          faseAnterior == 'refuerzo' || faseAnterior == 'reclutamiento';
       final antesEraMiTurno = previous?.turnoDe == miUsuario;
       final antesDebiaAvisar = antesEraFaseRefuerzo && antesEraMiTurno;
 
@@ -75,7 +260,10 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
                   color: Colors.brown[800],
                   borderRadius: BorderRadius.circular(16),
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 18,
+                ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -136,7 +324,8 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
       if (tipo == 'PARTIDA_FINALIZADA' || tipo == 'FIN_PARTIDA') {
         _partidaTerminada = true;
         final ganador = next.ganadorEventoSistema;
-        final esVictoria = miUsuario != null && ganador != null && ganador == miUsuario;
+        final esVictoria =
+            miUsuario != null && ganador != null && ganador == miUsuario;
 
         final titulo = esVictoria ? '¡Victoria!' : 'Fin de la partida';
         final mensaje =
@@ -220,10 +409,12 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
               InteractiveGameMap(
                 gameMap: snapshot.data!,
                 onTapComarca: (c) {
-                  ref.read(gameProvider.notifier).seleccionarComarca(
-                    c.id,
-                    vecinosDelNodoTocado: c.adjacentTo,
-                  );
+                  ref
+                      .read(gameProvider.notifier)
+                      .seleccionarComarca(
+                        c.id,
+                        vecinosDelNodoTocado: c.adjacentTo,
+                      );
                 },
                 minScale: 1.0,
                 maxScale: 5.0,
@@ -278,7 +469,10 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
     );
   }
 
-  Future<void> _mostrarDialogoSistemaYSalir(String titulo, String mensaje) async {
+  Future<void> _mostrarDialogoSistemaYSalir(
+    String titulo,
+    String mensaje,
+  ) async {
     if (!mounted) return;
 
     await showDialog<void>(
@@ -305,6 +499,14 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
   }
 
   Future<void> _mostrarArbolTecnologicoModal(BuildContext context) async {
+    await _cargarCatalogoTecnologias();
+
+    final gameState = ref.read(gameProvider);
+    final miUsuario = ref.read(authProvider).user?.username ?? '';
+    final miEstadoJugador = gameState.jugadores[miUsuario];
+    final tecnologiasCompradas =
+        miEstadoJugador?.tecnologiasCompradas ?? const <String>{};
+
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -342,6 +544,11 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
                           child: TechTreeView(
                             nodes: TechTreeData.nodes,
                             canvasSize: TechTreeData.canvasSize,
+                            backendPrices: _techPrices,
+                            backendDescriptions: _techDescriptions,
+                            backendNames: _techNames,
+                            ownedTechIds: tecnologiasCompradas,
+                            onResearchPressed: _onResearchPressed,
                           ),
                         ),
                       ),
@@ -367,7 +574,9 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
     );
   }
 
-  Future<void> _mostrarDialogoMoverConquista(String territorioConquistado) async {
+  Future<void> _mostrarDialogoMoverConquista(
+    String territorioConquistado,
+  ) async {
     final origen = ref.read(gameProvider).origenSeleccionado;
     final tropasOrigen = ref.read(gameProvider).mapa[origen]?.units ?? 1;
 
@@ -384,11 +593,15 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
         return StatefulBuilder(
           builder: (_, setDialogState) {
             return AlertDialog(
-              title: Text('¡${_formatName(territorioConquistado)} conquistado!'),
+              title: Text(
+                '¡${_formatName(territorioConquistado)} conquistado!',
+              ),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text('Mueve tropas al nuevo territorio para consolidar la conquista.'),
+                  const Text(
+                    'Mueve tropas al nuevo territorio para consolidar la conquista.',
+                  ),
                   const SizedBox(height: 16),
                   Text(
                     '$tropasAMover',
@@ -409,7 +622,8 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
                           value: tropasAMover.toDouble(),
                           min: 1,
                           max: maxMover.toDouble(),
-                          onChanged: (v) => setDialogState(() => tropasAMover = v.toInt()),
+                          onChanged: (v) =>
+                              setDialogState(() => tropasAMover = v.toInt()),
                         ),
                       ),
                       IconButton(
@@ -425,7 +639,9 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
               actions: [
                 ElevatedButton(
                   onPressed: () async {
-                    final partidaId = ref.read(webSocketProvider).currentPartidaId;
+                    final partidaId = ref
+                        .read(webSocketProvider)
+                        .currentPartidaId;
                     if (partidaId == null) return;
 
                     try {

@@ -2,10 +2,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../map/services/graph_service.dart';
 import '../../map/services/map_loader.dart';
 
+String _normalizeTechId(String raw) {
+  final normalized = raw
+      .trim()
+      .toLowerCase()
+      .replaceAll(RegExp(r'[\s\-]+'), '_')
+      .replaceAll(RegExp(r'[^a-z0-9_]'), '');
+
+  return normalized.replaceAll(RegExp(r'_+'), '_');
+}
+
 // 1. Proveedor del Grafo (Se queda igual, carga la topología base del mapa)
 final graphServiceProvider = FutureProvider<GraphService>((ref) async {
-  final gameData = await MapLoader.loadMap(); 
-  return GraphService(gameData.comarcas); 
+  final gameData = await MapLoader.loadMap();
+  return GraphService(gameData.comarcas);
 });
 
 // --- CLASES PARA MAPEAR EL JSON DE FASTAPI ---
@@ -29,13 +39,52 @@ class PlayerState {
   // El backend manda numero_jugador (1-4) para asignar colores de forma
   // consistente entre todos los clientes sin depender del orden de lista.
   final int numeroJugador;
+  final Set<String> tecnologiasCompradas;
 
-  PlayerState({required this.tropasReserva, this.numeroJugador = 1});
+  PlayerState({
+    required this.tropasReserva,
+    this.numeroJugador = 1,
+    this.tecnologiasCompradas = const <String>{},
+  });
+
+  static Set<String> _parseTecnologias(dynamic raw) {
+    if (raw == null) return const <String>{};
+
+    if (raw is List) {
+      return raw
+          .map((item) => _normalizeTechId(item.toString()))
+          .where((id) => id.isNotEmpty)
+          .toSet();
+    }
+
+    if (raw is Map) {
+      final output = <String>{};
+      for (final entry in raw.entries) {
+        final id = _normalizeTechId(entry.key.toString());
+        if (id.isEmpty) continue;
+
+        final value = entry.value;
+        final unlocked = value == true || value == 1 || value == '1';
+        if (unlocked) {
+          output.add(id);
+        }
+      }
+      return output;
+    }
+
+    return const <String>{};
+  }
 
   factory PlayerState.fromJson(Map<String, dynamic> json) {
     return PlayerState(
       tropasReserva: json['tropas_reserva'] ?? 0,
       numeroJugador: json['numero_jugador'] ?? 1,
+      tecnologiasCompradas: _parseTecnologias(
+        json['tecnologias_compradas'] ??
+            json['tecnologias'] ??
+            json['techs'] ??
+            json['ataques_especiales'],
+      ),
     );
   }
 }
@@ -84,7 +133,7 @@ class GameState {
   final AttackResultState? ultimoResultadoAtaque;
   final int versionResultadoAtaque;
 
-  final Map<String, TerritoryState> mapa; 
+  final Map<String, TerritoryState> mapa;
   final Map<String, PlayerState> jugadores;
   final String turnoDe;
   final String faseActual;
@@ -115,18 +164,25 @@ class GameState {
     Map<String, PlayerState>? jugadores,
     String? turnoDe,
     String? faseActual,
-    bool clearOrigen = false, 
+    bool clearOrigen = false,
     bool clearDestino = false,
     bool clearResultadoAtaque = false,
   }) {
     return GameState(
-      origenSeleccionado: clearOrigen ? null : (origenSeleccionado ?? this.origenSeleccionado),
-      destinoSeleccionado: clearDestino ? null : (destinoSeleccionado ?? this.destinoSeleccionado),
+      origenSeleccionado: clearOrigen
+          ? null
+          : (origenSeleccionado ?? this.origenSeleccionado),
+      destinoSeleccionado: clearDestino
+          ? null
+          : (destinoSeleccionado ?? this.destinoSeleccionado),
       esperandoDestino: esperandoDestino ?? this.esperandoDestino,
       vistaRegiones: vistaRegiones ?? this.vistaRegiones,
       comarcasResaltadas: comarcasResaltadas ?? this.comarcasResaltadas,
-      ultimoResultadoAtaque: clearResultadoAtaque ? null : (ultimoResultadoAtaque ?? this.ultimoResultadoAtaque),
-      versionResultadoAtaque: versionResultadoAtaque ?? this.versionResultadoAtaque,
+      ultimoResultadoAtaque: clearResultadoAtaque
+          ? null
+          : (ultimoResultadoAtaque ?? this.ultimoResultadoAtaque),
+      versionResultadoAtaque:
+          versionResultadoAtaque ?? this.versionResultadoAtaque,
       mapa: mapa ?? this.mapa,
       jugadores: jugadores ?? this.jugadores,
       turnoDe: turnoDe ?? this.turnoDe,
@@ -153,7 +209,9 @@ class GameNotifier extends Notifier<GameState> {
   void agregarJugador(String username) {
     if (state.jugadores.containsKey(username)) return;
 
-    final jugadoresActualizados = Map<String, PlayerState>.from(state.jugadores);
+    final jugadoresActualizados = Map<String, PlayerState>.from(
+      state.jugadores,
+    );
     jugadoresActualizados[username] = PlayerState(tropasReserva: 0);
     state = state.copyWith(jugadores: jugadoresActualizados);
   }
@@ -174,8 +232,10 @@ class GameNotifier extends Notifier<GameState> {
   void actualizarDesdeServidor(Map<String, dynamic> jsonPartida) {
     // Partimos del estado actual y sobrescribimos solo lo que venga del payload.
     // Asi evitamos perder datos en eventos parciales (ej: CAMBIO_FASE).
-    Map<String, TerritoryState> mapaActualizado = Map<String, TerritoryState>.from(state.mapa);
-    Map<String, PlayerState> jugadoresActualizados = Map<String, PlayerState>.from(state.jugadores);
+    Map<String, TerritoryState> mapaActualizado =
+        Map<String, TerritoryState>.from(state.mapa);
+    Map<String, PlayerState> jugadoresActualizados =
+        Map<String, PlayerState>.from(state.jugadores);
 
     final mapaJsonRaw = jsonPartida['mapa'];
     if (mapaJsonRaw is Map) {
@@ -199,15 +259,17 @@ class GameNotifier extends Notifier<GameState> {
       });
     }
 
-    final faseRaw = jsonPartida['fase_actual'] 
-        ?? jsonPartida['nueva_fase'] 
-        ?? state.faseActual;
+    final faseRaw =
+        jsonPartida['fase_actual'] ??
+        jsonPartida['nueva_fase'] ??
+        state.faseActual;
     final faseNormalizada = faseRaw.toString().toLowerCase();
 
-    final turnoRaw = jsonPartida['turno_actual'] 
-        ?? jsonPartida['turno_de'] 
-        ?? jsonPartida['jugador_activo'] 
-        ?? state.turnoDe;
+    final turnoRaw =
+        jsonPartida['turno_actual'] ??
+        jsonPartida['turno_de'] ??
+        jsonPartida['jugador_activo'] ??
+        state.turnoDe;
 
     // CAMBIO_FASE suele venir sin bloque de jugadores. Si trae tropas_recibidas,
     // las sumamos al jugador activo para que el HUD se actualice al instante.
@@ -215,10 +277,11 @@ class GameNotifier extends Notifier<GameState> {
     final tropasRecibidas = tropasRecibidasRaw is int
         ? tropasRecibidasRaw
         : (tropasRecibidasRaw is num
-            ? tropasRecibidasRaw.toInt()
-            : int.tryParse(tropasRecibidasRaw?.toString() ?? '') ?? 0);
+              ? tropasRecibidasRaw.toInt()
+              : int.tryParse(tropasRecibidasRaw?.toString() ?? '') ?? 0);
     final jugadorActivo = turnoRaw.toString();
-    final faseEsRefuerzo = faseNormalizada == 'refuerzo' || faseNormalizada == 'reclutamiento';
+    final faseEsRefuerzo =
+        faseNormalizada == 'refuerzo' || faseNormalizada == 'reclutamiento';
 
     if (tropasRecibidas > 0 &&
         faseEsRefuerzo &&
@@ -230,6 +293,8 @@ class GameNotifier extends Notifier<GameState> {
       jugadoresActualizados[jugadorActivo] = PlayerState(
         tropasReserva: reservaPrevia + tropasRecibidas,
         numeroJugador: jugadorPrevio?.numeroJugador ?? 1,
+        tecnologiasCompradas:
+            jugadorPrevio?.tecnologiasCompradas ?? const <String>{},
       );
     }
 
@@ -241,10 +306,7 @@ class GameNotifier extends Notifier<GameState> {
     );
   }
 
-  void restarTropasReserva({
-    required String jugadorId,
-    required int tropas,
-  }) {
+  void restarTropasReserva({required String jugadorId, required int tropas}) {
     if (jugadorId.isEmpty || tropas <= 0) return;
 
     final jugadorActual = state.jugadores[jugadorId];
@@ -254,22 +316,29 @@ class GameNotifier extends Notifier<GameState> {
         ? 0
         : (jugadorActual.tropasReserva - tropas);
 
-    final jugadoresActualizados = Map<String, PlayerState>.from(state.jugadores);
+    final jugadoresActualizados = Map<String, PlayerState>.from(
+      state.jugadores,
+    );
     jugadoresActualizados[jugadorId] = PlayerState(
       tropasReserva: nuevaReserva,
       numeroJugador: jugadorActual.numeroJugador,
+      tecnologiasCompradas: jugadorActual.tecnologiasCompradas,
     );
 
     state = state.copyWith(jugadores: jugadoresActualizados);
   }
 
-  void seleccionarComarca(String id, {List<String>? vecinosDelNodoTocado}) async {
+  void seleccionarComarca(
+    String id, {
+    List<String>? vecinosDelNodoTocado,
+  }) async {
     if (state.esperandoDestino) {
       if (state.origenSeleccionado != null && id != state.origenSeleccionado) {
         // En fortificacion no hace falta ser vecino — el backend valida el camino con NetworkX
         final faseActual = _normalizarFase(state.faseActual);
         final esFortificacion = faseActual == 'fortificacion';
-        final esVecinoDelOrigen = vecinosDelNodoTocado?.contains(state.origenSeleccionado) ?? false;
+        final esVecinoDelOrigen =
+            vecinosDelNodoTocado?.contains(state.origenSeleccionado) ?? false;
 
         if (!esFortificacion && !esVecinoDelOrigen) {
           return;
@@ -293,10 +362,10 @@ class GameNotifier extends Notifier<GameState> {
       );
       return;
     }
-    
+
     final graphService = await ref.read(graphServiceProvider.future);
     final alcanzables = graphService.obtenerComarcasEnRango(id, 1);
-    
+
     state = state.copyWith(
       origenSeleccionado: id,
       clearDestino: true,
@@ -308,10 +377,7 @@ class GameNotifier extends Notifier<GameState> {
   void prepararAtaque() {
     if (state.origenSeleccionado == null) return;
 
-    state = state.copyWith(
-      esperandoDestino: true,
-      clearDestino: true,
-    );
+    state = state.copyWith(esperandoDestino: true, clearDestino: true);
   }
 
   void cancelarAtaque() {
@@ -351,7 +417,10 @@ class GameNotifier extends Notifier<GameState> {
     state = state.copyWith(faseActual: _faseOrden[nextIndex]);
   }
 
-  void actualizarTerritorio({required String territorioId, required int units}) {
+  void actualizarTerritorio({
+    required String territorioId,
+    required int units,
+  }) {
     final mapaActual = Map<String, TerritoryState>.from(state.mapa);
     final territorioActual = mapaActual[territorioId];
     if (territorioActual == null) return;
@@ -370,4 +439,6 @@ class GameNotifier extends Notifier<GameState> {
 }
 
 // 4. Proveedor Global
-final gameProvider = NotifierProvider<GameNotifier, GameState>(() => GameNotifier());
+final gameProvider = NotifierProvider<GameNotifier, GameState>(
+  () => GameNotifier(),
+);
