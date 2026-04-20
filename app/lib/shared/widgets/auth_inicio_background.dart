@@ -14,7 +14,7 @@ class AuthInicioBackground extends StatelessWidget {
       children: [
         Positioned.fill(
           child: Image.asset(
-            'assets/images/fondo-login.png',
+            'assets/images/fondoInicioSvg.png',
             fit: BoxFit.cover,
             alignment: Alignment.topCenter,
           ),
