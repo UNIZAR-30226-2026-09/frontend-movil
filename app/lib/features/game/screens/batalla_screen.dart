@@ -14,9 +14,10 @@ import '../../../app/theme/app_theme.dart';
 import '../../../shared/api/dio_provider.dart';
 
 class BatallaScreen extends ConsumerStatefulWidget {
-  const BatallaScreen({super.key, required this.title});
+  const BatallaScreen({super.key, required this.title, this.partidaId = 0});
 
   final String title;
+  final int partidaId;
 
   @override
   ConsumerState<BatallaScreen> createState() => _BatallaScreenState();
@@ -229,69 +230,49 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
       if (miUsuario == null || miUsuario.isEmpty) return;
 
       final faseActual = next.faseActual.toLowerCase();
-      final esFaseRefuerzo = faseActual == 'refuerzo';
-      final esMiTurno = next.turnoDe == miUsuario;
-      final ahoraDebeAvisar = esFaseRefuerzo && esMiTurno;
-
       final faseAnterior = previous?.faseActual.toLowerCase();
-      final antesEraFaseRefuerzo = faseAnterior == 'refuerzo';
+
+      final esMiTurno = next.turnoDe == miUsuario;
       final antesEraMiTurno = previous?.turnoDe == miUsuario;
-      final antesDebiaAvisar = antesEraFaseRefuerzo && antesEraMiTurno;
 
-      // Solo avisamos al entrar en refuerzo de nuestro turno.
-      if (!ahoraDebeAvisar || antesDebiaAvisar) return;
+      // --- Popup de refuerzo — solo al entrar en fase refuerzo de nuestro turno ---
+      final entraEnRefuerzo =
+          faseActual == 'refuerzo' &&
+          esMiTurno &&
+          !(faseAnterior == 'refuerzo' && antesEraMiTurno);
 
-      final tropasRecibidas = next.jugadores[miUsuario]?.tropasReserva ?? 0;
+      if (entraEnRefuerzo) {
+        final tropasRecibidas = next.tropasRecibidasTurno;
+        final investigacion = next.investigacionCompletada.trim();
 
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        if (!mounted) return;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          _mostrarPopup(
+            titulo: '🎖️ Inicio de turno',
+            mensaje: 'Refuerzos recibidos: +$tropasRecibidas tropas'
+                '${investigacion.isNotEmpty ? '\n🔬 Lab: $investigacion' : ''}',
+          );
+        });
+      }
 
-        await showDialog<void>(
-          context: context,
-          barrierDismissible: false,
-          builder: (dialogContext) {
-            return Dialog(
-              backgroundColor: Colors.transparent,
-              insetPadding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.brown[800],
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 18,
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'Has recibido $tropasRecibidas tropas',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.6,
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.of(dialogContext).pop();
-                      },
-                      child: const Text(
-                        'Aceptar',
-                        style: TextStyle(color: Colors.white),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+      // --- Popup de monedas — solo al entrar en fase gestión de nuestro turno ---
+      final entraEnGestion =
+          faseActual == 'gestion' &&
+          esMiTurno &&
+          !(faseAnterior == 'gestion' && antesEraMiTurno);
+
+      if (entraEnGestion) {
+        final monedasGanadas = next.monedasGanadasUltimoTurno;
+        if (monedasGanadas > 0) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            _mostrarPopup(
+              titulo: '💰 Producción',
+              mensaje: 'Tu mina ha producido +$monedasGanadas monedas.',
             );
-          },
-        );
-      });
+          });
+        }
+      }
     });
 
     ref.listen<WebSocketState>(webSocketProvider, (previous, next) {
@@ -355,29 +336,13 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
         if (!mounted) return;
 
         // Mostramos el resultado del combate
-        await showDialog<void>(
-          context: context,
-          builder: (dialogContext) {
-            final titulo = 'Ataque en ${_formatName(resultado.destino)}';
-            final mensaje =
-                'Has perdido ${resultado.bajasAtacante} tropa(s). '
-                'El enemigo perdió ${resultado.bajasDefensor} tropa(s). '
-                '${resultado.victoria ? '¡Territorio conquistado!' : 'El territorio resiste.'}';
-
-            return AlertDialog(
-              title: Text(titulo),
-              content: Text(mensaje),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    Navigator.of(dialogContext).pop();
-                    ref.read(gameProvider.notifier).limpiarResultadoAtaque();
-                  },
-                  child: const Text('Aceptar'),
-                ),
-              ],
-            );
-          },
+        await _mostrarPopup(
+          titulo: 'Ataque en ${_formatName(resultado.destino)}',
+          mensaje:
+              'Has perdido ${resultado.bajasAtacante} tropa(s).\n'
+              'El enemigo perdió ${resultado.bajasDefensor} tropa(s).\n'
+              '${resultado.victoria ? '¡Territorio conquistado!' : 'El territorio resiste.'}',
+          alAceptar: () => ref.read(gameProvider.notifier).limpiarResultadoAtaque(),
         );
 
         // Si fue victoria, el backend bloquea ataques hasta que movamos tropas
@@ -462,7 +427,7 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
                     // En gestión solo abrimos menú sobre comarcas propias.
                     if (!esComarcaPropia) return;
 
-                    _mostrarOpcionesGestionComarca();
+                    _mostrarOpcionesGestionComarca(c.id, widget.partidaId);
                     return;
                   }
 
@@ -526,67 +491,357 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
     );
   }
 
-  Future<void> _mostrarOpcionesGestionComarca() async {
+  Future<void> _mostrarOpcionesGestionComarca(
+    String comarcaId,
+    int partidaId,
+  ) async {
     if (!mounted) return;
+
+    final partidaIdEfectiva = partidaId > 0
+        ? partidaId
+        : (ref.read(webSocketProvider).currentPartidaId ?? 0);
+
+    if (partidaIdEfectiva <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No se pudo identificar la partida actual'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // Las tres ramas disponibles — coinciden exactamente con las claves
+    // del ARBOL_TECNOLOGICO del backend (minúsculas, sin tildes).
+    const ramas = [
+      _RamaInfo(
+        'artilleria',
+        '💣',
+        'Artillería',
+        'Mortero → Misil → Bomba nuclear',
+      ),
+      _RamaInfo(
+        'logistica',
+        '🏛️',
+        'Logística',
+        'Academia → Propaganda → Sanciones',
+      ),
+      _RamaInfo(
+        'biologica',
+        '🦠',
+        'Biológica',
+        'Gripe → Vacuna/Fatiga → Coronavirus',
+      ),
+    ];
+
+    String ramaSeleccionada = 'artilleria';
 
     await showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
+      // isScrollControlled para que el sheet no se corte si hay mucho contenido.
+      isScrollControlled: true,
       builder: (sheetContext) {
-        return Container(
-          decoration: const BoxDecoration(
-            color: AppTheme.surface,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
-          ),
-          child: SafeArea(
-            top: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Opciones de Gestión',
-                    style: TextStyle(
-                      color: AppTheme.text,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(
-                      Icons.monetization_on,
-                      color: AppTheme.borderGoldVivo,
-                    ),
-                    title: const Text(
-                      'Mandar a la mina (Generar Monedas)',
-                      style: TextStyle(color: AppTheme.text),
-                    ),
-                    onTap: () {
-                      Navigator.of(sheetContext).pop();
-                      print('Pendiente de endpoint');
-                    },
-                  ),
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(
-                      Icons.science_rounded,
-                      color: AppTheme.primary,
-                    ),
-                    title: const Text(
-                      'Mandar al laboratorio (Investigar)',
-                      style: TextStyle(color: AppTheme.text),
-                    ),
-                    onTap: () {
-                      Navigator.of(sheetContext).pop();
-                      print('Pendiente de endpoint');
-                    },
-                  ),
-                ],
+        return StatefulBuilder(
+          builder: (_, setSheetState) {
+            return Container(
+              decoration: const BoxDecoration(
+                color: AppTheme.surface,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
               ),
+              child: SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Opciones de Gestión',
+                        style: TextStyle(
+                          color: AppTheme.text,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+
+                      // --- MINA ---
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(
+                          Icons.monetization_on,
+                          color: AppTheme.borderGoldVivo,
+                        ),
+                        title: const Text(
+                          'Mandar a la mina (Generar Monedas)',
+                          style: TextStyle(color: AppTheme.text),
+                        ),
+                        onTap: () async {
+                          try {
+                            await ref
+                                .read(dioProvider)
+                                .post(
+                                  '/partidas/$partidaIdEfectiva/trabajar',
+                                  data: {'territorio_id': comarcaId},
+                                );
+                            if (!mounted || !sheetContext.mounted) return;
+                            Navigator.of(sheetContext).pop();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Comarca enviada a la mina'),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
+                          } on DioException catch (e) {
+                            if (!mounted) return;
+                            final detalle =
+                                e.response?.data is Map<String, dynamic>
+                                ? (e.response?.data['detail']?.toString() ??
+                                      e.message ??
+                                      'Error al enviar comarca a la mina')
+                                : (e.message ??
+                                      'Error al enviar comarca a la mina');
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(detalle),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        },
+                      ),
+
+                      const Divider(color: AppTheme.borderGold),
+
+                      // --- LABORATORIO ---
+                      const Text(
+                        'Mandar al laboratorio (Investigar)',
+                        style: TextStyle(
+                          color: AppTheme.text,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Elige la rama tecnológica a investigar:',
+                        style: TextStyle(
+                          color: AppTheme.textSecondary,
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+
+                      // Selector de rama — tres opciones como cards seleccionables.
+                      ...ramas.map((rama) {
+                        final seleccionada = ramaSeleccionada == rama.id;
+                        return GestureDetector(
+                          onTap: () =>
+                              setSheetState(() => ramaSeleccionada = rama.id),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 150),
+                            margin: const EdgeInsets.only(bottom: 8),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 10,
+                            ),
+                            decoration: BoxDecoration(
+                              color: seleccionada
+                                  ? AppTheme.primary.withValues(alpha: 0.15)
+                                  : AppTheme.surface,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: seleccionada
+                                    ? AppTheme.primary
+                                    : AppTheme.borderGold,
+                                width: seleccionada ? 1.8 : 1.0,
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Text(
+                                  rama.emoji,
+                                  style: const TextStyle(fontSize: 22),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        rama.nombre,
+                                        style: TextStyle(
+                                          color: seleccionada
+                                              ? AppTheme.primary
+                                              : AppTheme.text,
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                      Text(
+                                        rama.descripcion,
+                                        style: const TextStyle(
+                                          color: AppTheme.textSecondary,
+                                          fontSize: 11,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                if (seleccionada)
+                                  const Icon(
+                                    Icons.check_circle,
+                                    color: AppTheme.primary,
+                                    size: 20,
+                                  ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }),
+
+                      const SizedBox(height: 4),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: () async {
+                            try {
+                              await ref
+                                  .read(dioProvider)
+                                  .post(
+                                    '/partidas/$partidaIdEfectiva/investigar',
+                                    data: {
+                                      'territorio_id': comarcaId,
+                                      'rama': ramaSeleccionada,
+                                    },
+                                  );
+                              if (!mounted || !sheetContext.mounted) return;
+                              Navigator.of(sheetContext).pop();
+                              final label = ramas
+                                  .firstWhere((r) => r.id == ramaSeleccionada)
+                                  .nombre;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Comarca investigando: $label'),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+                            } on DioException catch (e) {
+                              if (!mounted) return;
+                              final detalle =
+                                  e.response?.data is Map<String, dynamic>
+                                  ? (e.response?.data['detail']?.toString() ??
+                                        e.message ??
+                                        'Error al iniciar investigación')
+                                  : (e.message ??
+                                        'Error al iniciar investigación');
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(detalle),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          },
+                          icon: const Icon(Icons.science_rounded),
+                          label: const Text('Investigar'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primary,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _mostrarPopup({
+    required String titulo,
+    required String mensaje,
+    bool barrierDismissible = false,
+    VoidCallback? alAceptar,
+  }) async {
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: barrierDismissible,
+      builder: (dialogContext) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 340),
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: const Color(0xFF2A1F0F),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppTheme.borderGoldVivo, width: 1.4),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.6),
+                  blurRadius: 24,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  titulo,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: AppTheme.borderGoldVivo,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  mensaje,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: AppTheme.text,
+                    fontSize: 15,
+                    height: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(dialogContext).pop();
+                      alAceptar?.call();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.borderGoldVivo,
+                      foregroundColor: const Color(0xFF1A1200),
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: const Text(
+                      'Aceptar',
+                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         );
@@ -598,33 +853,19 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
     String titulo,
     String mensaje,
   ) async {
-    if (!mounted) return;
-
-    await showDialog<void>(
-      context: context,
+    await _mostrarPopup(
+      titulo: titulo,
+      mensaje: mensaje,
       barrierDismissible: false,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: Text(titulo),
-          content: Text(mensaje),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-                if (mounted) {
-                  context.go('/lobby');
-                }
-              },
-              child: const Text('Aceptar'),
-            ),
-          ],
-        );
+      alAceptar: () {
+        if (mounted) context.go('/lobby');
       },
     );
   }
 
   Future<void> _mostrarArbolTecnologicoModal(BuildContext context) async {
     await _cargarCatalogoTecnologias();
+    if (!context.mounted) return;
 
     final gameState = ref.read(gameProvider);
     final miUsuario = ref.read(authProvider).user?.username ?? '';
@@ -781,7 +1022,7 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
                     } on DioException catch (e) {
                       final detalle = e.response?.data?.toString() ?? e.message;
                       debugPrint('🔴 ERROR mover_conquista: $detalle');
-                      if (!dialogContext.mounted) return;
+                      if (!mounted || !dialogContext.mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(content: Text('Error: $detalle')),
                       );
@@ -796,4 +1037,14 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
       },
     );
   }
+}
+
+// Datos de cada rama tecnológica — se usan solo en el selector del bottom sheet.
+class _RamaInfo {
+  final String id;
+  final String emoji;
+  final String nombre;
+  final String descripcion;
+
+  const _RamaInfo(this.id, this.emoji, this.nombre, this.descripcion);
 }

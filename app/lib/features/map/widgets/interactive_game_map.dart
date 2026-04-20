@@ -101,9 +101,12 @@ class _InteractiveGameMapState extends ConsumerState<InteractiveGameMap> {
     final scaleY = board.height / MapPaths.viewBoxHeight;
     final scale = scaleX < scaleY ? scaleX : scaleY;
 
-    final dx = board.left + (board.width - (MapPaths.viewBoxWidth * scale)) / 2.0;
-    final dy = board.top + (board.height - (MapPaths.viewBoxHeight * scale)) / 2.0 - 20;
-    
+    final dx =
+        board.left + (board.width - (MapPaths.viewBoxWidth * scale)) / 2.0;
+    final dy =
+        board.top +
+        (board.height - (MapPaths.viewBoxHeight * scale)) / 2.0 -
+        20;
 
     // ignore: deprecated_member_use
     final m = Matrix4.identity()
@@ -166,7 +169,7 @@ class _InteractiveGameMapState extends ConsumerState<InteractiveGameMap> {
                         return Stack(
                           children: [
                             Positioned.fromRect(
-                              rect: boardRect, 
+                              rect: boardRect,
                               child: GestureDetector(
                                 behavior: HitTestBehavior.opaque,
                                 onTapDown: (details) {
@@ -189,14 +192,16 @@ class _InteractiveGameMapState extends ConsumerState<InteractiveGameMap> {
                                     gameState: gameState,
                                     localPlayerId: localPlayerId,
                                     viewerScale: _currentScale,
-                                    coloresPorJugador: _buildColoresPorJugador(gameState),
+                                    coloresPorJugador: _buildColoresPorJugador(
+                                      gameState,
+                                    ),
                                   ),
                                 ),
-                              )
-                            )
+                              ),
+                            ),
                           ],
                         );
-                      },  
+                      },
                     ),
                   ),
                 ),
@@ -215,10 +220,7 @@ class _InteractiveGameMapState extends ConsumerState<InteractiveGameMap> {
             child: Material(
               color: const Color(0xFF1C1B22),
               shape: const CircleBorder(
-                side: BorderSide(
-                  color: AppTheme.borderGold,
-                  width: 2.0,
-                ),
+                side: BorderSide(color: AppTheme.borderGold, width: 2.0),
               ),
               elevation: 6,
               child: Padding(

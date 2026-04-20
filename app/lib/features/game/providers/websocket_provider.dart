@@ -246,6 +246,69 @@ class WebSocketNotifier extends Notifier<WebSocketState> {
               return;
             }
 
+            if (tipoEvento == 'TRABAJO_COMPLETADO') {
+              // El backend manda: usuario_id, territorio_id, ganancia.
+              // No hay payload anidado para este evento.
+              final jugador = data['usuario_id']?.toString() ?? '';
+              final monedasGanadas = _toInt(data['ganancia']) ?? 0;
+
+              if (jugador.isNotEmpty && monedasGanadas > 0) {
+                ref
+                    .read(gameProvider.notifier)
+                    .registrarTrabajoCompletadoDesdeWs(
+                      jugadorId: jugador,
+                      monedasGanadas: monedasGanadas,
+                      monedasTotales: null,
+                    );
+              }
+              return;
+            }
+
+            if (tipoEvento == 'INVESTIGACION_COMPLETADA') {
+              final rawPayload = data['payload'];
+              final payload = rawPayload is Map
+                  ? Map<String, dynamic>.from(rawPayload)
+                  : data;
+
+              final ramaRaw =
+                  (payload['rama'] ??
+                          payload['branch'] ??
+                          payload['linea'] ??
+                          payload['tipo'])
+                      ?.toString() ??
+                  '';
+              final nivel =
+                  _toInt(payload['nivel']) ??
+                  _toInt(payload['level']) ??
+                  _toInt(payload['nivel_actual']) ??
+                  0;
+
+              String ramaLabel;
+              switch (ramaRaw.trim().toLowerCase()) {
+                case 'artilleria':
+                  ramaLabel = 'Artillería';
+                  break;
+                case 'biologica':
+                  ramaLabel = 'Biológica';
+                  break;
+                case 'logistica':
+                  ramaLabel = 'Logística';
+                  break;
+                default:
+                  ramaLabel = ramaRaw.trim();
+              }
+
+              if (ramaLabel.isNotEmpty) {
+                final resumen = nivel > 0
+                    ? '$ramaLabel Nivel $nivel'
+                    : ramaLabel;
+                ref
+                    .read(gameProvider.notifier)
+                    .registrarInvestigacionCompletadaDesdeWs(resumen);
+              }
+              return;
+            }
+
             // --- NUEVO_JUGADOR ---
             if (tipoEvento == 'NUEVO_JUGADOR') {
               final username = data['jugador'] as String?;

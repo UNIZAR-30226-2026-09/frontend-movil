@@ -96,18 +96,27 @@ class PlayerState {
     return const <String>[];
   }
 
-  factory PlayerState.fromJson(Map<String, dynamic> json) {
-    final monedasRaw = json['monedas'];
-    final monedas = monedasRaw is int
-        ? monedasRaw
-        : (monedasRaw is num
-              ? monedasRaw.toInt()
-              : int.tryParse(monedasRaw?.toString() ?? '') ?? 0);
+  static int _parseIntSafe(dynamic raw, {int fallback = 0}) {
+    if (raw == null) return fallback;
+    if (raw is int) return raw;
+    if (raw is num) return raw.toInt();
 
+    final text = raw.toString().trim();
+    if (text.isEmpty) return fallback;
+
+    final asInt = int.tryParse(text);
+    if (asInt != null) return asInt;
+
+    final asDouble = double.tryParse(text);
+    return asDouble?.toInt() ?? fallback;
+  }
+
+  factory PlayerState.fromJson(Map<String, dynamic> json) {
     return PlayerState(
-      tropasReserva: json['tropas_reserva'] ?? 0,
-      numeroJugador: json['numero_jugador'] ?? 1,
-      monedas: monedas,
+      tropasReserva: _parseIntSafe(json['tropas_reserva']),
+      numeroJugador: _parseIntSafe(json['numero_jugador'], fallback: 1),
+      // Monedas puede venir como `monedas` o `coins`, int/string/null.
+      monedas: _parseIntSafe(json['monedas'] ?? json['coins']),
       tecnologiasCompradas: _parseTechList(
         json['tecnologias_compradas'] ??
             json['tecnologias'] ??
@@ -172,6 +181,10 @@ class GameState {
   final Map<String, PlayerState> jugadores;
   final String turnoDe;
   final String faseActual;
+  final int monedasGanadasUltimoTurno;
+  final String investigacionCompletada;
+  final int tropasRecibidasTurno;
+  final int ultimosRefuerzosRecibidos;
 
   GameState({
     this.origenSeleccionado,
@@ -185,6 +198,10 @@ class GameState {
     this.jugadores = const {},
     this.turnoDe = '',
     this.faseActual = 'ESPERA',
+    this.monedasGanadasUltimoTurno = 0,
+    this.investigacionCompletada = '',
+    this.tropasRecibidasTurno = 0,
+    this.ultimosRefuerzosRecibidos = 0,
   });
 
   GameState copyWith({
@@ -199,6 +216,10 @@ class GameState {
     Map<String, PlayerState>? jugadores,
     String? turnoDe,
     String? faseActual,
+    int? monedasGanadasUltimoTurno,
+    String? investigacionCompletada,
+    int? tropasRecibidasTurno,
+    int? ultimosRefuerzosRecibidos,
     bool clearOrigen = false,
     bool clearDestino = false,
     bool clearResultadoAtaque = false,
@@ -222,6 +243,13 @@ class GameState {
       jugadores: jugadores ?? this.jugadores,
       turnoDe: turnoDe ?? this.turnoDe,
       faseActual: faseActual ?? this.faseActual,
+      monedasGanadasUltimoTurno:
+          monedasGanadasUltimoTurno ?? this.monedasGanadasUltimoTurno,
+      investigacionCompletada:
+          investigacionCompletada ?? this.investigacionCompletada,
+      tropasRecibidasTurno: tropasRecibidasTurno ?? this.tropasRecibidasTurno,
+      ultimosRefuerzosRecibidos:
+          ultimosRefuerzosRecibidos ?? this.ultimosRefuerzosRecibidos,
     );
   }
 }
@@ -233,6 +261,53 @@ class GameNotifier extends Notifier<GameState> {
 
   String _normalizarFase(String fase) {
     return fase.trim().toLowerCase();
+  }
+
+  bool _hasAnyKey(Map<String, dynamic> json, List<String> keys) {
+    for (final key in keys) {
+      if (json.containsKey(key)) return true;
+    }
+    return false;
+  }
+
+  PlayerState _mergePlayerStateDesdeJson(
+    PlayerState? previo,
+    Map<String, dynamic> valueMap,
+  ) {
+    final parsed = PlayerState.fromJson(valueMap);
+    final base = previo ?? PlayerState(tropasReserva: 0);
+
+    final traeTechCompradas = _hasAnyKey(valueMap, const <String>[
+      'tecnologias_compradas',
+      'tecnologias',
+      'techs',
+      'ataques_especiales',
+    ]);
+    final traeTechPredesbloqueadas = _hasAnyKey(valueMap, const <String>[
+      'tecnologias_predesbloqueadas',
+      'predesbloqueadas',
+      'techs_predesbloqueadas',
+      'ataques_especiales_predesbloqueados',
+    ]);
+
+    // En eventos parciales mantenemos lo anterior cuando el campo no llega.
+    return base.copyWith(
+      tropasReserva: valueMap.containsKey('tropas_reserva')
+          ? parsed.tropasReserva
+          : base.tropasReserva,
+      numeroJugador: valueMap.containsKey('numero_jugador')
+          ? parsed.numeroJugador
+          : base.numeroJugador,
+      monedas: _hasAnyKey(valueMap, const <String>['monedas', 'coins'])
+          ? parsed.monedas
+          : base.monedas,
+      tecnologiasCompradas: traeTechCompradas
+          ? parsed.tecnologiasCompradas
+          : base.tecnologiasCompradas,
+      tecnologiasPredesbloqueadas: traeTechPredesbloqueadas
+          ? parsed.tecnologiasPredesbloqueadas
+          : base.tecnologiasPredesbloqueadas,
+    );
   }
 
   void agregarJugador(String username) {
@@ -267,6 +342,10 @@ class GameNotifier extends Notifier<GameState> {
     final jugadoresActualizados = Map<String, PlayerState>.from(
       state.jugadores,
     );
+    final refuerzosRecibidos = faseNormalizada == 'refuerzo'
+        ? tropasRecibidas
+        : 0;
+    final resetResumenGestion = faseNormalizada == 'gestion';
 
     // En refuerzo sumamos las tropas recibidas al jugador activo del evento.
     // Usamos copyWith para no perder el resto de campos del PlayerState.
@@ -286,7 +365,51 @@ class GameNotifier extends Notifier<GameState> {
       faseActual: faseNormalizada,
       turnoDe: jugadorActivo,
       jugadores: jugadoresActualizados,
+      monedasGanadasUltimoTurno: resetResumenGestion
+          ? 0
+          : state.monedasGanadasUltimoTurno,
+      investigacionCompletada: resetResumenGestion
+          ? ''
+          : state.investigacionCompletada,
+      tropasRecibidasTurno: refuerzosRecibidos,
+      ultimosRefuerzosRecibidos: refuerzosRecibidos,
     );
+  }
+
+  void registrarTrabajoCompletadoDesdeWs({
+    required String jugadorId,
+    required int monedasGanadas,
+    int? monedasTotales,
+  }) {
+    final jugadoresActualizados = Map<String, PlayerState>.from(
+      state.jugadores,
+    );
+
+    if (jugadorId.isNotEmpty) {
+      final jugadorPrevio = jugadoresActualizados[jugadorId];
+      final jugadorBase = jugadorPrevio ?? PlayerState(tropasReserva: 0);
+      final monedasCalculadas =
+          monedasTotales ??
+          (jugadorBase.monedas + (monedasGanadas > 0 ? monedasGanadas : 0));
+
+      jugadoresActualizados[jugadorId] = jugadorBase.copyWith(
+        monedas: monedasCalculadas,
+      );
+    }
+
+    state = state.copyWith(
+      jugadores: jugadoresActualizados,
+      monedasGanadasUltimoTurno:
+          state.monedasGanadasUltimoTurno +
+          (monedasGanadas > 0 ? monedasGanadas : 0),
+    );
+  }
+
+  void registrarInvestigacionCompletadaDesdeWs(String resumen) {
+    final texto = resumen.trim();
+    if (texto.isEmpty) return;
+
+    state = state.copyWith(investigacionCompletada: texto);
   }
 
   void actualizarDesdeServidor(Map<String, dynamic> jsonPartida) {
@@ -311,11 +434,15 @@ class GameNotifier extends Notifier<GameState> {
     final jugadoresJsonRaw = jsonPartida['jugadores'];
     if (jugadoresJsonRaw is Map) {
       final jugadoresJson = Map<String, dynamic>.from(jugadoresJsonRaw);
-      jugadoresActualizados = jugadoresJson.map((key, value) {
+      jugadoresActualizados = Map<String, PlayerState>.from(state.jugadores);
+      jugadoresJson.forEach((key, value) {
         final valueMap = value is Map
             ? Map<String, dynamic>.from(value)
             : <String, dynamic>{};
-        return MapEntry(key, PlayerState.fromJson(valueMap));
+        jugadoresActualizados[key] = _mergePlayerStateDesdeJson(
+          jugadoresActualizados[key],
+          valueMap,
+        );
       });
     }
 
@@ -350,6 +477,7 @@ class GameNotifier extends Notifier<GameState> {
     final payloadTraeReservaDelActivo = jugadorMap.containsKey(
       'tropas_reserva',
     );
+    final refuerzosRecibidos = faseEsRefuerzo ? tropasRecibidas : 0;
 
     if (tropasRecibidas > 0 &&
         faseEsRefuerzo &&
@@ -368,6 +496,8 @@ class GameNotifier extends Notifier<GameState> {
       jugadores: Map<String, PlayerState>.from(jugadoresActualizados),
       turnoDe: turnoRaw.toString(),
       faseActual: faseNormalizada,
+      tropasRecibidasTurno: refuerzosRecibidos,
+      ultimosRefuerzosRecibidos: refuerzosRecibidos,
     );
   }
 
