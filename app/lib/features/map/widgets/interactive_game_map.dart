@@ -13,6 +13,7 @@ import 'package:soberania/features/game/providers/websocket_provider.dart';
 import '../../../shared/api/dio_provider.dart';
 import '../../../shared/utils/color_utils.dart';
 import '../../../app/theme/app_theme.dart';
+import 'game_map_fondo.dart';
 
 typedef OnTapComarca = void Function(Comarca comarca);
 
@@ -83,18 +84,31 @@ class _InteractiveGameMapState extends ConsumerState<InteractiveGameMap> {
     return null;
   }
 
+  Rect _boardRect(Size viewport) {
+    final boardWidth = viewport.width * 0.8;
+    final boardHeight = viewport.height * 1.025;
+
+    final left = (viewport.width - boardWidth) / 3.7;
+    final top = viewport.height * 0.145;
+
+    return Rect.fromLTWH(left, top, boardWidth, boardHeight);
+  }
+
   Offset _sceneToMap(Offset scenePoint, Size viewport) {
-    final scaleX = viewport.width / MapPaths.viewBoxWidth;
-    final scaleY = viewport.height / MapPaths.viewBoxHeight;
+    final board = _boardRect(viewport);
+
+    final scaleX = board.width / MapPaths.viewBoxWidth;
+    final scaleY = board.height / MapPaths.viewBoxHeight;
     final scale = scaleX < scaleY ? scaleX : scaleY;
-    final dx = (viewport.width - (MapPaths.viewBoxWidth * scale)) / 2.0;
-    final dy = (viewport.height - (MapPaths.viewBoxHeight * scale)) / 2.0;
-    final extraUp = viewport.height * 0.05;
+
+    final dx = board.left + (board.width - (MapPaths.viewBoxWidth * scale)) / 2.0;
+    final dy = board.top + (board.height - (MapPaths.viewBoxHeight * scale)) / 2.0 - 20;
+    
 
     // ignore: deprecated_member_use
     final m = Matrix4.identity()
       // ignore: deprecated_member_use
-      ..translate(dx, dy - extraUp)
+      ..translate(dx, dy)
       // ignore: deprecated_member_use
       ..scale(scale)
       // ignore: deprecated_member_use
@@ -145,30 +159,44 @@ class _InteractiveGameMapState extends ConsumerState<InteractiveGameMap> {
                 child: SizedBox(
                   width: viewport.width,
                   height: viewport.height,
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTapDown: (details) {
-                      final mapPoint = _sceneToMap(
-                        details.localPosition,
-                        viewport,
-                      );
-                      final hit = _hitTestComarca(mapPoint);
+                  child: GameMapBackground(
+                    child: Builder(
+                      builder: (context) {
+                        final boardRect = _boardRect(viewport);
+                        return Stack(
+                          children: [
+                            Positioned.fromRect(
+                              rect: boardRect, 
+                              child: GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                onTapDown: (details) {
+                                  final mapPoint = _sceneToMap(
+                                    details.localPosition + boardRect.topLeft,
+                                    viewport,
+                                  );
+                                  final hit = _hitTestComarca(mapPoint);
 
-                      if (hit != null) {
-                        widget.onTapComarca?.call(hit);
-                      }
-                    },
-                    child: CustomPaint(
-                      painter: MapPainter(
-                        regions: widget.gameMap.regions,
-                        comarcas: widget.gameMap.comarcas,
-                        comarcaPaths: widget.gameMap.comarcaPaths,
-                        // 7. PASAMOS EL ESTADO COMPLETO AL PAINTER
-                        gameState: gameState,
-                        localPlayerId: localPlayerId,
-                        viewerScale: _currentScale,
-                        coloresPorJugador: _buildColoresPorJugador(gameState),
-                      ),
+                                  if (hit != null) {
+                                    widget.onTapComarca?.call(hit);
+                                  }
+                                },
+                                child: CustomPaint(
+                                  painter: MapPainter(
+                                    regions: widget.gameMap.regions,
+                                    comarcas: widget.gameMap.comarcas,
+                                    comarcaPaths: widget.gameMap.comarcaPaths,
+                                    // 7. PASAMOS EL ESTADO COMPLETO AL PAINTER
+                                    gameState: gameState,
+                                    localPlayerId: localPlayerId,
+                                    viewerScale: _currentScale,
+                                    coloresPorJugador: _buildColoresPorJugador(gameState),
+                                  ),
+                                ),
+                              )
+                            )
+                          ],
+                        );
+                      },  
                     ),
                   ),
                 ),
@@ -320,6 +348,7 @@ class _InteractiveGameMapState extends ConsumerState<InteractiveGameMap> {
 
     final vw = viewportSize.width;
     final vh = viewportSize.height;
+    final board = _boardRect(viewportSize);
 
     double tx = m.storage[12];
     double ty = m.storage[13];
@@ -340,21 +369,20 @@ class _InteractiveGameMapState extends ConsumerState<InteractiveGameMap> {
     }
 
     // Rectángulo REAL del mapa dentro del child
-    final scaleX = vw / MapPaths.viewBoxWidth;
-    final scaleY = vh / MapPaths.viewBoxHeight;
+    final scaleX = board.width / MapPaths.viewBoxWidth;
+    final scaleY = board.height / MapPaths.viewBoxHeight;
     final baseScale = scaleX < scaleY ? scaleX : scaleY;
 
     final scaledW = MapPaths.viewBoxWidth * baseScale;
     final scaledH = MapPaths.viewBoxHeight * baseScale;
 
-    final dx = (vw - scaledW) / 2.0;
-    final dy = (vh - scaledH) / 2.0;
-    final extraUp = vh * 0.05;
+    final dx = board.left + (board.width - scaledW) / 2.0;
+    final dy = board.top + (board.height - scaledH) / 2.0;
 
     final mapLeft = dx;
-    final mapTop = dy - extraUp;
+    final mapTop = dy;
     final mapRight = dx + scaledW;
-    final mapBottom = dy - extraUp + scaledH;
+    final mapBottom = dy + scaledH;
 
     final mapW = scaledW * s;
     final mapH = scaledH * s;
@@ -362,22 +390,22 @@ class _InteractiveGameMapState extends ConsumerState<InteractiveGameMap> {
     // Horizontal
     bool outsideX = false;
 
-    if (mapW <= vw) {
-      tx = (vw - mapW) / 2.0 - mapLeft * s;
+    if (mapW <= board.width) {
+      tx = board.left + (board.width - mapW) / 2.0 - mapLeft * s;
     } else {
-      final minTx = vw - mapRight * s;
-      final maxTx = -mapLeft * s;
+      final minTx = board.right - mapRight * s;
+      final maxTx = board.left - mapLeft * s;
       outsideX = _isOutsideBounds(tx, minTx, maxTx);
       tx = _applyResistance(tx, minTx, maxTx);
     }
 
     bool outsideY = false;
 
-    if (mapH <= vh) {
-      ty = (vh - mapH) / 2.0 - mapTop * s;
+    if (mapH <= board.height) {
+      ty = board.top + (board.height - mapH) / 2.0 - mapTop * s;
     } else {
-      final minTy = vh - mapBottom * s;
-      final maxTy = -mapTop * s;
+      final minTy = board.bottom - mapBottom * s;
+      final maxTy = board.top - mapTop * s;
       outsideY = _isOutsideBounds(ty, minTy, maxTy);
       ty = _applyResistance(ty, minTy, maxTy);
     }

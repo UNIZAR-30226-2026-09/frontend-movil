@@ -90,32 +90,79 @@ class MapPainter extends CustomPainter {
   }
 
   void _paintPuentes(Canvas canvas, double scale) {
-    final shadowPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round
-      ..strokeWidth = 8.0 / scale
-      ..color = Colors.black.withValues(alpha: 0.30);
-
-    final outerPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round
-      ..strokeWidth = 5.0 / scale
-      ..color = const Color(0xFF5B3923);
-
-    final innerPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round
-      ..strokeWidth = 2.6 / scale
-      ..color = const Color(0xFFC7925A);
-
     for (final bridge in MapBridges.data) {
       final path = _buildPuentePath(bridge);
-      canvas.drawPath(path, shadowPaint);
-      canvas.drawPath(path, outerPaint);
-      canvas.drawPath(path, innerPaint);
+      final metrics = path.computeMetrics().toList();
+      if (metrics.isEmpty) continue;
+
+      final metric = metrics.first;
+      final length = metric.length;
+
+      
+
+      final plankPaint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round
+        ..strokeWidth = 2.0 / scale
+        ..color = const Color(0xEFFFFFFF);
+
+      final endCirclePaint = Paint()
+        ..style = PaintingStyle.fill
+        ..color = const Color(0xEFFFFFFF);
+
+      final endCircleShadowPaint = Paint()
+        ..style = PaintingStyle.fill
+        ..color = Colors.black.withOpacity(0.08);
+
+      final startTangent = metric.getTangentForOffset(0);
+      final endTangent = metric.getTangentForOffset(length);
+
+      if (startTangent == null || endTangent == null) continue;
+
+      final double endRadius = 3.0 / scale;
+      final double shadowOffset = 1.5 / scale;
+
+      // Círculos de los extremos
+      canvas.drawCircle(
+        startTangent.position.translate(shadowOffset, shadowOffset),
+        endRadius,
+        endCircleShadowPaint,
+      );
+      canvas.drawCircle(
+        endTangent.position.translate(shadowOffset, shadowOffset),
+        endRadius,
+        endCircleShadowPaint,
+      );
+
+      canvas.drawCircle(startTangent.position, endRadius, endCirclePaint);
+      canvas.drawCircle(endTangent.position, endRadius, endCirclePaint);
+
+      // Tablones centrales por porcentaje del camino
+      final double p1Start = length * 0.21;
+      final double p1End = length * 0.31;
+
+      final double p2Start = length * 0.44;
+      final double p2End = length * 0.55;
+
+      final double p3Start = length * 0.69;
+      final double p3End = length * 0.79;
+
+      final segments = <List<double>>[
+        [p1Start, p1End],
+        [p2Start, p2End],
+        [p3Start, p3End],
+      ];
+
+      for (final seg in segments) {
+        final start = seg[0].clamp(0.0, length);
+        final end = seg[1].clamp(0.0, length);
+
+        if (end <= start) continue;
+
+        final segment = metric.extractPath(start, end);
+        canvas.drawPath(segment, plankPaint);
+      }
     }
   }
 
@@ -243,8 +290,8 @@ class MapPainter extends CustomPainter {
       ..strokeWidth = 3.0
       ..color = ColorUtils.bordeColor;
 
-    final oceanPaint = Paint()..color = AppTheme.mapOcean;
-    canvas.drawRect(Offset.zero & size, oceanPaint);
+    //final oceanPaint = Paint()..color = AppTheme.mapOcean;
+    //canvas.drawRect(Offset.zero & size, oceanPaint);
 
     // Lógica de Escala y Posicionamiento de la cámara
     final scaleX = size.width / MapPaths.viewBoxWidth;
@@ -259,7 +306,7 @@ class MapPainter extends CustomPainter {
     canvas.scale(scale);
     canvas.translate(-MapPaths.viewBoxX, -MapPaths.viewBoxY);
 
-    _paintPuentes(canvas, scale);
+    
 
     final bool mostrarVistaRegiones = gameState.vistaRegiones;
     if (mostrarVistaRegiones) {
@@ -303,6 +350,8 @@ class MapPainter extends CustomPainter {
         canvas.drawPath(path, baseStroke);
       }
     }
+
+    _paintPuentes(canvas, scale);
 
     // 3. PINTADO DE ETIQUETAS Y TROPAS (T48)
     if (viewerScale >= labelMinScale) {
