@@ -78,6 +78,47 @@ class MapPainter extends CustomPainter {
     return controladas;
   }
 
+  Path _buildPuentePath(PuenteData bridge) {
+    return Path()
+      ..moveTo(bridge.from.dx, bridge.from.dy)
+      ..quadraticBezierTo(
+        bridge.control.dx,
+        bridge.control.dy,
+        bridge.to.dx,
+        bridge.to.dy,
+      );
+  }
+
+  void _paintPuentes(Canvas canvas, double scale) {
+    final shadowPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..strokeWidth = 8.0 / scale
+      ..color = Colors.black.withValues(alpha: 0.30);
+
+    final outerPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..strokeWidth = 5.0 / scale
+      ..color = const Color(0xFF5B3923);
+
+    final innerPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..strokeWidth = 2.6 / scale
+      ..color = const Color(0xFFC7925A);
+
+    for (final bridge in MapBridges.data) {
+      final path = _buildPuentePath(bridge);
+      canvas.drawPath(path, shadowPaint);
+      canvas.drawPath(path, outerPaint);
+      canvas.drawPath(path, innerPaint);
+    }
+  }
+
   void _paintVistaRegiones(
     Canvas canvas,
     Paint fillPaint,
@@ -217,6 +258,8 @@ class MapPainter extends CustomPainter {
     canvas.translate(dx, dy - extraUp);
     canvas.scale(scale);
     canvas.translate(-MapPaths.viewBoxX, -MapPaths.viewBoxY);
+
+    _paintPuentes(canvas, scale);
 
     final bool mostrarVistaRegiones = gameState.vistaRegiones;
     if (mostrarVistaRegiones) {

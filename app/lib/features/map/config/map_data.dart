@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+
 class MapPaths {
   /// Mapa que relaciona el ID del JSON con el Path (atributo 'd') del SVG
   static const Map<String, String> data = {
@@ -41,4 +43,53 @@ class MapPaths {
   static const double viewBoxY = -250.0;
   static const double viewBoxWidth = 550.0;
   static const double viewBoxHeight = 650.0;
+}
+
+class PuenteData {
+  final String id;
+  final Offset from;
+  final Offset control;
+  final Offset to;
+
+  const PuenteData({
+    required this.id,
+    required this.from,
+    required this.control,
+    required this.to,
+  });
+}
+
+class MapBridges {
+  static const List<PuenteData> data = [
+    PuenteData(
+      id: 'puente1',
+      from: Offset(-224.00085, -109.73065),
+      control: Offset(-214.16858, -119.55339),
+      to: Offset(-198.66210, -117.96927),
+    ),
+    PuenteData(
+      id: 'puente2',
+      from: Offset(-196.92405, -39.521405),
+      control: Offset(-182.14516, -46.490757),
+      to: Offset(-170.53657, -42.060863),
+    ),
+    PuenteData(
+      id: 'puente3',
+      from: Offset(-62.851296, 64.574398),
+      control: Offset(-46.400911, 57.481461),
+      to: Offset(-47.767664, 41.85482),
+    ),
+    PuenteData(
+      id: 'puente4',
+      from: Offset(-163.99282, 64.43899),
+      control: Offset(-181.92205, 72.85475),
+      to: Offset(-180.82434, 86.75905),
+    ),
+    PuenteData(
+      id: 'puente5',
+      from: Offset(-313.95365, 116.62359),
+      control: Offset(-313.36245, 136.40225),
+      to: Offset(-288.76161, 136.49534),
+    ),
+  ];
 }
