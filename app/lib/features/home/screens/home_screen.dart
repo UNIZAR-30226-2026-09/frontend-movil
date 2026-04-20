@@ -6,6 +6,7 @@ import '../../../app/router/app_routes.dart';
 import '../widgets/home_background.dart';
 import '../widgets/home_action_button.dart';
 import '../widgets/home_profile_card.dart';
+import '../menu_background.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -16,7 +17,7 @@ class HomeScreen extends ConsumerWidget {
     final authState = ref.watch(authProvider);
     final username = authState.user?.username ?? 'Jugador';
     return Scaffold(
-      body: HomeBackground(
+      body: MenuBackground(
         child: Stack(
           children: [
             Center(
