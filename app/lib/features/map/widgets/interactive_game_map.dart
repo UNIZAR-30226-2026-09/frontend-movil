@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:vector_math/vector_math_64.dart';
+import 'package:vector_math/vector_math_64.dart' hide Colors;
 import '../services/map_loader.dart';
 import '../services/map_painter.dart';
 import '../models/territory_model.dart';
@@ -261,7 +261,7 @@ class _InteractiveGameMapState extends ConsumerState<InteractiveGameMap> {
             // Usamos una paleta fija por posición — cuando el backend mande el color
             // real de cada jugador, solo hay que cambiar esto.
             coloresPorJugador: _buildColoresPorJugador(gameState),
-            onNextPhasePressed: () => _pasarFase(context),
+            onNextPhasePressed: () => _onNextPhasePressed(context),
           ),
         ),
       ],
@@ -278,32 +278,39 @@ class _InteractiveGameMapState extends ConsumerState<InteractiveGameMap> {
     };
   }
 
-  // Llama al endpoint real de pasar fase. Si el backend rechaza (403 = no es
-  // tu turno, o cualquier otro error), avanzamos el estado LOCAL para no
-  // bloquear las pruebas de UI.
-  Future<void> _pasarFase(BuildContext context) async {
+  // El backend es la única fuente de verdad para faseActual.
+  // Si pasar_fase falla, no tocamos estado local y la UI muestra error.
+  void _onNextPhasePressed(BuildContext context) async {
+    try {
+      await _pasarFase();
+    } catch (_) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'No puedes pasar de fase todavía (¿Te faltan tropas por colocar?)',
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _pasarFase() async {
     final partidaId = ref.read(webSocketProvider).currentPartidaId;
 
     if (partidaId == null) {
-      // Sin partida conectada, solo movemos la UI localmente
-      ref.read(gameProvider.notifier).avanzarFasePanel();
-      return;
+      throw StateError('No hay partida activa para pasar de fase');
     }
 
     try {
       final dio = ref.read(dioProvider);
       await dio.post('/partidas/$partidaId/pasar_fase');
-      // Si llega aquí, el backend emitirá CAMBIO_FASE por WS y el estado
-      // se actualizará solo — no hace falta hacer nada más.
+      // Si llega aquí, esperamos CAMBIO_FASE por WS. No hay update optimista.
     } on DioException catch (e) {
-      // 403 = no es tu turno. Para debug avanzamos igual en local.
       final status = e.response?.statusCode ?? 0;
-      debugPrint(
-        '⚠️ pasar_fase devolvió $status — avanzando fase en local para pruebas',
-      );
-      if (context.mounted) {
-        ref.read(gameProvider.notifier).avanzarFasePanel();
-      }
+      debugPrint('⚠️ pasar_fase rechazado por backend (status: $status)');
+      throw StateError('No se pudo pasar de fase');
     }
   }
 
@@ -346,8 +353,6 @@ class _InteractiveGameMapState extends ConsumerState<InteractiveGameMap> {
     final m = _tc.value;
     final s = _getScale(m);
 
-    final vw = viewportSize.width;
-    final vh = viewportSize.height;
     final board = _boardRect(viewportSize);
 
     double tx = m.storage[12];

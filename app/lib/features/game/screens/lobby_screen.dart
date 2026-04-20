@@ -57,8 +57,10 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     try {
       final dio = ref.read(dioProvider);
       await dio.post('/partidas/${widget.partidaId}/empezar');
-      // No navegamos aquí — esperamos el evento PARTIDA_INICIADA por WS
-      // para que todos los jugadores naveguen a la vez
+
+      if (!mounted) return;
+      // El host navega en cuanto el /empezar responde OK.
+      context.go(AppRoutes.batalla);
     } on DioException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -97,17 +99,19 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     // de 'ESPERA' a 'refuerzo' y manda el mapa — eso es la señal para navegar.
     // Lo hacemos aquí en la UI para que todos los jugadores naveguen a la vez.
     ref.listen<GameState>(gameProvider, (previous, next) {
-      final estabaEnEspera =
-          previous?.faseActual == 'ESPERA' ||
-          previous?.faseActual == '' ||
-          previous?.faseActual == 'espera';
-      final yaEmpezado =
-          next.faseActual != 'ESPERA' &&
-          next.faseActual != 'espera' &&
-          next.faseActual.isNotEmpty &&
+      final faseAnterior = (previous?.faseActual ?? '').toLowerCase();
+      final faseActual = next.faseActual.toLowerCase();
+
+      final partidaIniciadaAntes =
+          faseAnterior.isNotEmpty &&
+          faseAnterior != 'espera';
+      final partidaIniciadaAhora =
+          faseActual.isNotEmpty &&
+          faseActual != 'espera' &&
           next.mapa.isNotEmpty;
 
-      if (estabaEnEspera && yaEmpezado) {
+      if (!partidaIniciadaAntes && partidaIniciadaAhora && mounted) {
+        // Los no-host entran por evento WS en cuanto llega PARTIDA_INICIADA.
         context.go(AppRoutes.batalla);
       }
     });

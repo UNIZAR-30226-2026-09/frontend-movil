@@ -39,26 +39,47 @@ class PlayerState {
   // El backend manda numero_jugador (1-4) para asignar colores de forma
   // consistente entre todos los clientes sin depender del orden de lista.
   final int numeroJugador;
-  final Set<String> tecnologiasCompradas;
+  final int monedas;
+  final List<String> tecnologiasCompradas;
+  final List<String> tecnologiasPredesbloqueadas;
 
   PlayerState({
     required this.tropasReserva,
     this.numeroJugador = 1,
-    this.tecnologiasCompradas = const <String>{},
+    this.monedas = 0,
+    this.tecnologiasCompradas = const <String>[],
+    this.tecnologiasPredesbloqueadas = const <String>[],
   });
 
-  static Set<String> _parseTecnologias(dynamic raw) {
-    if (raw == null) return const <String>{};
+  PlayerState copyWith({
+    int? tropasReserva,
+    int? numeroJugador,
+    int? monedas,
+    List<String>? tecnologiasCompradas,
+    List<String>? tecnologiasPredesbloqueadas,
+  }) {
+    return PlayerState(
+      tropasReserva: tropasReserva ?? this.tropasReserva,
+      numeroJugador: numeroJugador ?? this.numeroJugador,
+      monedas: monedas ?? this.monedas,
+      tecnologiasCompradas: tecnologiasCompradas ?? this.tecnologiasCompradas,
+      tecnologiasPredesbloqueadas:
+          tecnologiasPredesbloqueadas ?? this.tecnologiasPredesbloqueadas,
+    );
+  }
+
+  static List<String> _parseTechList(dynamic raw) {
+    if (raw == null) return const <String>[];
 
     if (raw is List) {
       return raw
           .map((item) => _normalizeTechId(item.toString()))
           .where((id) => id.isNotEmpty)
-          .toSet();
+          .toList(growable: false);
     }
 
     if (raw is Map) {
-      final output = <String>{};
+      final output = <String>[];
       for (final entry in raw.entries) {
         final id = _normalizeTechId(entry.key.toString());
         if (id.isEmpty) continue;
@@ -72,18 +93,32 @@ class PlayerState {
       return output;
     }
 
-    return const <String>{};
+    return const <String>[];
   }
 
   factory PlayerState.fromJson(Map<String, dynamic> json) {
+    final monedasRaw = json['monedas'];
+    final monedas = monedasRaw is int
+        ? monedasRaw
+        : (monedasRaw is num
+              ? monedasRaw.toInt()
+              : int.tryParse(monedasRaw?.toString() ?? '') ?? 0);
+
     return PlayerState(
       tropasReserva: json['tropas_reserva'] ?? 0,
       numeroJugador: json['numero_jugador'] ?? 1,
-      tecnologiasCompradas: _parseTecnologias(
+      monedas: monedas,
+      tecnologiasCompradas: _parseTechList(
         json['tecnologias_compradas'] ??
             json['tecnologias'] ??
             json['techs'] ??
             json['ataques_especiales'],
+      ),
+      tecnologiasPredesbloqueadas: _parseTechList(
+        json['tecnologias_predesbloqueadas'] ??
+            json['predesbloqueadas'] ??
+            json['techs_predesbloqueadas'] ??
+            json['ataques_especiales_predesbloqueados'],
       ),
     );
   }
@@ -193,12 +228,6 @@ class GameState {
 
 // 3. Notificador (El controlador del estado)
 class GameNotifier extends Notifier<GameState> {
-  static const List<String> _faseOrden = <String>[
-    'refuerzo',
-    'ataque_convencional',
-    'fortificacion',
-  ];
-
   @override
   GameState build() => GameState();
 
@@ -227,6 +256,37 @@ class GameNotifier extends Notifier<GameState> {
       units: units,
     );
     state = state.copyWith(mapa: mapaActual);
+  }
+
+  void actualizarCambioFaseDesdeWs({
+    required String nuevaFase,
+    required String jugadorActivo,
+    required int tropasRecibidas,
+  }) {
+    final faseNormalizada = _normalizarFase(nuevaFase);
+    final jugadoresActualizados = Map<String, PlayerState>.from(
+      state.jugadores,
+    );
+
+    // En refuerzo sumamos las tropas recibidas al jugador activo del evento.
+    // Usamos copyWith para no perder el resto de campos del PlayerState.
+    if (faseNormalizada == 'refuerzo' &&
+        tropasRecibidas > 0 &&
+        jugadorActivo.isNotEmpty) {
+      final jugadorPrevio = jugadoresActualizados[jugadorActivo];
+      final jugadorBase = jugadorPrevio ?? PlayerState(tropasReserva: 0);
+
+      jugadoresActualizados[jugadorActivo] = jugadorBase.copyWith(
+        tropasReserva: jugadorBase.tropasReserva + tropasRecibidas,
+      );
+    }
+
+    // CAMBIO_FASE es la fuente de verdad para fase/turno.
+    state = state.copyWith(
+      faseActual: faseNormalizada,
+      turnoDe: jugadorActivo,
+      jugadores: jugadoresActualizados,
+    );
   }
 
   void actualizarDesdeServidor(Map<String, dynamic> jsonPartida) {
@@ -280,21 +340,26 @@ class GameNotifier extends Notifier<GameState> {
               ? tropasRecibidasRaw.toInt()
               : int.tryParse(tropasRecibidasRaw?.toString() ?? '') ?? 0);
     final jugadorActivo = turnoRaw.toString();
-    final faseEsRefuerzo =
-        faseNormalizada == 'refuerzo' || faseNormalizada == 'reclutamiento';
+    final faseEsRefuerzo = faseNormalizada == 'refuerzo';
+    final jugadorMapRaw = jugadoresJsonRaw is Map
+        ? jugadoresJsonRaw[jugadorActivo]
+        : null;
+    final jugadorMap = jugadorMapRaw is Map
+        ? Map<String, dynamic>.from(jugadorMapRaw)
+        : <String, dynamic>{};
+    final payloadTraeReservaDelActivo = jugadorMap.containsKey(
+      'tropas_reserva',
+    );
 
     if (tropasRecibidas > 0 &&
         faseEsRefuerzo &&
         jugadorActivo.isNotEmpty &&
-        jugadoresJsonRaw == null) {
+        !payloadTraeReservaDelActivo) {
       final jugadorPrevio = jugadoresActualizados[jugadorActivo];
-      final reservaPrevia = jugadorPrevio?.tropasReserva ?? 0;
+      final jugadorBase = jugadorPrevio ?? PlayerState(tropasReserva: 0);
 
-      jugadoresActualizados[jugadorActivo] = PlayerState(
-        tropasReserva: reservaPrevia + tropasRecibidas,
-        numeroJugador: jugadorPrevio?.numeroJugador ?? 1,
-        tecnologiasCompradas:
-            jugadorPrevio?.tecnologiasCompradas ?? const <String>{},
+      jugadoresActualizados[jugadorActivo] = jugadorBase.copyWith(
+        tropasReserva: jugadorBase.tropasReserva + tropasRecibidas,
       );
     }
 
@@ -319,10 +384,8 @@ class GameNotifier extends Notifier<GameState> {
     final jugadoresActualizados = Map<String, PlayerState>.from(
       state.jugadores,
     );
-    jugadoresActualizados[jugadorId] = PlayerState(
+    jugadoresActualizados[jugadorId] = jugadorActual.copyWith(
       tropasReserva: nuevaReserva,
-      numeroJugador: jugadorActual.numeroJugador,
-      tecnologiasCompradas: jugadorActual.tecnologiasCompradas,
     );
 
     state = state.copyWith(jugadores: jugadoresActualizados);
@@ -402,19 +465,6 @@ class GameNotifier extends Notifier<GameState> {
   void toggleVistaRegiones() {
     // Cambio rapido entre vista tactica (comarcas) y vista territorial (regiones).
     state = state.copyWith(vistaRegiones: !state.vistaRegiones);
-  }
-
-  void avanzarFasePanel() {
-    final faseActual = _normalizarFase(state.faseActual);
-    final currentIndex = _faseOrden.indexOf(faseActual);
-
-    if (currentIndex == -1) {
-      state = state.copyWith(faseActual: _faseOrden.first);
-      return;
-    }
-
-    final nextIndex = (currentIndex + 1) % _faseOrden.length;
-    state = state.copyWith(faseActual: _faseOrden[nextIndex]);
   }
 
   void actualizarTerritorio({

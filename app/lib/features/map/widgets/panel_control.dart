@@ -33,19 +33,19 @@ class PanelControlGuerra extends StatelessWidget {
   final Map<String, Color> coloresPorJugador; // username -> color
 
   static const Map<String, int> faseIndex = {
-    'reclutamiento': 0,
-    'ataque_convencional': 1,
-    'retirada': 2,
-    'fortificacion': 3,
-    'reabastecimiento': 4,
+    'refuerzo': 0,
+    'gestion': 1,
+    'ataque_convencional': 2,
+    'ataque_especial': 3,
+    'fortificacion': 4,
   };
 
   static const List<String> faseDisplay = [
-    'RECLUTAMIENTO',
+    'REFUERZO',
+    'GESTIÓN',
     'ATAQUE',
-    'RETIRADA',
-    'FORTIFICACION',
-    'REABASTECIMIENTO',
+    'ATAQUE ESPECIAL',
+    'FORTIFICACIÓN',
   ];
 
   const PanelControlGuerra({
@@ -58,9 +58,10 @@ class PanelControlGuerra extends StatelessWidget {
     required this.coloresPorJugador,
   });
 
-  String _normalizarFase(String fase) => fase.trim().toLowerCase();
-
-  int _getFaseIndex() => faseIndex[_normalizarFase(faseActual)] ?? 0;
+  int _getFaseIndex() {
+    final faseNormalizada = faseActual.trim().toLowerCase();
+    return faseIndex[faseNormalizada] ?? 0;
+  }
 
   String _getFaseDisplay(int index) => faseDisplay[index];
 

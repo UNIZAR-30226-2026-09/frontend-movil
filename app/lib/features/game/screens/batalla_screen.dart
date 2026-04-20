@@ -229,18 +229,16 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
       if (miUsuario == null || miUsuario.isEmpty) return;
 
       final faseActual = next.faseActual.toLowerCase();
-      final esFaseRefuerzo =
-          faseActual == 'refuerzo' || faseActual == 'reclutamiento';
+      final esFaseRefuerzo = faseActual == 'refuerzo';
       final esMiTurno = next.turnoDe == miUsuario;
       final ahoraDebeAvisar = esFaseRefuerzo && esMiTurno;
 
       final faseAnterior = previous?.faseActual.toLowerCase();
-      final antesEraFaseRefuerzo =
-          faseAnterior == 'refuerzo' || faseAnterior == 'reclutamiento';
+      final antesEraFaseRefuerzo = faseAnterior == 'refuerzo';
       final antesEraMiTurno = previous?.turnoDe == miUsuario;
       final antesDebiaAvisar = antesEraFaseRefuerzo && antesEraMiTurno;
 
-      // Solo avisamos al entrar en refuerzo/reclutamiento de nuestro turno.
+      // Solo avisamos al entrar en refuerzo de nuestro turno.
       if (!ahoraDebeAvisar || antesDebiaAvisar) return;
 
       final tropasRecibidas = next.jugadores[miUsuario]?.tropasReserva ?? 0;
@@ -389,7 +387,50 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
       });
     });
 
+    final miUsuarioHud = ref.watch(
+      authProvider.select((auth) => auth.user?.username ?? ''),
+    );
+    // Sacamos las monedas del jugador local para pintarlas en la barra superior.
+    final monedasHud = ref.watch(
+      gameProvider.select((state) {
+        if (miUsuarioHud.isEmpty) return 0;
+        final miEstadoJugador = state.jugadores[miUsuarioHud];
+        return miEstadoJugador?.monedas ?? 0;
+      }),
+    );
+
     return Scaffold(
+      extendBodyBehindAppBar: true,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        automaticallyImplyLeading: false,
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 14),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.monetization_on,
+                  color: AppTheme.borderGoldVivo,
+                  size: 22,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  '$monedasHud',
+                  style: const TextStyle(
+                    color: AppTheme.borderGoldVivo,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
       resizeToAvoidBottomInset: false,
       body: FutureBuilder<GameMap>(
         future: _mapFuture,
@@ -409,6 +450,22 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
               InteractiveGameMap(
                 gameMap: snapshot.data!,
                 onTapComarca: (c) {
+                  final estadoActual = ref.read(gameProvider);
+                  final miUsuario = ref.read(authProvider).user?.username ?? '';
+                  final faseActual = estadoActual.faseActual.toLowerCase();
+
+                  if (faseActual == 'gestion') {
+                    final ownerId = estadoActual.mapa[c.id]?.ownerId ?? '';
+                    final esComarcaPropia =
+                        miUsuario.isNotEmpty && ownerId == miUsuario;
+
+                    // En gestión solo abrimos menú sobre comarcas propias.
+                    if (!esComarcaPropia) return;
+
+                    _mostrarOpcionesGestionComarca();
+                    return;
+                  }
+
                   ref
                       .read(gameProvider.notifier)
                       .seleccionarComarca(
@@ -469,6 +526,74 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
     );
   }
 
+  Future<void> _mostrarOpcionesGestionComarca() async {
+    if (!mounted) return;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: AppTheme.surface,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+          ),
+          child: SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Opciones de Gestión',
+                    style: TextStyle(
+                      color: AppTheme.text,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(
+                      Icons.monetization_on,
+                      color: AppTheme.borderGoldVivo,
+                    ),
+                    title: const Text(
+                      'Mandar a la mina (Generar Monedas)',
+                      style: TextStyle(color: AppTheme.text),
+                    ),
+                    onTap: () {
+                      Navigator.of(sheetContext).pop();
+                      print('Pendiente de endpoint');
+                    },
+                  ),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(
+                      Icons.science_rounded,
+                      color: AppTheme.primary,
+                    ),
+                    title: const Text(
+                      'Mandar al laboratorio (Investigar)',
+                      style: TextStyle(color: AppTheme.text),
+                    ),
+                    onTap: () {
+                      Navigator.of(sheetContext).pop();
+                      print('Pendiente de endpoint');
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _mostrarDialogoSistemaYSalir(
     String titulo,
     String mensaje,
@@ -505,7 +630,8 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
     final miUsuario = ref.read(authProvider).user?.username ?? '';
     final miEstadoJugador = gameState.jugadores[miUsuario];
     final tecnologiasCompradas =
-        miEstadoJugador?.tecnologiasCompradas ?? const <String>{};
+        miEstadoJugador?.tecnologiasCompradas ?? const <String>[];
+    final tecnologiasCompradasSet = tecnologiasCompradas.toSet();
 
     await showModalBottomSheet<void>(
       context: context,
@@ -547,7 +673,7 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
                             backendPrices: _techPrices,
                             backendDescriptions: _techDescriptions,
                             backendNames: _techNames,
-                            ownedTechIds: tecnologiasCompradas,
+                            ownedTechIds: tecnologiasCompradasSet,
                             onResearchPressed: _onResearchPressed,
                           ),
                         ),

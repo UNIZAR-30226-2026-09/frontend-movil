@@ -69,7 +69,10 @@ class WebSocketNotifier extends Notifier<WebSocketState> {
       onPause: () {
         debugPrint('📱 App en Segundo Plano -> Cortando WS');
         _wsService.disconnect();
-        state = state.copyWith(isConnected: false, currentPartidaId: _currentPartidaId);
+        state = state.copyWith(
+          isConnected: false,
+          currentPartidaId: _currentPartidaId,
+        );
       },
       onResume: () {
         debugPrint('📱 App en Primer Plano -> Recuperando WS');
@@ -89,7 +92,10 @@ class WebSocketNotifier extends Notifier<WebSocketState> {
 
   Future<void> connectToPartida(int partidaId) async {
     _currentPartidaId = partidaId;
-    state = state.copyWith(isConnected: state.isConnected, currentPartidaId: _currentPartidaId);
+    state = state.copyWith(
+      isConnected: state.isConnected,
+      currentPartidaId: _currentPartidaId,
+    );
     await _reconnect();
   }
 
@@ -100,7 +106,10 @@ class WebSocketNotifier extends Notifier<WebSocketState> {
     if (user != null && user.username.isNotEmpty && _currentPartidaId != null) {
       _wsService.disconnect();
       _wsService.connect(user.username, _currentPartidaId!);
-      state = state.copyWith(isConnected: true, currentPartidaId: _currentPartidaId);
+      state = state.copyWith(
+        isConnected: true,
+        currentPartidaId: _currentPartidaId,
+      );
 
       _wsService.stream?.listen(
         (message) {
@@ -109,14 +118,16 @@ class WebSocketNotifier extends Notifier<WebSocketState> {
             final data = jsonDecode(message);
             if (data is! Map<String, dynamic>) return;
 
-            final tipoEvento = data['tipo_evento'];
+            final tipoEvento = data['tipo_evento']?.toString();
 
             // Eventos de sistema para UI: eliminado y fin de partida
-            if (tipoEvento == 'JUGADOR_ELIMINADO' || tipoEvento == 'FIN_PARTIDA') {
+            if (tipoEvento == 'JUGADOR_ELIMINADO' ||
+                tipoEvento == 'FIN_PARTIDA') {
               state = state.copyWith(
                 tipoEventoSistema: tipoEvento.toString(),
                 jugadorEventoSistema: data['jugador']?.toString(),
-                ganadorEventoSistema: (data['ganador'] ?? data['jugador_ganador'])?.toString(),
+                ganadorEventoSistema:
+                    (data['ganador'] ?? data['jugador_ganador'])?.toString(),
                 mensajeEventoSistema: data['mensaje']?.toString(),
                 versionEventoSistema: state.versionEventoSistema + 1,
               );
@@ -136,17 +147,21 @@ class WebSocketNotifier extends Notifier<WebSocketState> {
               final tropasDestino = data['tropas_restantes_defensor'] as int?;
 
               if (origen != null && tropasOrigen != null) {
-                ref.read(gameProvider.notifier).actualizarTerritorio(
-                  territorioId: origen,
-                  units: tropasOrigen,
-                );
+                ref
+                    .read(gameProvider.notifier)
+                    .actualizarTerritorio(
+                      territorioId: origen,
+                      units: tropasOrigen,
+                    );
               }
               // Solo actualizamos unidades del destino — el dueño lo cambia MOVIMIENTO_CONQUISTA
               if (destino != null && tropasDestino != null) {
-                ref.read(gameProvider.notifier).actualizarTerritorio(
-                  territorioId: destino,
-                  units: tropasDestino,
-                );
+                ref
+                    .read(gameProvider.notifier)
+                    .actualizarTerritorio(
+                      territorioId: destino,
+                      units: tropasDestino,
+                    );
               }
             }
 
@@ -162,24 +177,31 @@ class WebSocketNotifier extends Notifier<WebSocketState> {
               if (origen != null && destino != null) {
                 final mapaActual = ref.read(gameProvider).mapa;
                 final tropasOrigen = (mapaActual[origen]?.units ?? 0) - tropas;
-                final tropasDestino = (mapaActual[destino]?.units ?? 0) + tropas;
+                final tropasDestino =
+                    (mapaActual[destino]?.units ?? 0) + tropas;
 
-                ref.read(gameProvider.notifier).actualizarTerritorio(
-                  territorioId: origen,
-                  units: tropasOrigen,
-                );
+                ref
+                    .read(gameProvider.notifier)
+                    .actualizarTerritorio(
+                      territorioId: origen,
+                      units: tropasOrigen,
+                    );
                 // Al mover la conquista el destino ya es nuestro — usamos el jugador del payload
                 if (jugador != null) {
-                  ref.read(gameProvider.notifier).actualizarTerritorioConDueno(
-                    territorioId: destino,
-                    units: tropasDestino,
-                    nuevoOwner: jugador,
-                  );
+                  ref
+                      .read(gameProvider.notifier)
+                      .actualizarTerritorioConDueno(
+                        territorioId: destino,
+                        units: tropasDestino,
+                        nuevoOwner: jugador,
+                      );
                 } else {
-                  ref.read(gameProvider.notifier).actualizarTerritorio(
-                    territorioId: destino,
-                    units: tropasDestino,
-                  );
+                  ref
+                      .read(gameProvider.notifier)
+                      .actualizarTerritorio(
+                        territorioId: destino,
+                        units: tropasDestino,
+                      );
                 }
               }
               // Salimos — no dejamos que este evento entre al bloque genérico
@@ -194,10 +216,12 @@ class WebSocketNotifier extends Notifier<WebSocketState> {
               final tropasTotalesAhora = _toInt(data['tropas_totales_ahora']);
 
               if (territorioId != null && tropasTotalesAhora != null) {
-                ref.read(gameProvider.notifier).actualizarTerritorio(
-                  territorioId: territorioId,
-                  units: tropasTotalesAhora,
-                );
+                ref
+                    .read(gameProvider.notifier)
+                    .actualizarTerritorio(
+                      territorioId: territorioId,
+                      units: tropasTotalesAhora,
+                    );
               }
 
               // Además descontamos la reserva del jugador que acaba de colocar.
@@ -209,11 +233,15 @@ class WebSocketNotifier extends Notifier<WebSocketState> {
                   _toInt(data['tropas']) ??
                   0;
 
-              if (jugador != null && jugador.isNotEmpty && tropasColocadas > 0) {
-                ref.read(gameProvider.notifier).restarTropasReserva(
-                  jugadorId: jugador,
-                  tropas: tropasColocadas,
-                );
+              if (jugador != null &&
+                  jugador.isNotEmpty &&
+                  tropasColocadas > 0) {
+                ref
+                    .read(gameProvider.notifier)
+                    .restarTropasReserva(
+                      jugadorId: jugador,
+                      tropas: tropasColocadas,
+                    );
               }
               return;
             }
@@ -227,51 +255,87 @@ class WebSocketNotifier extends Notifier<WebSocketState> {
               return;
             }
 
+            if (tipoEvento == 'CAMBIO_FASE') {
+              // Algunos backends lo envían directo y otros anidado en payload.
+              // Unificamos la lectura para no perder nueva_fase/jugador_activo.
+              final rawPayload = data['payload'];
+              final payload = rawPayload is Map
+                  ? Map<String, dynamic>.from(rawPayload)
+                  : data;
+
+              final nuevaFase = payload['nueva_fase']?.toString();
+              final jugadorActivo = payload['jugador_activo']?.toString();
+              final tropasRecibidasRaw = payload['tropas_recibidas'];
+              final tropasRecibidas = tropasRecibidasRaw is int
+                  ? tropasRecibidasRaw
+                  : (tropasRecibidasRaw is num
+                        ? tropasRecibidasRaw.toInt()
+                        : int.tryParse(tropasRecibidasRaw?.toString() ?? '') ??
+                              0);
+
+              if (nuevaFase == null || jugadorActivo == null) {
+                // Fallback: si llega un shape incompleto, mantenemos la vía genérica.
+                ref
+                    .read(gameProvider.notifier)
+                    .actualizarDesdeServidor(payload);
+                return;
+              }
+
+              ref
+                  .read(gameProvider.notifier)
+                  .actualizarCambioFaseDesdeWs(
+                    nuevaFase: nuevaFase,
+                    jugadorActivo: jugadorActivo,
+                    tropasRecibidas: tropasRecibidas,
+                  );
+              return;
+            }
+
             // --- Eventos de estado global (fase, turno, mapa completo) ---
             // Solo estos tres eventos pasan por actualizarDesdeServidor.
             // El bloque genérico de 'mapa'/'fase_actual' lo quitamos para evitar
             // dobles actualizaciones en eventos que ya procesamos arriba.
-            if (tipoEvento == 'CAMBIO_FASE' ||
-                tipoEvento == 'ACTUALIZACION_MAPA' ||
+            if (tipoEvento == 'ACTUALIZACION_MAPA' ||
                 tipoEvento == 'PARTIDA_INICIADA') {
               ref.read(gameProvider.notifier).actualizarDesdeServidor(data);
             }
-
           } catch (e) {
             debugPrint('⚠️ Error parseando el JSON del WebSocket: $e');
           }
         },
         onDone: () {
           debugPrint('⭕ Stream del WS cerrado por el servidor.');
-          state = state.copyWith(isConnected: false, currentPartidaId: _currentPartidaId);
+          state = state.copyWith(
+            isConnected: false,
+            currentPartidaId: _currentPartidaId,
+          );
           _wsService.disconnect();
         },
         onError: (e) {
           debugPrint('🔴 Error en Stream WS: $e');
-          state = state.copyWith(isConnected: false, currentPartidaId: _currentPartidaId);
+          state = state.copyWith(
+            isConnected: false,
+            currentPartidaId: _currentPartidaId,
+          );
           _wsService.disconnect();
         },
         cancelOnError: true,
       );
     } else {
-      debugPrint('⚠️ Intento de conexión WS fallido: No hay usuario en memoria.');
+      debugPrint(
+        '⚠️ Intento de conexión WS fallido: No hay usuario en memoria.',
+      );
     }
   }
 
   void emitirEvento(String tipoEvento, Map<String, dynamic> datos) {
-    final payloadParaFastAPI = {
-      'accion': tipoEvento,
-      ...datos,
-    };
+    final payloadParaFastAPI = {'accion': tipoEvento, ...datos};
     _wsService.sendEvent(tipoEvento, payloadParaFastAPI);
   }
 
   void disconnect() {
     _wsService.disconnect();
-    state = state.copyWith(
-      isConnected: false,
-      clearCurrentPartidaId: true,
-    );
+    state = state.copyWith(isConnected: false, clearCurrentPartidaId: true);
     _currentPartidaId = null;
   }
 }
