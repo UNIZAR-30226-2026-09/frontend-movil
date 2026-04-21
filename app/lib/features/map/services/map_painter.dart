@@ -38,6 +38,76 @@ class MapPainter extends CustomPainter {
     return coloresPorJugador[username] ?? AppTheme.mapLandNeutral;
   }
 
+  int? _getNumeroJugador(String username) {
+    final jugador = gameState.jugadores[username];
+    return jugador?.numeroJugador;
+  }
+
+  Color _getMutedPlayerColor(String username) {
+    if (username.isEmpty) return AppTheme.mapLandNeutral;
+
+    final numeroJugador = _getNumeroJugador(username);
+    if (numeroJugador == null) return AppTheme.mapLandNeutral;
+
+    return ColorUtils.getPlayerMutedColor(numeroJugador);
+  }
+
+  bool _esMismoJugador(String a, String b) {
+    if (a.isEmpty || b.isEmpty) return false;
+    return a.toLowerCase() == b.toLowerCase();
+  }
+
+  bool _esMiTurnoLocal() {
+    return _esMismoJugador(gameState.turnoDe, localPlayerId);
+  }
+
+  bool _esTerritorioMio(String ownerId) {
+    return _esMismoJugador(ownerId, localPlayerId);
+  }
+
+  int _tropasReservaJugadorActivo() {
+    if (gameState.turnoDe.isEmpty) return 0;
+    return gameState.jugadores[gameState.turnoDe]?.tropasReserva ?? 0;
+  }
+
+  bool _tieneAdyacenteEnemigo(Comarca comarca) {
+    final territoryData = gameState.mapa[comarca.id];
+    final ownerId = territoryData?.ownerId ?? '';
+    if (ownerId.isEmpty) return false;
+
+    for (final adyacenteId in comarca.adjacentTo) {
+      final adyacente = gameState.mapa[adyacenteId];
+      final ownerAdyacente = adyacente?.ownerId ?? '';
+      if (ownerAdyacente.isEmpty) continue;
+
+      if (!_esMismoJugador(ownerAdyacente, ownerId)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  bool _tieneAdyacenteAliado(Comarca comarca) {
+    final territoryData = gameState.mapa[comarca.id];
+    final ownerId = territoryData?.ownerId ?? '';
+    if (ownerId.isEmpty) return false;
+
+    for (final adyacenteId in comarca.adjacentTo) {
+      final adyacente = gameState.mapa[adyacenteId];
+      final ownerAdyacente = adyacente?.ownerId ?? '';
+      if (ownerAdyacente.isEmpty) continue;
+
+      if (_esMismoJugador(ownerAdyacente, ownerId)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+
+
   Path? _buildRegionUnionPath(Region region) {
     Path? unionPath;
 
@@ -164,6 +234,129 @@ class MapPainter extends CustomPainter {
         canvas.drawPath(segment, plankPaint);
       }
     }
+  }
+
+  Offset _getCentroComarca(Path path) {
+    return path.getBounds().center;
+  }
+
+  void _paintFichaTropas(
+    Canvas canvas,
+    Offset center,
+    String tropas,
+    Color fillColor,
+    double scale,
+    double viewerScale,
+  ) {
+    final zoomComp = 1.0 + ((viewerScale - 1.0) * 0.55);
+    final effectiveZoom = zoomComp.clamp(1.0, 2.4);
+
+    final radioFicha = 10.0 / (scale * effectiveZoom);
+    final borderWidth = 1.8 / (scale * effectiveZoom);
+    final shadowOffset = 2.0 / (scale * effectiveZoom);
+
+    
+
+    final shadowPaint = Paint()
+      ..color = Colors.black.withOpacity(0.35)
+      ..maskFilter = MaskFilter.blur(BlurStyle.normal, 6.0 / scale);
+    
+    final fillPaint = Paint()..color = fillColor;
+
+    final borderPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = borderWidth
+      ..color = const Color(0xFFFFC93A); 
+
+    canvas.drawCircle(
+      center.translate(0, shadowOffset),
+      radioFicha,
+      shadowPaint,
+    );
+  
+    canvas.drawCircle(center, radioFicha, fillPaint);
+    canvas.drawCircle(center, radioFicha, borderPaint);
+
+    final textPainter = TextPainter(
+      textAlign: TextAlign.center,
+      textDirection: TextDirection.ltr,
+    );
+
+    textPainter.text = TextSpan(
+      text: tropas,
+      style: TextStyle(
+        color: Colors.white,
+        fontSize: 11.0 / (scale * effectiveZoom),
+        fontWeight: FontWeight.w900,
+      ),
+    );
+
+    textPainter.layout();
+
+    textPainter.paint(
+      canvas,
+      Offset(
+        center.dx - textPainter.width / 2,
+        center.dy - textPainter.height / 2,
+      ),
+    );
+  }
+
+  void _paintComarcaName(
+    Canvas canvas,
+    Offset center,
+    String name,
+    double textScale,
+  ) {
+    final textPainter = TextPainter(
+      textAlign: TextAlign.center,
+      textDirection: TextDirection.ltr,
+      maxLines: 2,
+      ellipsis: '…',
+    );
+  
+    textPainter.text = TextSpan(
+      text: name.toUpperCase(),
+      style: TextStyle(
+        color: const Color(0xFFF2F4F8),
+        fontSize: 11.5 / textScale,
+        fontWeight: FontWeight.w900,
+        height: 0.9,
+        shadows: [
+          Shadow(
+            color: Colors.black.withOpacity(0.95),
+            offset: Offset(1.2 / textScale, 1.2 / textScale),
+            blurRadius: 0.5,
+          ),
+          Shadow(
+            color: Colors.black.withOpacity(0.75),
+            offset: Offset(-0.8 / textScale, 0),
+          ),
+          Shadow(
+            color: Colors.black.withOpacity(0.75),
+            offset: Offset(0.8 / textScale, 0),
+          ),
+          Shadow(
+            color: Colors.black.withOpacity(0.75),
+            offset: Offset(0, -0.8 / textScale),
+          ),
+          Shadow(
+            color: Colors.black.withOpacity(0.75),
+            offset: Offset(0, 0.8 / textScale),
+          ),
+        ],
+      ),
+    );
+  
+    textPainter.layout(maxWidth: 110.0 / textScale);
+  
+    textPainter.paint(
+      canvas,
+      Offset(
+        center.dx - textPainter.width / 2,
+        center.dy - textPainter.height / 2,
+      ),
+    );
   }
 
   void _paintVistaRegiones(
@@ -353,89 +546,58 @@ class MapPainter extends CustomPainter {
 
     _paintPuentes(canvas, scale);
 
-    // 3. PINTADO DE ETIQUETAS Y TROPAS (T48)
-    if (viewerScale >= labelMinScale) {
-      final t = ((viewerScale - labelMinScale) / 0.5).clamp(0.0, 1.0);
+    // 3. PINTADO DE TROPAS
+    for (final comarca in comarcas) {
+      final path = comarcaPaths[comarca.id];
+      if (path == null) continue;
 
-      final textPainter = TextPainter(
-        textAlign: TextAlign.center,
-        textDirection: TextDirection.ltr,
-        maxLines: 2,
-        ellipsis: '…',
+      final bounds = path.getBounds();
+      if (bounds.width < 20 || bounds.height < 14) continue;
+
+      final territoryData = gameState.mapa[comarca.id];
+      final tropas = territoryData != null ? territoryData.units.toString() : '0';
+      final ownerId = territoryData?.ownerId ?? '';
+
+      final center = _getCentroComarca(path);
+      final fichaColor = _getPlayerColor(ownerId);
+
+      _paintFichaTropas(
+        canvas,
+        center,
+        tropas,
+        fichaColor,
+        scale,
+        viewerScale,
       );
+    }
 
-      final fontWorld = labelFontSizePx / (scale * viewerScale);
-      final padX = 6.0 / (scale * viewerScale);
-      final padY = 4.0 / (scale * viewerScale);
-      final radius = 6.0 / (scale * viewerScale);
-
+    // 4. NOMBRES SOLO CON ZOOM
+    if (viewerScale >= labelMinScale) {
       for (final comarca in comarcas) {
         final path = comarcaPaths[comarca.id];
         if (path == null) continue;
 
         final bounds = path.getBounds();
-        if (bounds.width < 25 || bounds.height < 15) continue;
+        if (bounds.width < 28 || bounds.height < 18) continue;
 
-        // T48: Sacamos las tropas del territorio (o mostramos "-" si no hay datos)
-        final territoryData = gameState.mapa[comarca.id];
-        final tropas = territoryData != null
-            ? territoryData.units.toString()
-            : "0";
+        final center = _getCentroComarca(path);
 
-        final center = bounds.center;
-
-        // Componemos el texto: Nombre pequeño arriba, Tropas grandes abajo
-        textPainter.text = TextSpan(
-          children: [
-            TextSpan(
-              text: "${comarca.name}\n",
-              style: TextStyle(
-                color: AppTheme.text.withValues(alpha: 0.9 * t),
-                fontSize: fontWorld * 0.7, // Nombre un poco más pequeño
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            TextSpan(
-              text: "🛡️ $tropas",
-              style: TextStyle(
-                color: AppTheme.text.withValues(alpha: 1.0 * t),
-                fontSize: fontWorld * 1.1, // Tropas más grandes
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ],
+        final nameOffset = Offset(
+          center.dx,
+          center.dy + (9.0 / scale),
         );
 
-        final maxWidthWorld = 120.0 / (scale * viewerScale);
-        textPainter.layout(maxWidth: maxWidthWorld);
-
-        final offset = Offset(
-          center.dx - textPainter.width / 2,
-          center.dy - textPainter.height / 2,
+        _paintComarcaName(
+          canvas,
+          nameOffset,
+          comarca.name,
+          scale * viewerScale,
         );
-
-        final bgRect = Rect.fromLTWH(
-          offset.dx - padX,
-          offset.dy - padY,
-          textPainter.width + padX * 2,
-          textPainter.height + padY * 2,
-        );
-
-        canvas.save();
-        canvas.clipPath(path);
-
-        final bgPaint = Paint()
-          ..color = AppTheme.bg.withValues(alpha: (0.65 + 0.25 * t));
-        canvas.drawRRect(
-          RRect.fromRectAndRadius(bgRect, Radius.circular(radius)),
-          bgPaint,
-        );
-
-        textPainter.paint(canvas, offset);
-
-        canvas.restore();
       }
     }
+    
+    
+   
 
     canvas.restore();
   }

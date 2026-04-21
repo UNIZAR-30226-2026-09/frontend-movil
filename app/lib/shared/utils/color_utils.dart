@@ -36,6 +36,21 @@ class ColorUtils {
     }
   }
 
+  static Color getPlayerMutedColor(int numeroJugador) {
+    switch (numeroJugador) {
+      case 1:
+        return AppTheme.player1Muted;
+      case 2:
+        return AppTheme.player2Muted;
+      case 3:
+        return AppTheme.player3Muted;
+      case 4:
+        return AppTheme.player4Muted;
+      default:
+        return AppTheme.mapLandNeutral;
+    }
+  }
+
   static const Color origenColor = AppTheme.mapSelectOrigin;
   static const Color resaltadoColor = AppTheme.mapSelectTarget;
   static const Color bordeColor = AppTheme.borderGoldVivo;
