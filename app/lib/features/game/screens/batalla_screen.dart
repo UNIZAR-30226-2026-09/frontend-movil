@@ -435,6 +435,7 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
                       .read(gameProvider.notifier)
                       .seleccionarComarca(
                         c.id,
+                        jugadorLocalId: miUsuario,
                         vecinosDelNodoTocado: c.adjacentTo,
                       );
                 },
