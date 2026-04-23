@@ -637,7 +637,7 @@ class GameNotifier extends Notifier<GameState> {
         return tropas > 1 && _tieneAdyacenteEnemigo(comarcaId);
 
       case 'FORTIFICACION':
-        return _tieneAdyacenteAliado(comarcaId);
+        return tropas > 1 && _tieneAdyacenteAliado(comarcaId);
 
       default:
         return false;

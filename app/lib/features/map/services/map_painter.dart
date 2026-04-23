@@ -21,6 +21,7 @@ class MapPainter extends CustomPainter {
   final double labelFontSizePx;
   final Map<String, Color> coloresPorJugador;
   final double colorTransitionT;
+  final double attackFlowT;
 
   MapPainter({
     required this.regions,
@@ -32,6 +33,7 @@ class MapPainter extends CustomPainter {
     required this.viewerScale,
     required this.coloresPorJugador,
     required this.colorTransitionT,
+    required this.attackFlowT,
     this.labelMinScale = 2.0,
     this.labelFontSizePx = 12.0,
   });
@@ -153,6 +155,85 @@ class MapPainter extends CustomPainter {
 
       default:
         return false;
+    }
+  }
+
+  bool _shouldPaintAttackFlows() {
+    return gameState.faseActual.toUpperCase() == 'ATAQUE_CONVENCIONAL' &&
+        gameState.origenSeleccionado != null &&
+        gameState.comarcasResaltadas.isNotEmpty;
+  }
+
+  Path _buildAttackLine(Offset from, Offset to) {
+    return Path()
+    ..moveTo(from.dx, from.dy)
+    ..lineTo(to.dx, to.dy);
+  }
+
+  void _paintAnimatedAttackPath(
+    Canvas canvas,
+    Path path,
+    double scale,
+  ) {
+    final metrics = path.computeMetrics().toList();
+    if (metrics.isEmpty) return;
+
+    final metric = metrics.first;
+    final length = metric.length;
+    if (length <= 0) return;
+
+    final double dashLength = 7.0 / scale;
+    final double gapLength = 5.0 / scale;
+    final double patternLength = dashLength + gapLength;
+
+    final double phase = (1 - attackFlowT) * patternLength;
+
+    final glowPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.butt
+      ..strokeWidth = 4.2 / scale
+      ..color = AppTheme.borderGoldVivo.withOpacity(0.18)
+      ..maskFilter = MaskFilter.blur(BlurStyle.normal, 2.5 / scale);
+
+    final dashPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.butt
+      ..strokeWidth = 2.2 / scale
+      ..color = AppTheme.borderGoldVivo;
+
+    double distance = -phase;
+
+    while (distance < length) {
+      final start = distance < 0 ? 0.0 : distance;
+      final end = (distance + dashLength).clamp(0.0, length);
+
+      if (end > start) {
+        final segment = metric.extractPath(start, end);
+        canvas.drawPath(segment, glowPaint);
+        canvas.drawPath(segment, dashPaint);
+      }
+
+      distance += patternLength;
+    }
+  }
+
+  void _paintAttackFlows(Canvas canvas, double scale) {
+    final origenId = gameState.origenSeleccionado;
+    if (origenId == null) return;
+
+    final origenPath = comarcaPaths[origenId];
+    if (origenPath == null) return;
+
+    final origenCenter = _getCentroComarca(origenPath);
+
+    for (final targetId in gameState.comarcasResaltadas) {
+      final targetPath = comarcaPaths[targetId];
+      if (targetPath == null) continue;
+
+      final targetCenter = _getCentroComarca(targetPath);
+      final line = _buildAttackLine(origenCenter, targetCenter);
+
+      _paintAnimatedAttackPath(canvas, line, scale);
     }
   }
 
@@ -1031,6 +1112,11 @@ class MapPainter extends CustomPainter {
       }
     }
 
+    // ANIMACIÓN DE ATAQUE
+    if (_shouldPaintAttackFlows()) {
+      _paintAttackFlows(canvas, scale);
+    }
+
     // PINTADO DE PUENTES
 
     _paintPuentes(canvas, scale);
@@ -1099,6 +1185,7 @@ class MapPainter extends CustomPainter {
       oldDelegate.localPlayerId != localPlayerId ||
       oldDelegate.viewerScale != viewerScale ||
       oldDelegate.colorTransitionT != colorTransitionT ||
+      oldDelegate.attackFlowT != attackFlowT ||
       oldDelegate.comarcas != comarcas ||
       oldDelegate.regions != regions;
 }

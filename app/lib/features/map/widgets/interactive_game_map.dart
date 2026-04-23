@@ -38,10 +38,13 @@ class InteractiveGameMap extends ConsumerStatefulWidget {
 }
 
 class _InteractiveGameMapState extends ConsumerState<InteractiveGameMap> 
-  with SingleTickerProviderStateMixin {
+  with TickerProviderStateMixin {
     late final TransformationController _internalController;
     late final AnimationController _colorAnimController;
     late final Animation<double> _colorAnim;
+
+    late final AnimationController _attackFlowController;
+    late final Animation<double> _attackFlowAnim;
 
     GameState? _animFromGameState;
     GameState? _animToGameState;
@@ -81,6 +84,16 @@ class _InteractiveGameMapState extends ConsumerState<InteractiveGameMap>
         curve: Curves.linear,
       );
 
+      _attackFlowController = AnimationController(
+        vsync: this,
+        duration: const Duration(milliseconds: 950),
+      )..repeat();
+
+      _attackFlowAnim = CurvedAnimation(
+        parent: _attackFlowController,
+        curve: Curves.linear,
+      );
+
       _colorAnimController.value = 1.0;
     }
 
@@ -89,6 +102,7 @@ class _InteractiveGameMapState extends ConsumerState<InteractiveGameMap>
       _tc.removeListener(_handleTransformChanged);
       if (_ownsController) _internalController.dispose();
       _colorAnimController.dispose();
+      _attackFlowController.dispose();
       super.dispose();
     }
 
@@ -223,7 +237,7 @@ class _InteractiveGameMapState extends ConsumerState<InteractiveGameMap>
                                     }
                                   },
                                   child: AnimatedBuilder(
-                                    animation: _colorAnim,
+                                    animation: Listenable.merge([_colorAnim, _attackFlowAnim]),
                                     builder: (context, _) {
                                       return RepaintBoundary(
                                         child: CustomPaint(
@@ -238,6 +252,7 @@ class _InteractiveGameMapState extends ConsumerState<InteractiveGameMap>
                                             viewerScale: _currentScale,
                                             coloresPorJugador: _buildColoresPorJugador(_animToGameState!),
                                             colorTransitionT: _colorAnim.value,
+                                            attackFlowT: _attackFlowAnim.value,
                                           ),
                                         ),
                                       );
