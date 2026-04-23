@@ -63,8 +63,8 @@ class _PerfilScreenState extends ConsumerState<PerfilScreen> {
                     physics: const AlwaysScrollableScrollPhysics(),
                     padding: EdgeInsets.zero,
                     children: [
-                      SizedBox(
-                        height: constraints.maxHeight,
+                      ConstrainedBox(
+                        constraints: BoxConstraints(minHeight: constraints.maxHeight),
                         child: Stack(
                           children: [
                             Align(
@@ -217,45 +217,24 @@ class _PerfilScreenState extends ConsumerState<PerfilScreen> {
                                         ),
                                       ),
                                       const SizedBox(height: 24),
-                                      Expanded(
-                                        child: Container(
-                                          padding: const EdgeInsets.all(20),
-                                          decoration: BoxDecoration(
-                                            color: AppTheme.surface,
-                                            borderRadius: BorderRadius.circular(20),
-                                            border: Border.all(
-                                              color: AppTheme.borderGold,
-                                              width: 1.2,
+                                      Container(
+                                        padding: const EdgeInsets.all(20),
+                                        decoration: BoxDecoration(
+                                          color: AppTheme.surface,
+                                          borderRadius: BorderRadius.circular(20),
+                                          border: Border.all(
+                                            color: AppTheme.borderGold,
+                                            width: 1.2,
+                                          ),
+                                          boxShadow: const [
+                                            BoxShadow(
+                                              color: Colors.black54,
+                                              blurRadius: 16,
+                                              offset: Offset(0, 6),
                                             ),
-                                            boxShadow: const [
-                                              BoxShadow(
-                                                color: Colors.black54,
-                                                blurRadius: 16,
-                                                offset: Offset(0, 6),
-                                              ),
-                                            ],
-                                          ),
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              const Text(
-                                                'Estadísticas',
-                                                style: TextStyle(
-                                                  fontSize: 22,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 16),
-                                              Expanded(
-                                                child: estadisticasAsync.when(
-                                                  data: _buildStatsGrid,
-                                                  loading: _buildStatsLoading,
-                                                  error: _buildStatsError,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
+                                          ],
                                         ),
+                                        child: _buildStatsContainer(estadisticasAsync),
                                       ),
                                     ],
                                   ),
@@ -387,122 +366,158 @@ class _PerfilScreenState extends ConsumerState<PerfilScreen> {
     );
   }
 
+  Widget _buildStatsContainer(AsyncValue<EstadisticasModel> estadisticasAsync) {
+    return Stack(
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(14, 16, 14, 14),
+          decoration: BoxDecoration(
+            color: AppTheme.surface,
+            border: Border.all(color: AppTheme.borderGold, width: 1),
+          ),
+          child: Column(
+            children: [
+              const Text(
+                'ESTADÍSTICAS GLOBALES',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: AppTheme.borderGoldVivo,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  fontFamily: 'Times New Roman',
+                  letterSpacing: 0.8,
+                ),
+              ),
+              const SizedBox(height: 12),
+              estadisticasAsync.when(
+                data: _buildStatsGrid,
+                loading: _buildStatsLoading,
+                error: _buildStatsError,
+              ),
+            ],
+          ),
+        ),
+        Positioned(
+          top: 0,
+          left: 0,
+          child: _buildEsquinaOrnamental(top: true, left: true),
+        ),
+        Positioned(
+          top: 0,
+          right: 0,
+          child: _buildEsquinaOrnamental(top: true, right: true),
+        ),
+        Positioned(
+          bottom: 0,
+          left: 0,
+          child: _buildEsquinaOrnamental(bottom: true, left: true),
+        ),
+        Positioned(
+          bottom: 0,
+          right: 0,
+          child: _buildEsquinaOrnamental(bottom: true, right: true),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEsquinaOrnamental({
+    bool top = false,
+    bool right = false,
+    bool bottom = false,
+    bool left = false,
+  }) {
+    return Container(
+      width: 10,
+      height: 10,
+      decoration: BoxDecoration(
+        color: Colors.transparent,
+        border: Border(
+          top: top ? const BorderSide(color: AppTheme.borderGoldVivo, width: 3) : BorderSide.none,
+          right: right ? const BorderSide(color: AppTheme.borderGoldVivo, width: 3) : BorderSide.none,
+          bottom: bottom ? const BorderSide(color: AppTheme.borderGoldVivo, width: 3) : BorderSide.none,
+          left: left ? const BorderSide(color: AppTheme.borderGoldVivo, width: 3) : BorderSide.none,
+        ),
+      ),
+    );
+  }
+
   Widget _buildStatsGrid(EstadisticasModel estadisticas) {
     final jugadas = estadisticas.numPartidasJugadas;
     final ganadas = estadisticas.numPartidasGanadas;
     final winrate = jugadas == 0 ? 0.0 : (ganadas / jugadas) * 100;
 
-    final cards = <_StatCardData>[
-      _StatCardData(
-        emoji: '⚔️',
-        titulo: 'Partidas Jugadas',
-        valor: '$jugadas',
-      ),
-      _StatCardData(
-        emoji: '🏆',
-        titulo: 'Tasa de Victorias',
-        valor: '${winrate.toStringAsFixed(1)}%',
-      ),
-      _StatCardData(
-        emoji: '💀',
-        titulo: 'Soldados Aniquilados',
-        valor: '${estadisticas.numSoldadosMatados}',
-      ),
-      _StatCardData(
-        emoji: '🗺️',
-        titulo: 'Regiones Conquistadas',
-        valor: '${estadisticas.numRegionesConquistadas}',
-      ),
+    final stats = <Map<String, String>>[
+      {'titulo': 'WINRATE', 'valor': '${winrate.toStringAsFixed(1)}%'},
+      {'titulo': 'RANKING MUNDIAL', 'valor': '0'},
+      {'titulo': 'PARTIDAS JUGADAS', 'valor': '$jugadas'},
+      {'titulo': 'VICTORIAS TOTALES', 'valor': '$ganadas'},
+      {
+        'titulo': 'BAJAS ENEMIGAS',
+        'valor': '${estadisticas.numSoldadosMatados}',
+      },
+      {
+        'titulo': 'REGIONES CONQUISTADAS',
+        'valor': '${estadisticas.numRegionesConquistadas}',
+      },
+      {
+        'titulo': 'CONTINENTES CONQUISTADOS',
+        'valor': '${estadisticas.conquistasPorRegion.length}',
+      },
+      {'titulo': 'REGION FAVORITA', 'valor': '0'},
     ];
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final ancho = constraints.maxWidth;
-        final columnas = ancho > 700
-            ? 4
-            : ancho > 500
-            ? 2
-            : 1;
-
-        return GridView.builder(
-          itemCount: cards.length,
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: columnas,
-            mainAxisSpacing: 12,
-            crossAxisSpacing: 12,
-            childAspectRatio: columnas == 1 ? 4.0 : 2.2,
-          ),
-          itemBuilder: (_, index) {
-            final card = cards[index];
-            return Container(
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF211A12), Color(0xFF2B2218)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: AppTheme.borderGold, width: 1.1),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Colors.black45,
-                    blurRadius: 10,
-                    offset: Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        Text(card.emoji, style: const TextStyle(fontSize: 14)),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            card.titulo,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: AppTheme.borderGoldVivo,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    Text(
-                      card.valor,
-                      style: const TextStyle(
-                        color: AppTheme.text,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w800,
-                        height: 1.1,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
+    return GridView.count(
+      crossAxisCount: 2,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      mainAxisSpacing: 8,
+      crossAxisSpacing: 8,
+      childAspectRatio: 2.2,
+      children: stats
+          .map(
+            (item) => _buildStatBox(
+              titulo: item['titulo']!,
+              valor: item['valor']!,
+            ),
+          )
+          .toList(),
     );
   }
-}
 
-class _StatCardData {
-  final String emoji;
-  final String titulo;
-  final String valor;
-
-  const _StatCardData({
-    required this.emoji,
-    required this.titulo,
-    required this.valor,
-  });
+  Widget _buildStatBox({
+    required String titulo,
+    required String valor,
+  }) {
+    return Container(
+      color: const Color(0xFF080808),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            titulo.toUpperCase(),
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.grey[400],
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              letterSpacing: 0.7,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            valor,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              height: 1,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
