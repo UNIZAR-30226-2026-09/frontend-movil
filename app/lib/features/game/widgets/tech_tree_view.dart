@@ -6,10 +6,9 @@ import '../models/tech_tree_model.dart';
 class TechTreeView extends StatefulWidget {
   final List<TechNodeModel> nodes;
   final Size canvasSize;
-  final Map<String, int> backendPrices;
-  final Map<String, String> backendDescriptions;
-  final Map<String, String> backendNames;
   final Set<String> ownedTechIds;
+  final Set<String> unlockedTechIds;
+  final bool authoritativeUnlocks;
   final void Function(String techId, int cost)? onResearchPressed;
 
   static const double _nodeWidth = 150;
@@ -19,10 +18,9 @@ class TechTreeView extends StatefulWidget {
     super.key,
     required this.nodes,
     required this.canvasSize,
-    this.backendPrices = const <String, int>{},
-    this.backendDescriptions = const <String, String>{},
-    this.backendNames = const <String, String>{},
     this.ownedTechIds = const <String>{},
+    this.unlockedTechIds = const <String>{},
+    this.authoritativeUnlocks = false,
     this.onResearchPressed,
   });
 
@@ -92,32 +90,21 @@ class _TechTreeViewState extends State<TechTreeView> {
     return null;
   }
 
-  int _resolvedCost(TechNodeModel node) {
-    return widget.backendPrices[node.id] ?? node.cost;
-  }
-
-  String _resolvedDescription(TechNodeModel node) {
-    final backend = widget.backendDescriptions[node.id];
-    if (backend == null || backend.trim().isEmpty) {
-      return node.description;
-    }
-    return backend;
-  }
-
-  String _resolvedName(TechNodeModel node) {
-    final backend = widget.backendNames[node.id];
-    if (backend == null || backend.trim().isEmpty) {
-      return node.name;
-    }
-    return backend;
-  }
-
   bool _isOwned(TechNodeModel node) {
     return widget.ownedTechIds.contains(node.id);
   }
 
   bool _isUnlocked(TechNodeModel node) {
     if (_isOwned(node)) return true;
+
+    if (widget.unlockedTechIds.contains(node.id)) {
+      return true;
+    }
+
+    if (widget.authoritativeUnlocks) {
+      return false;
+    }
+
     return node.prerequisites.every(widget.ownedTechIds.contains);
   }
 
@@ -139,7 +126,11 @@ class _TechTreeViewState extends State<TechTreeView> {
 
   String _researchButtonLabel(TechNodeModel node) {
     if (_isOwned(node)) return 'Ya investigada';
-    if (!_isUnlocked(node)) return 'Bloqueada por prerequisitos';
+    if (!_isUnlocked(node)) {
+      return widget.authoritativeUnlocks
+          ? 'No predesbloqueada'
+          : 'Bloqueada por prerequisitos';
+    }
 
     return 'Investigar';
   }
@@ -149,7 +140,7 @@ class _TechTreeViewState extends State<TechTreeView> {
     if (widget.nodes.isEmpty) {
       return const Center(
         child: Text(
-          'Arbol preparado.\nPendiente de cargar nodos desde el PDF.',
+          'No hay habilidades disponibles en el catálogo.',
           textAlign: TextAlign.center,
           style: TextStyle(color: AppTheme.textSecondary, height: 1.4),
         ),
@@ -198,37 +189,13 @@ class _TechTreeViewState extends State<TechTreeView> {
                                 text: 'INVESTIGACION TECNOLOGICA',
                               ),
                             ),
-                            const Positioned(
-                              top: 100,
-                              left: 120,
-                              child: _BranchTitleLabel(
-                                text: 'GUERRA BIOLOGICA',
-                                color: Color(0xFFA8C7F8),
-                              ),
-                            ),
-                            const Positioned(
-                              top: 100,
-                              left: 520,
-                              child: _BranchTitleLabel(
-                                text: 'OPERACIONES Y LOGISTICA',
-                                color: Color(0xFFD2C6F7),
-                              ),
-                            ),
-                            const Positioned(
-                              top: 100,
-                              left: 930,
-                              child: _BranchTitleLabel(
-                                text: 'ARTILLERIA',
-                                color: Color(0xFFD9A45B),
-                              ),
-                            ),
                             ...widget.nodes.map(
                               (node) => Positioned(
                                 left: node.position.dx,
                                 top: node.position.dy,
                                 child: _TechNodeCard(
                                   node: node,
-                                  displayName: _resolvedName(node),
+                                  displayName: node.name,
                                   width: TechTreeView._nodeWidth,
                                   height: TechTreeView._nodeHeight,
                                   isSelected: node.id == _selectedNodeId,
@@ -253,9 +220,9 @@ class _TechTreeViewState extends State<TechTreeView> {
                 bottom: 10,
                 child: _TechNodeTooltip(
                   node: selectedNode,
-                  displayName: _resolvedName(selectedNode),
-                  description: _resolvedDescription(selectedNode),
-                  cost: _resolvedCost(selectedNode),
+                  displayName: selectedNode.name,
+                  description: selectedNode.description,
+                  cost: selectedNode.cost,
                   statusLabel: _statusLabel(selectedNode),
                   statusColor: _statusColor(selectedNode),
                   researchButtonLabel: _researchButtonLabel(selectedNode),
@@ -264,7 +231,7 @@ class _TechTreeViewState extends State<TechTreeView> {
                       ? null
                       : () => widget.onResearchPressed!(
                           selectedNode.id,
-                          _resolvedCost(selectedNode),
+                          selectedNode.cost,
                         ),
                   onClose: _clearSelection,
                 ),
@@ -569,32 +536,6 @@ class _TreeTitleLabel extends StatelessWidget {
   }
 }
 
-class _BranchTitleLabel extends StatelessWidget {
-  final String text;
-  final Color color;
-
-  const _BranchTitleLabel({required this.text, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
-      decoration: BoxDecoration(
-        border: Border.all(color: AppTheme.textSecondary, width: 1.1),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          color: color,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0.45,
-          fontSize: 11.4,
-        ),
-      ),
-    );
-  }
-}
-
 class _TechConnectionsPainter extends CustomPainter {
   final List<TechNodeModel> nodes;
   final double nodeWidth;
@@ -622,16 +563,16 @@ class _TechConnectionsPainter extends CustomPainter {
         ),
     };
 
-    Offset? centerOf(String id) => centers[id];
-
     final raiz = Offset(size.width / 2, 68);
-    final bioL1 = centerOf('gripe_aviar');
-    final opsL1 = centerOf('academia_militar');
-    final artL1 = centerOf('mortero_tactico');
 
-    if (bioL1 != null) canvas.drawLine(raiz, bioL1, linePaint);
-    if (opsL1 != null) canvas.drawLine(raiz, opsL1, linePaint);
-    if (artL1 != null) canvas.drawLine(raiz, artL1, linePaint);
+    final nivelBase = nodes
+        .where((node) => node.prerequisites.isEmpty)
+        .map((node) => centers[node.id])
+        .whereType<Offset>();
+
+    for (final start in nivelBase) {
+      canvas.drawLine(raiz, start, linePaint);
+    }
 
     for (final node in nodes) {
       final end = centers[node.id];

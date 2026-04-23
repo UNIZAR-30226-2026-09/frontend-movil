@@ -521,6 +521,37 @@ class GameNotifier extends Notifier<GameState> {
     state = state.copyWith(jugadores: jugadoresActualizados);
   }
 
+  void marcarTecnologiaComprada({
+    required String jugadorId,
+    required String tecnologiaId,
+  }) {
+    if (jugadorId.isEmpty || tecnologiaId.trim().isEmpty) return;
+
+    final techId = _normalizeTechId(tecnologiaId);
+    if (techId.isEmpty) return;
+
+    final jugadorActual = state.jugadores[jugadorId];
+    if (jugadorActual == null) return;
+
+    if (jugadorActual.tecnologiasCompradas.contains(techId)) return;
+
+    final compradas = List<String>.from(jugadorActual.tecnologiasCompradas)
+      ..add(techId);
+    final predesbloqueadas = List<String>.from(
+      jugadorActual.tecnologiasPredesbloqueadas,
+    )..removeWhere((id) => id == techId);
+
+    final jugadoresActualizados = Map<String, PlayerState>.from(
+      state.jugadores,
+    );
+    jugadoresActualizados[jugadorId] = jugadorActual.copyWith(
+      tecnologiasCompradas: compradas,
+      tecnologiasPredesbloqueadas: predesbloqueadas,
+    );
+
+    state = state.copyWith(jugadores: jugadoresActualizados);
+  }
+
   void seleccionarComarca(
     String id, {
     List<String>? vecinosDelNodoTocado,

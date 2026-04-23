@@ -5,10 +5,11 @@ import 'package:go_router/go_router.dart';
 import 'package:soberania/features/auth/providers/auth_provider.dart';
 import 'package:soberania/features/game/providers/game_provider.dart';
 import 'package:soberania/features/game/providers/websocket_provider.dart';
+import 'package:soberania/features/game/services/tech_catalog_service.dart';
 import 'package:soberania/features/map/services/map_loader.dart';
 import 'package:soberania/features/map/widgets/action_panel.dart';
 import 'package:soberania/features/map/widgets/interactive_game_map.dart';
-import 'package:soberania/features/game/data/tech_tree_data.dart';
+import 'package:soberania/features/game/models/tech_tree_model.dart';
 import 'package:soberania/features/game/widgets/tech_tree_view.dart';
 import '../../../app/theme/app_theme.dart';
 import '../../../shared/api/dio_provider.dart';
@@ -27,21 +28,78 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
   late final Future<GameMap> _mapFuture;
   bool _partidaTerminada = false;
   bool _cargandoCatalogoTecnologias = false;
-  Map<String, int> _techPrices = const <String, int>{};
-  Map<String, String> _techDescriptions = const <String, String>{};
-  Map<String, String> _techNames = const <String, String>{};
+  List<TechNodeModel> _techNodes = const <TechNodeModel>[];
+  Size _techCanvasSize = const Size(1200, 790);
+  Set<String> _techCatalogUnlockedIds = const <String>{};
+  Set<String> _techCatalogOwnedIds = const <String>{};
+  bool _techCatalogHasAuthoritativeAvailability = false;
+  String? _techCatalogError;
 
-  void _onResearchPressed(String techId, int cost) {
-    final partidoId = ref.read(webSocketProvider).currentPartidaId;
-    final partidaTexto = partidoId == null ? '' : ' (partida $partidoId)';
+  TechCatalogService get _techCatalogService =>
+      TechCatalogService(ref.read(dioProvider));
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Investigar "$techId" cuesta $cost.$partidaTexto La compra real se activara cuando backend publique el endpoint de investigacion.',
+  int _partidaIdActual() {
+    if (widget.partidaId > 0) return widget.partidaId;
+    return ref.read(webSocketProvider).currentPartidaId ?? 0;
+  }
+
+  Future<void> _sincronizarEstadoPartida(int partidaId) async {
+    final dio = ref.read(dioProvider);
+    final response = await dio.get('/partidas/$partidaId/estado');
+    if (response.data is! Map) return;
+
+    final payload = Map<String, dynamic>.from(response.data as Map);
+    ref.read(gameProvider.notifier).actualizarDesdeServidor(payload);
+  }
+
+  void _onResearchPressed(String techId, int cost) async {
+    final partidaId = _partidaIdActual();
+    if (partidaId <= 0) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No se pudo identificar la partida actual.'),
         ),
-      ),
-    );
+      );
+      return;
+    }
+
+    try {
+      await _techCatalogService.buyTechnology(
+        partidaId: partidaId,
+        technologyId: techId,
+      );
+
+      final jugadorId = ref.read(authProvider).user?.username ?? '';
+      if (jugadorId.isNotEmpty) {
+        ref
+            .read(gameProvider.notifier)
+            .marcarTecnologiaComprada(
+              jugadorId: jugadorId,
+              tecnologiaId: techId,
+            );
+      }
+
+      await _sincronizarEstadoPartida(partidaId);
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Tecnología comprada: $techId ($cost monedas).'),
+        ),
+      );
+    } on DioException catch (e) {
+      if (!mounted) return;
+      final detalle = e.response?.data is Map<String, dynamic>
+          ? (e.response?.data['detail']?.toString() ??
+                e.message ??
+                'No se pudo comprar la tecnología')
+          : (e.message ?? 'No se pudo comprar la tecnología');
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(detalle)));
+    }
   }
 
   String _formatName(String id) {
@@ -65,159 +123,54 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
     Future<void>.microtask(_cargarCatalogoTecnologias);
   }
 
-  int? _toInt(dynamic value) {
-    if (value is int) return value;
-    if (value is num) return value.toInt();
-    return int.tryParse(value?.toString() ?? '');
-  }
-
-  String _normalizeTechId(String raw) {
-    final normalized = raw
-        .trim()
-        .toLowerCase()
-        .replaceAll(RegExp(r'[\s\-]+'), '_')
-        .replaceAll(RegExp(r'[^a-z0-9_]'), '');
-
-    return normalized.replaceAll(RegExp(r'_+'), '_');
-  }
-
-  Map<String, int> _parsePrecios(Map<String, dynamic> data) {
-    final precios = <String, int>{};
-    final raw = data['precios'];
-    if (raw is! Map) return precios;
-
-    for (final entry in raw.entries) {
-      final id = _normalizeTechId(entry.key.toString());
-      if (id.isEmpty) continue;
-      final cost = _toInt(entry.value);
-      if (cost != null) {
-        precios[id] = cost;
-      }
-    }
-
-    return precios;
-  }
-
-  Map<String, dynamic>? _extractCatalogPayload(dynamic raw) {
-    if (raw is! Map) return null;
-
-    final root = Map<String, dynamic>.from(raw);
-    if (root.containsKey('precios') || root.containsKey('arbol')) {
-      return root;
-    }
-
-    final data = root['data'];
-    if (data is Map) {
-      final nested = Map<String, dynamic>.from(data);
-      if (nested.containsKey('precios') || nested.containsKey('arbol')) {
-        return nested;
-      }
-    }
-
-    final tecnologias = root['tecnologias'];
-    if (tecnologias is Map) {
-      return <String, dynamic>{
-        'arbol': Map<String, dynamic>.from(tecnologias),
-        'precios': root['precios'],
-      };
-    }
-
-    return null;
-  }
-
-  ({
-    Map<String, int> prices,
-    Map<String, String> names,
-    Map<String, String> descriptions,
-  })
-  _parseArbol(Map<String, dynamic> data) {
-    final prices = <String, int>{};
-    final names = <String, String>{};
-    final descriptions = <String, String>{};
-    final raw = data['arbol'];
-
-    void parseNode(String id, Map<String, dynamic> nodeData) {
-      final key = _normalizeTechId(id);
-      if (key.isEmpty) return;
-
-      final name = nodeData['nombre'] ?? nodeData['name'] ?? nodeData['titulo'];
-      if (name is String && name.trim().isNotEmpty) {
-        names[key] = name.trim();
-      }
-
-      final description =
-          nodeData['descripcion'] ??
-          nodeData['description'] ??
-          nodeData['detalle'];
-      if (description is String && description.trim().isNotEmpty) {
-        descriptions[key] = description.trim();
-      }
-
-      final cost = _toInt(
-        nodeData['coste'] ?? nodeData['costo'] ?? nodeData['cost'],
-      );
-      if (cost != null) {
-        prices[key] = cost;
-      }
-    }
-
-    if (raw is Map) {
-      for (final entry in raw.entries) {
-        if (entry.value is! Map) continue;
-        parseNode(
-          entry.key.toString(),
-          Map<String, dynamic>.from(entry.value as Map),
-        );
-      }
-    } else if (raw is List) {
-      for (final item in raw) {
-        if (item is! Map) continue;
-        final asMap = Map<String, dynamic>.from(item);
-        final idRaw =
-            (asMap['id'] ?? asMap['clave'] ?? asMap['key'])?.toString() ?? '';
-        final id = _normalizeTechId(idRaw);
-        if (id.isEmpty) continue;
-        parseNode(id, asMap);
-      }
-    }
-
-    return (prices: prices, names: names, descriptions: descriptions);
-  }
-
   Future<void> _cargarCatalogoTecnologias() async {
     if (_cargandoCatalogoTecnologias) return;
     _cargandoCatalogoTecnologias = true;
 
     try {
-      final dio = ref.read(dioProvider);
-      final response = await dio.get('/partidas/tecnologias');
+      final partidaId = _partidaIdActual();
+      if (partidaId <= 0) {
+        if (!mounted) return;
+        setState(() {
+          _techCatalogError =
+              'No se pudo identificar la partida para cargar tecnologías.';
+        });
+        return;
+      }
 
-      final data = _extractCatalogPayload(response.data);
-      if (data == null) return;
-
-      final precios = _parsePrecios(data);
-      final arbol = _parseArbol(data);
+      final catalog = await _techCatalogService.fetchCatalog(
+        partidaId: partidaId,
+      );
 
       if (!mounted) return;
       setState(() {
-        final mergedPrices = <String, int>{...precios, ...arbol.prices};
-        if (mergedPrices.isNotEmpty) {
-          _techPrices = mergedPrices;
-        }
-        if (arbol.names.isNotEmpty) {
-          _techNames = arbol.names;
-        }
-        if (arbol.descriptions.isNotEmpty) {
-          _techDescriptions = arbol.descriptions;
-        }
+        _techNodes = catalog.nodes;
+        _techCanvasSize = catalog.canvasSize;
+        _techCatalogUnlockedIds = catalog.unlockedTechIds;
+        _techCatalogOwnedIds = catalog.ownedTechIds;
+        _techCatalogHasAuthoritativeAvailability =
+            catalog.hasAuthoritativeAvailability;
+        _techCatalogError = catalog.nodes.isEmpty
+            ? 'No llegaron tecnologias desde backend. Revisa /partidas/{partida_id}/tecnologias y el payload (ramas/arbol).'
+            : null;
       });
     } on DioException catch (e) {
-      // En main puede no existir este endpoint: mantenemos fallback local.
       debugPrint(
         'No se pudo cargar catalogo de tecnologias: ${e.response?.statusCode} ${e.message}',
       );
+
+      if (!mounted) return;
+      setState(() {
+        _techCatalogError =
+            'Error cargando catalogo (${e.response?.statusCode ?? 'sin codigo'}).';
+      });
     } catch (e) {
       debugPrint('Error parseando catalogo de tecnologias: $e');
+
+      if (!mounted) return;
+      setState(() {
+        _techCatalogError = 'Error parseando catalogo: $e';
+      });
     } finally {
       _cargandoCatalogoTecnologias = false;
     }
@@ -249,7 +202,8 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
           if (!mounted) return;
           _mostrarPopup(
             titulo: '🎖️ Inicio de turno',
-            mensaje: 'Refuerzos recibidos: +$tropasRecibidas tropas'
+            mensaje:
+                'Refuerzos recibidos: +$tropasRecibidas tropas'
                 '${investigacion.isNotEmpty ? '\n🔬 Lab: $investigacion' : ''}',
           );
         });
@@ -342,7 +296,8 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
               'Has perdido ${resultado.bajasAtacante} tropa(s).\n'
               'El enemigo perdió ${resultado.bajasDefensor} tropa(s).\n'
               '${resultado.victoria ? '¡Territorio conquistado!' : 'El territorio resiste.'}',
-          alAceptar: () => ref.read(gameProvider.notifier).limpiarResultadoAtaque(),
+          alAceptar: () =>
+              ref.read(gameProvider.notifier).limpiarResultadoAtaque(),
         );
 
         // Si fue victoria, el backend bloquea ataques hasta que movamos tropas
@@ -837,7 +792,10 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
                     ),
                     child: const Text(
                       'Aceptar',
-                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 15,
+                      ),
                     ),
                   ),
                 ),
@@ -872,14 +830,25 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
     final miEstadoJugador = gameState.jugadores[miUsuario];
     final tecnologiasCompradas =
         miEstadoJugador?.tecnologiasCompradas ?? const <String>[];
-    final tecnologiasCompradasSet = tecnologiasCompradas.toSet();
+    final tecnologiasPredesbloqueadas =
+        miEstadoJugador?.tecnologiasPredesbloqueadas ?? const <String>[];
+    final tecnologiasCompradasSet = <String>{
+      ...tecnologiasCompradas,
+      ..._techCatalogOwnedIds,
+    };
+    final tecnologiasPredesbloqueadasSet = <String>{
+      ...tecnologiasPredesbloqueadas,
+      ..._techCatalogUnlockedIds,
+      ..._techCatalogOwnedIds,
+    };
+    final catalogError = _techCatalogError;
 
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) {
-        final media = MediaQuery.of(context);
+      builder: (modalContext) {
+        final media = MediaQuery.of(modalContext);
         final availableHeight =
             media.size.height - media.padding.top - media.padding.bottom;
 
@@ -908,22 +877,33 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
                       Positioned.fill(
                         child: Padding(
                           padding: const EdgeInsets.fromLTRB(4, 4, 4, 6),
-                          child: TechTreeView(
-                            nodes: TechTreeData.nodes,
-                            canvasSize: TechTreeData.canvasSize,
-                            backendPrices: _techPrices,
-                            backendDescriptions: _techDescriptions,
-                            backendNames: _techNames,
-                            ownedTechIds: tecnologiasCompradasSet,
-                            onResearchPressed: _onResearchPressed,
-                          ),
+                          child: (_techNodes.isEmpty && catalogError != null)
+                              ? _CatalogErrorView(
+                                  message: catalogError,
+                                  onRetry: () async {
+                                    Navigator.of(modalContext).pop();
+                                    await _mostrarArbolTecnologicoModal(
+                                      context,
+                                    );
+                                  },
+                                )
+                              : TechTreeView(
+                                  nodes: _techNodes,
+                                  canvasSize: _techCanvasSize,
+                                  ownedTechIds: tecnologiasCompradasSet,
+                                  unlockedTechIds:
+                                      tecnologiasPredesbloqueadasSet,
+                                  authoritativeUnlocks:
+                                      _techCatalogHasAuthoritativeAvailability,
+                                  onResearchPressed: _onResearchPressed,
+                                ),
                         ),
                       ),
                       Positioned(
                         top: 4,
                         right: 4,
                         child: IconButton(
-                          onPressed: () => Navigator.of(context).pop(),
+                          onPressed: () => Navigator.of(modalContext).pop(),
                           icon: const Icon(
                             Icons.close_rounded,
                             color: AppTheme.primary,
@@ -1047,4 +1027,42 @@ class _RamaInfo {
   final String descripcion;
 
   const _RamaInfo(this.id, this.emoji, this.nombre, this.descripcion);
+}
+
+class _CatalogErrorView extends StatelessWidget {
+  final String message;
+  final Future<void> Function() onRetry;
+
+  const _CatalogErrorView({required this.message, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.wifi_off_rounded,
+              color: AppTheme.primary,
+              size: 36,
+            ),
+            const SizedBox(height: 14),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: AppTheme.text, fontSize: 14),
+            ),
+            const SizedBox(height: 18),
+            ElevatedButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Reintentar'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
