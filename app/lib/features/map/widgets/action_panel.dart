@@ -102,7 +102,10 @@ class _ActionPanelState extends ConsumerState<ActionPanel> {
                     icon: const Icon(Icons.close),
                     onPressed: () {
                       if (origenSeleccionado != null) {
-                        ref.read(gameProvider.notifier).seleccionarComarca(origenSeleccionado);
+                        ref.read(gameProvider.notifier).seleccionarComarca(
+                          origenSeleccionado,
+                          jugadorLocalId: username,
+                        );
                       }
                     },
                   ),

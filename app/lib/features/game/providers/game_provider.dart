@@ -552,8 +552,101 @@ class GameNotifier extends Notifier<GameState> {
     state = state.copyWith(jugadores: jugadoresActualizados);
   }
 
+  bool _esMismoJugador(String a, String b) {
+    if (a.isEmpty || b.isEmpty) return false;
+    return a == b;
+  }
+
+  bool _esMiTurnoLocal(String jugadorLocalId) {
+    return _esMismoJugador(state.turnoDe, jugadorLocalId);
+  }
+
+  bool _esTerritorioMio(String ownerId, String jugadorLocalId) {
+    return _esMismoJugador(ownerId, jugadorLocalId);
+  }
+
+  bool _tieneAdyacenteEnemigo(String comarcaId) {
+    final territorio = state.mapa[comarcaId];
+    if (territorio == null) return false;
+
+    final ownerId = territorio.ownerId;
+    if (ownerId.isEmpty) return false;
+
+    final graph = ref.read(graphServiceProvider).value;
+    if (graph == null) return false;
+
+    final vecinas = graph.obtenerComarcasEnRango(comarcaId, 1);
+
+    for (final vecinaId in vecinas) {
+      final vecina = state.mapa[vecinaId];
+      if (vecina == null) continue;
+      if (vecina.ownerId.isEmpty) continue;
+
+      if (vecina.ownerId != ownerId) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  bool _tieneAdyacenteAliado(String comarcaId) {
+    final territorio = state.mapa[comarcaId];
+    if (territorio == null) return false;
+
+    final ownerId = territorio.ownerId;
+    if (ownerId.isEmpty) return false;
+
+    final graph = ref.read(graphServiceProvider).value;
+    if (graph == null) return false;
+
+    final vecinas = graph.obtenerComarcasEnRango(comarcaId, 1);
+
+    for (final vecinaId in vecinas) {
+      final vecina = state.mapa[vecinaId];
+      if (vecina == null) continue;
+      if (vecina.ownerId.isEmpty) continue;
+
+      if (vecina.ownerId == ownerId) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  bool _puedeSeleccionarseComoOrigen(String comarcaId, String jugadorLocalId) {
+    final territorio = state.mapa[comarcaId];
+    if (territorio == null) return false;
+
+    final ownerId = territorio.ownerId;
+    final tropas = territorio.units;
+
+    if (ownerId.isEmpty) return false;
+    if (!_esMiTurnoLocal(jugadorLocalId)) return false;
+    if (!_esTerritorioMio(ownerId, jugadorLocalId)) return false;
+
+    switch (state.faseActual.toUpperCase()) {
+      case 'REFUERZO':
+        return (state.jugadores[state.turnoDe]?.tropasReserva ?? 0) > 0;
+
+      case 'GESTION':
+        return true;
+
+      case 'ATAQUE_CONVENCIONAL':
+        return tropas > 1 && _tieneAdyacenteEnemigo(comarcaId);
+
+      case 'FORTIFICACION':
+        return _tieneAdyacenteAliado(comarcaId);
+
+      default:
+        return false;
+    }
+  }
+
   void seleccionarComarca(
     String id, {
+      required String jugadorLocalId,
     List<String>? vecinosDelNodoTocado,
   }) async {
     if (state.esperandoDestino) {
@@ -587,15 +680,66 @@ class GameNotifier extends Notifier<GameState> {
       return;
     }
 
+    if (!_puedeSeleccionarseComoOrigen(id, jugadorLocalId)) {
+      return;
+    }
+
+    
+
     final graphService = await ref.read(graphServiceProvider.future);
-    final alcanzables = graphService.obtenerComarcasEnRango(id, 1);
+    final resaltadas = _calcularComarcasResaltadasSegunFase(id, graphService);
 
     state = state.copyWith(
       origenSeleccionado: id,
       clearDestino: true,
       esperandoDestino: false,
-      comarcasResaltadas: alcanzables,
+      comarcasResaltadas: resaltadas,
     );
+  }
+
+  Set<String> _calcularComarcasResaltadasSegunFase(String comarcaId, GraphService graphService) {
+    final territorioOrigen = state.mapa[comarcaId];
+    if (territorioOrigen == null) return <String>{};
+
+    final ownerOrigen = territorioOrigen.ownerId;
+    final tropasOrigen = territorioOrigen.units;
+
+    final vecinas = graphService.obtenerComarcasEnRango(comarcaId, 1);
+
+    switch (state.faseActual.toUpperCase()) {
+      case 'REFUERZO':
+        return <String>{};
+
+      case 'GESTION':
+        return <String>{};
+
+      case 'ATAQUE_CONVENCIONAL':
+        if (ownerOrigen.isEmpty || tropasOrigen <= 1) return <String>{};
+
+        return vecinas.where((vecinaId) {
+          final territorioVecino = state.mapa[vecinaId];
+          if (territorioVecino == null) return false;
+
+          final ownerVecino = territorioVecino.ownerId;
+          if (ownerVecino.isEmpty) return false;
+
+          return ownerVecino != ownerOrigen;
+        }).toSet();
+
+      case 'FORTIFICACION':
+        return vecinas.where((vecinaId) {
+          final territorioVecino = state.mapa[vecinaId];
+          if (territorioVecino == null) return false;
+
+          final ownerVecino = territorioVecino.ownerId;
+          if (ownerVecino.isEmpty) return false;
+
+          return ownerVecino == ownerOrigen;
+        }).toSet();
+
+      default:
+        return vecinas;
+    }
   }
 
   void prepararAtaque() {

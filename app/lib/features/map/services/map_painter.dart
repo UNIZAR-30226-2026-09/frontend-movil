@@ -13,24 +13,30 @@ class MapPainter extends CustomPainter {
 
   // Estado completo del juego (Cerebro)
   final GameState gameState;
+  final GameState? previousGameState; // Para animaciones de transición
   final String localPlayerId;
 
   final double viewerScale;
   final double labelMinScale;
   final double labelFontSizePx;
   final Map<String, Color> coloresPorJugador;
+  final double colorTransitionT;
 
   MapPainter({
     required this.regions,
     required this.comarcas,
     required this.comarcaPaths,
     required this.gameState,
+    required this.previousGameState,
     required this.localPlayerId,
     required this.viewerScale,
     required this.coloresPorJugador,
+    required this.colorTransitionT,
     this.labelMinScale = 2.0,
     this.labelFontSizePx = 12.0,
   });
+
+  
 
   Color _getPlayerColor(String username) {
     if (username.isEmpty) return AppTheme.mapLandNeutral;
@@ -54,7 +60,7 @@ class MapPainter extends CustomPainter {
 
   bool _esMismoJugador(String a, String b) {
     if (a.isEmpty || b.isEmpty) return false;
-    return a.toLowerCase() == b.toLowerCase();
+    return a == b;
   }
 
   bool _esMiTurnoLocal() {
@@ -63,6 +69,17 @@ class MapPainter extends CustomPainter {
 
   bool _esTerritorioMio(String ownerId) {
     return _esMismoJugador(ownerId, localPlayerId);
+  }
+
+  bool _esTerritorioPrioritario(Comarca comarca) {
+    if (comarca.id == gameState.origenSeleccionado) return true;
+  
+    if (gameState.comarcasResaltadas.contains(comarca.id) ||
+        gameState.destinoSeleccionado == comarca.id) {
+      return true;
+    }
+  
+    return _isTerritorioActivo(comarca);
   }
 
   int _tropasReservaJugadorActivo() {
@@ -104,6 +121,462 @@ class MapPainter extends CustomPainter {
     }
 
     return false;
+  }
+
+  bool _isTerritorioActivo(Comarca comarca) {
+    final territoryData = gameState.mapa[comarca.id];
+    if (territoryData == null) return false;
+
+    final ownerId = territoryData.ownerId;
+    final tropas = territoryData.units;
+
+    if (ownerId.isEmpty) return false;
+    if (!_esTerritorioMio(ownerId)) return false;
+    if (!_esMiTurnoLocal()) return false;
+
+    if (comarca.id == gameState.origenSeleccionado) return true;
+    if (gameState.comarcasResaltadas.contains(comarca.id)) return true;
+    if (gameState.destinoSeleccionado == comarca.id) return true;
+
+    switch (gameState.faseActual.toUpperCase()) {
+      case 'REFUERZO':
+        return _tropasReservaJugadorActivo() > 0;
+
+      case 'ATAQUE_CONVENCIONAL':
+        return tropas > 1 && _tieneAdyacenteEnemigo(comarca);
+
+      case 'FORTIFICACION':
+        return tropas > 1 && _tieneAdyacenteAliado(comarca);
+
+      case 'GESTION':
+        return true;
+
+      default:
+        return false;
+    }
+  }
+
+  Color _getPlayerColorFromState(String username, GameState state) {
+    if (username.isEmpty) return AppTheme.mapLandNeutral;
+
+    final jugador = state.jugadores[username];
+    final numeroJugador = jugador?.numeroJugador;
+    if (numeroJugador == null) return AppTheme.mapLandNeutral;
+
+    return ColorUtils.getPlayerColor(numeroJugador);
+  }
+
+  Color _getMutedPlayerColorFromState(String username, GameState state) {
+    if (username.isEmpty) return AppTheme.mapLandNeutral;
+  
+    final jugador = state.jugadores[username];
+    final numeroJugador = jugador?.numeroJugador;
+    if (numeroJugador == null) return AppTheme.mapLandNeutral;
+  
+    return ColorUtils.getPlayerMutedColor(numeroJugador);
+  }
+
+  Color _getTerritoryFillColorForState(Comarca comarca, GameState state) {
+    final territoryData = state.mapa[comarca.id];
+
+    if (territoryData == null || territoryData.ownerId.isEmpty) {
+      return ColorUtils.getColorRegion(comarca.regionId);
+    }
+
+    final ownerId = territoryData.ownerId;
+
+    final vivo = _getPlayerColorFromState(ownerId, state);
+    final apagado = _getMutedPlayerColorFromState(ownerId, state);
+
+    
+    if (comarca.id == state.origenSeleccionado ||
+        state.comarcasResaltadas.contains(comarca.id) ||
+        state.destinoSeleccionado == comarca.id) {
+      return vivo;
+    }
+
+    final esMiTurno = state.turnoDe.isNotEmpty && state.turnoDe == localPlayerId;
+    final esMio = ownerId == localPlayerId;
+
+    bool esActivo = false;
+
+    if (esMio && esMiTurno) {
+      switch (state.faseActual.toUpperCase()) {
+        case 'REFUERZO':
+          esActivo = (state.jugadores[state.turnoDe]?.tropasReserva ?? 0) > 0;
+          break;
+
+        case 'ATAQUE_CONVENCIONAL':
+          final tropas = territoryData.units;
+          if (tropas > 1) {
+            for (final adyacenteId in comarca.adjacentTo) {
+              final ady = state.mapa[adyacenteId];
+              final ownerAdy = ady?.ownerId ?? '';
+              if (ownerAdy.isNotEmpty && ownerAdy != ownerId) {
+                esActivo = true;
+                break;
+              }
+            }
+          }
+          break;
+
+        case 'FORTIFICACION':
+          final tropas = territoryData.units;
+          if (tropas > 1) {
+            for (final adyacenteId in comarca.adjacentTo) {
+              final ady = state.mapa[adyacenteId];
+              final ownerAdy = ady?.ownerId ?? '';
+              if (ownerAdy.isNotEmpty && ownerAdy == ownerId) {
+                esActivo = true;
+                break;
+              }
+            }
+          }
+          break;
+
+        case 'GESTION':
+          esActivo = true;
+          break;
+      }
+    }
+
+    return esActivo ? vivo : apagado;
+  }
+
+  Color _getTerritoryFillColor(Comarca comarca) {
+    final current = _getTerritoryFillColorForState(comarca, gameState);
+
+    if (previousGameState == null) return current;
+
+    final previous = _getTerritoryFillColorForState(comarca, previousGameState!);
+    return Color.lerp(previous, current, colorTransitionT) ?? current;
+  }
+
+  Color _getTerritoryStrokeColorForState(Comarca comarca, GameState state) {
+    final territoryData = state.mapa[comarca.id];
+    final ownerId = territoryData?.ownerId ?? '';
+
+    final esMiTurno = state.turnoDe.isNotEmpty && state.turnoDe == localPlayerId;
+    final esMio = ownerId == localPlayerId;
+
+    bool esActivo = false;
+
+    if (esMio && esMiTurno) {
+      if (comarca.id == state.origenSeleccionado ||
+          state.comarcasResaltadas.contains(comarca.id) ||
+          state.destinoSeleccionado == comarca.id) {
+        esActivo = true;
+      } else if (territoryData != null) {
+        switch (state.faseActual.toUpperCase()) {
+          case 'REFUERZO':
+            esActivo = (state.jugadores[state.turnoDe]?.tropasReserva ?? 0) > 0;
+            break;
+
+          case 'ATAQUE_CONVENCIONAL':
+            if (territoryData.units > 1) {
+              for (final adyacenteId in comarca.adjacentTo) {
+                final ady = state.mapa[adyacenteId];
+                final ownerAdy = ady?.ownerId ?? '';
+                if (ownerAdy.isNotEmpty && ownerAdy != ownerId) {
+                  esActivo = true;
+                  break;
+                }
+              }
+            }
+            break;
+
+          case 'FORTIFICACION':
+            if (territoryData.units > 1) {
+              for (final adyacenteId in comarca.adjacentTo) {
+                final ady = state.mapa[adyacenteId];
+                final ownerAdy = ady?.ownerId ?? '';
+                if (ownerAdy.isNotEmpty && ownerAdy == ownerId) {
+                  esActivo = true;
+                  break;
+                }
+              }
+            }
+            break;
+
+          case 'GESTION':
+            esActivo = true;
+            break;
+        }
+      }
+    }
+
+    if (comarca.id == state.origenSeleccionado) {
+      return AppTheme.text;
+    }
+
+    if (state.comarcasResaltadas.contains(comarca.id) ||
+        state.destinoSeleccionado == comarca.id) {
+      return ColorUtils.bordeColor;
+    }
+
+    if (esActivo) {
+      return AppTheme.borderGoldVivo;
+    }
+
+    return AppTheme.borderBronze;
+  }
+
+  int _getBorderPriorityForState(Comarca comarca, GameState state) {
+    if (comarca.id == state.origenSeleccionado) return 3;
+
+    if (state.comarcasResaltadas.contains(comarca.id) ||
+        state.destinoSeleccionado == comarca.id) {
+      return 2;
+    }
+
+    final territoryData = state.mapa[comarca.id];
+    final ownerId = territoryData?.ownerId ?? '';
+
+    final esMiTurno = state.turnoDe.isNotEmpty && state.turnoDe == localPlayerId;
+    final esMio = ownerId == localPlayerId;
+
+    bool esActivo = false;
+
+    if (esMio && esMiTurno && territoryData != null) {
+      switch (state.faseActual.toUpperCase()) {
+        case 'REFUERZO':
+          esActivo = (state.jugadores[state.turnoDe]?.tropasReserva ?? 0) > 0;
+          break;
+
+        case 'ATAQUE_CONVENCIONAL':
+          if (territoryData.units > 1) {
+            for (final adyacenteId in comarca.adjacentTo) {
+              final ady = state.mapa[adyacenteId];
+              final ownerAdy = ady?.ownerId ?? '';
+              if (ownerAdy.isNotEmpty && ownerAdy != ownerId) {
+                esActivo = true;
+                break;
+              }
+            }
+          }
+          break;
+
+        case 'FORTIFICACION':
+          if (territoryData.units > 1) {
+            for (final adyacenteId in comarca.adjacentTo) {
+              final ady = state.mapa[adyacenteId];
+              final ownerAdy = ady?.ownerId ?? '';
+              if (ownerAdy.isNotEmpty && ownerAdy == ownerId) {
+                esActivo = true;
+                break;
+              }
+            }
+          }
+          break;
+
+        case 'GESTION':
+          esActivo = true;
+          break;
+      }
+    }
+
+    return esActivo ? 1 : 0;
+  }
+
+  int _getAnimatedBorderPriority(Comarca comarca) {
+    final current = _getBorderPriorityForState(comarca, gameState);
+
+    if (previousGameState == null) return current;
+
+    final previous = _getBorderPriorityForState(comarca, previousGameState!);
+    return current > previous ? current : previous;
+  }
+
+  Color _getTerritoryStrokeColor(Comarca comarca) {
+    final current = _getTerritoryStrokeColorForState(comarca, gameState);
+
+    if (previousGameState == null) return current;
+
+    final previous = _getTerritoryStrokeColorForState(comarca, previousGameState!);
+
+    final currentPriority = _getBorderPriorityForState(comarca, gameState);
+    final previousPriority = _getBorderPriorityForState(comarca, previousGameState!);
+
+    // Aparece desde cero solo si antes no tenía borde.
+    if (previousPriority == 0 && currentPriority > 0) {
+      final from = current.withAlpha(0);
+      return Color.lerp(from, current, colorTransitionT) ?? current;
+    }
+
+    // Desaparece del todo solo si ya no tiene borde.
+    if (currentPriority == 0 && previousPriority > 0) {
+      final to = previous.withAlpha(0);
+      return Color.lerp(previous, to, colorTransitionT) ?? current;
+    }
+
+    // En cualquier otro caso, transición normal entre colores.
+    return Color.lerp(previous, current, colorTransitionT) ?? current;
+  }
+
+  double _getTerritoryStrokeWidthForState(Comarca comarca, GameState state) {
+    if (comarca.id == state.origenSeleccionado) return 3.0;
+
+    if (state.comarcasResaltadas.contains(comarca.id) ||
+        state.destinoSeleccionado == comarca.id) {
+      return 3.0;
+    }
+
+    final territoryData = state.mapa[comarca.id];
+    final ownerId = territoryData?.ownerId ?? '';
+
+    final esMiTurno = state.turnoDe.isNotEmpty && state.turnoDe == localPlayerId;
+    final esMio = ownerId == localPlayerId;
+
+    bool esActivo = false;
+
+    if (esMio && esMiTurno && territoryData != null) {
+      switch (state.faseActual.toUpperCase()) {
+        case 'REFUERZO':
+          esActivo = (state.jugadores[state.turnoDe]?.tropasReserva ?? 0) > 0;
+          break;
+
+        case 'ATAQUE_CONVENCIONAL':
+          if (territoryData.units > 1) {
+            for (final adyacenteId in comarca.adjacentTo) {
+              final ady = state.mapa[adyacenteId];
+              final ownerAdy = ady?.ownerId ?? '';
+              if (ownerAdy.isNotEmpty && ownerAdy != ownerId) {
+                esActivo = true;
+                break;
+              }
+            }
+          }
+          break;
+
+        case 'FORTIFICACION':
+          if (territoryData.units > 1) {
+            for (final adyacenteId in comarca.adjacentTo) {
+              final ady = state.mapa[adyacenteId];
+              final ownerAdy = ady?.ownerId ?? '';
+              if (ownerAdy.isNotEmpty && ownerAdy == ownerId) {
+                esActivo = true;
+                break;
+              }
+            }
+          }
+          break;
+
+        case 'GESTION':
+          esActivo = true;
+          break;
+      }
+    }
+
+    return esActivo ? 3.0 : 1.0;
+  }
+
+  double _getTerritoryStrokeWidthAnimated(Comarca comarca) {
+    final current = _getTerritoryStrokeWidthForState(comarca, gameState);
+
+    if (previousGameState == null) return current;
+
+    final previous = _getTerritoryStrokeWidthForState(comarca, previousGameState!);
+
+    final currentPriority = _getBorderPriorityForState(comarca, gameState);
+    final previousPriority = _getBorderPriorityForState(comarca, previousGameState!);
+
+    
+
+    // Aparece desde cero solo si antes no había borde.
+    if (previousPriority == 0 && currentPriority > 0) {
+      return ui.lerpDouble(0.0, current, colorTransitionT) ?? current;
+    }
+
+    // Desaparece del todo solo si deja de haber borde.
+    if (currentPriority == 0 && previousPriority > 0) {
+      return ui.lerpDouble(previous, 0.0, colorTransitionT) ?? current;
+    }
+
+    // En cualquier otro caso, transición normal.
+    return ui.lerpDouble(previous, current, colorTransitionT) ?? current;
+  }
+
+  double _getTerritoryStrokeWidth(Comarca comarca) {
+    if (comarca.id == gameState.origenSeleccionado) return 3.0;
+
+    if (gameState.comarcasResaltadas.contains(comarca.id) ||
+        gameState.destinoSeleccionado == comarca.id) {
+      return 3.0;
+    }
+
+    if (_isTerritorioActivo(comarca)) {
+      return 3.0;
+    }
+
+    return 1.0;
+  }
+
+  Color _getFichaStrokeColorForState(Comarca comarca, GameState state) {
+    final territoryData = state.mapa[comarca.id];
+    final ownerId = territoryData?.ownerId ?? '';
+
+    final esMiTurno = state.turnoDe.isNotEmpty && state.turnoDe == localPlayerId;
+    final esMio = ownerId == localPlayerId;
+
+    bool esActivo = false;
+
+    if (comarca.id == state.origenSeleccionado) {
+      return AppTheme.text;
+    }
+
+    if (state.comarcasResaltadas.contains(comarca.id) ||
+        state.destinoSeleccionado == comarca.id) {
+      return AppTheme.borderGoldVivo;
+    }
+
+    if (esMio && esMiTurno && territoryData != null) {
+      switch (state.faseActual.toUpperCase()) {
+        case 'REFUERZO':
+          esActivo = (state.jugadores[state.turnoDe]?.tropasReserva ?? 0) > 0;
+          break;
+
+        case 'ATAQUE_CONVENCIONAL':
+          if (territoryData.units > 1) {
+            for (final adyacenteId in comarca.adjacentTo) {
+              final ady = state.mapa[adyacenteId];
+              final ownerAdy = ady?.ownerId ?? '';
+              if (ownerAdy.isNotEmpty && ownerAdy != ownerId) {
+                esActivo = true;
+                break;
+              }
+            }
+          }
+          break;
+
+        case 'FORTIFICACION':
+          if (territoryData.units > 1) {
+            for (final adyacenteId in comarca.adjacentTo) {
+              final ady = state.mapa[adyacenteId];
+              final ownerAdy = ady?.ownerId ?? '';
+              if (ownerAdy.isNotEmpty && ownerAdy == ownerId) {
+                esActivo = true;
+                break;
+              }
+            }
+          }
+          break;
+
+        case 'GESTION':
+          esActivo = true;
+          break;
+      }
+    }
+
+    return esActivo ? AppTheme.borderGoldVivo : AppTheme.borderGold;
+  }
+
+  Color _getFichaStrokeColor(Comarca comarca) {
+    final current = _getFichaStrokeColorForState(comarca, gameState);
+
+    if (previousGameState == null) return current;
+
+    final previous = _getFichaStrokeColorForState(comarca, previousGameState!);
+    return Color.lerp(previous, current, colorTransitionT) ?? current;
   }
 
 
@@ -245,6 +718,7 @@ class MapPainter extends CustomPainter {
     Offset center,
     String tropas,
     Color fillColor,
+    Color strokeColor,
     double scale,
     double viewerScale,
   ) {
@@ -266,7 +740,7 @@ class MapPainter extends CustomPainter {
     final borderPaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = borderWidth
-      ..color = const Color(0xFFFFC93A); 
+      ..color = strokeColor;
 
     canvas.drawCircle(
       center.translate(0, shadowOffset),
@@ -277,29 +751,48 @@ class MapPainter extends CustomPainter {
     canvas.drawCircle(center, radioFicha, fillPaint);
     canvas.drawCircle(center, radioFicha, borderPaint);
 
-    final textPainter = TextPainter(
+    final strokePainter = TextPainter(
       textAlign: TextAlign.center,
       textDirection: TextDirection.ltr,
     );
 
-    textPainter.text = TextSpan(
+    strokePainter.text = TextSpan(
       text: tropas,
       style: TextStyle(
-        color: Colors.white,
-        fontSize: 11.0 / (scale * effectiveZoom),
+        fontSize: 10.8 / (scale * effectiveZoom),
+        fontWeight: FontWeight.w900,
+        foreground: Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.0 / (scale * effectiveZoom)
+          ..color = const Color(0xFF1A1A24),
+      ),
+    );
+
+    strokePainter.layout();
+
+    final fillPainter = TextPainter(
+      textAlign: TextAlign.center,
+      textDirection: TextDirection.ltr,
+    );
+
+    fillPainter.text = TextSpan(
+      text: tropas,
+      style: TextStyle(
+        color: const Color(0xFFF0F0F5),
+        fontSize: 10.8 / (scale * effectiveZoom),
         fontWeight: FontWeight.w900,
       ),
     );
 
-    textPainter.layout();
+    fillPainter.layout();
 
-    textPainter.paint(
-      canvas,
-      Offset(
-        center.dx - textPainter.width / 2,
-        center.dy - textPainter.height / 2,
-      ),
+    final paintOffset = Offset(
+      center.dx - fillPainter.width / 2,
+      center.dy - fillPainter.height / 2,
     );
+
+    strokePainter.paint(canvas, paintOffset);
+    fillPainter.paint(canvas, paintOffset);
   }
 
   void _paintComarcaName(
@@ -514,35 +1007,31 @@ class MapPainter extends CustomPainter {
       if (path == null) continue;
 
       // Buscamos si esta comarca está en el JSON que nos mandó el backend
-      final territoryData = gameState.mapa[comarca.id];
+      //final territoryData = gameState.mapa[comarca.id];
 
-      if (comarca.id == gameState.origenSeleccionado) {
-        fillPaint.color = ColorUtils.origenColor;
-      } else if (gameState.comarcasResaltadas.contains(comarca.id)) {
-        fillPaint.color = ColorUtils.resaltadoColor;
-      } else if (territoryData != null && territoryData.ownerId.isNotEmpty) {
-        // T48: Si tiene dueño, la pintamos del color del jugador
-        fillPaint.color = _getPlayerColor(territoryData.ownerId);
-      } else {
-        // Si no tiene dueño (inicio del juego), color base de la región
-        fillPaint.color = ColorUtils.getColorRegion(comarca.regionId);
-      }
+      fillPaint.color = _getTerritoryFillColor(comarca);
 
       canvas.drawPath(path, fillPaint);
     }
 
     // 2. PINTADO DE LOS BORDES
-    for (final comarca in comarcas) {
-      final path = comarcaPaths[comarca.id];
-      if (path == null) continue;
+    for (var priority = 0; priority <= 3; priority++) {
+      for (final comarca in comarcas) {
+        if (_getAnimatedBorderPriority(comarca) != priority) continue;
 
-      if (gameState.comarcasResaltadas.contains(comarca.id) ||
-          comarca.id == gameState.origenSeleccionado) {
-        canvas.drawPath(path, selectedStroke);
-      } else {
-        canvas.drawPath(path, baseStroke);
+        final path = comarcaPaths[comarca.id];
+        if (path == null) continue;
+
+        final strokePaint = Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = _getTerritoryStrokeWidthAnimated(comarca)
+          ..color = _getTerritoryStrokeColor(comarca);
+
+        canvas.drawPath(path, strokePaint);
       }
     }
+
+    // PINTADO DE PUENTES
 
     _paintPuentes(canvas, scale);
 
@@ -560,12 +1049,14 @@ class MapPainter extends CustomPainter {
 
       final center = _getCentroComarca(path);
       final fichaColor = _getPlayerColor(ownerId);
+      final fichaStrokeColor = _getFichaStrokeColor(comarca);
 
       _paintFichaTropas(
         canvas,
         center,
         tropas,
         fichaColor,
+        fichaStrokeColor,
         scale,
         viewerScale,
       );
@@ -607,6 +1098,7 @@ class MapPainter extends CustomPainter {
       oldDelegate.gameState != gameState ||
       oldDelegate.localPlayerId != localPlayerId ||
       oldDelegate.viewerScale != viewerScale ||
+      oldDelegate.colorTransitionT != colorTransitionT ||
       oldDelegate.comarcas != comarcas ||
       oldDelegate.regions != regions;
 }
