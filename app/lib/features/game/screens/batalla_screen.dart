@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -28,6 +30,7 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
   late final Future<GameMap> _mapFuture;
   bool _partidaTerminada = false;
   bool _cargandoCatalogoTecnologias = false;
+  bool _hayDialogoPopupActivo = false;
   List<TechNodeModel> _techNodes = const <TechNodeModel>[];
   Size _techCanvasSize = const Size(1200, 790);
   Set<String> _techCatalogUnlockedIds = const <String>{};
@@ -237,6 +240,89 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
       if (tipo == null) return;
 
       final miUsuario = ref.read(authProvider).user?.username;
+      final payload = next.payloadEventoSistema ?? const <String, dynamic>{};
+
+        if (tipo == 'VOTACION_PAUSA_INICIADA') {
+        final solicitante =
+            (payload['jugador_solicitante'] ?? next.jugadorEventoSistema)
+                ?.toString() ??
+            '';
+
+        if (miUsuario != null && miUsuario.isNotEmpty && solicitante == miUsuario) {
+          return;
+        }
+
+        WidgetsBinding.instance.addPostFrameCallback((_) async {
+          if (!mounted) return;
+          final voto = await _mostrarPopupDecision(
+            titulo: 'Pausar partida',
+            mensaje: 'El jugador $solicitante propone pausar. ¿Pausar partida?',
+          );
+          if (!mounted) return;
+
+          final partidaId = _partidaIdActual();
+          if (partidaId <= 0) return;
+
+          try {
+            await ref
+                .read(dioProvider)
+                .post(
+                  '/partidas/$partidaId/pausa/votar',
+                  data: {'aceptar': voto == true},
+                );
+          } on DioException catch (e) {
+            if (!mounted) return;
+            final detalle = e.response?.data is Map<String, dynamic>
+                ? (e.response?.data['detail']?.toString() ??
+                      e.message ??
+                      'No se pudo registrar tu voto')
+                : (e.message ?? 'No se pudo registrar tu voto');
+            unawaited(
+              _mostrarPopup(
+                titulo: 'Error al votar pausa',
+                mensaje: detalle,
+              ),
+            );
+          }
+        });
+        return;
+      }
+
+      if (tipo == 'PAUSA_RECHAZADA') {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          if (_hayDialogoPopupActivo) {
+            Navigator.of(context, rootNavigator: true).pop();
+          }
+          unawaited(
+            _mostrarPopup(
+              titulo: 'Pausa rechazada',
+              mensaje: 'La partida continúa.',
+            ),
+          );
+        });
+        return;
+      }
+
+      if (tipo == 'PAUSA_APROBADA') {
+        _partidaTerminada = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          if (_hayDialogoPopupActivo) {
+            Navigator.of(context, rootNavigator: true).pop();
+          }
+          unawaited(
+            _mostrarPopup(
+              titulo: 'Partida pausada',
+              mensaje: 'La pausa fue aprobada. Volverás al lobby.',
+              alAceptar: () {
+                if (mounted) context.go('/inicio');
+              },
+            ),
+          );
+        });
+        return;
+      }
 
       if (tipo == 'JUGADOR_ELIMINADO') {
         _partidaTerminada = true;
@@ -405,7 +491,58 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
                     padding: const EdgeInsets.all(12.0),
                     child: IconButton(
                       // go_router para navegar — consistente con el resto de la app
-                      onPressed: () => context.pop(),
+                      onPressed: () async {
+                        final confirmar = await _mostrarPopupDecision(
+                          titulo: '¿Pausar partida?',
+                          mensaje: '¿Quieres proponer pausa?',
+                        );
+
+                        if (confirmar == true) {
+                          unawaited(
+                            _mostrarPopup(
+                              titulo: 'Votación',
+                              mensaje: 'Esperando al resto de jugadores...',
+                            ),
+                          );
+
+                          final partidaId = _partidaIdActual();
+                          if (partidaId <= 0) {
+                            if (_hayDialogoPopupActivo) {
+                              Navigator.of(context, rootNavigator: true).pop();
+                            }
+                            unawaited(
+                              _mostrarPopup(
+                                titulo: 'Error al pausar',
+                                mensaje:
+                                    'No se pudo identificar la partida actual.',
+                              ),
+                            );
+                            return;
+                          }
+
+                          try {
+                            await ref
+                                .read(dioProvider)
+                                .post('/partidas/$partidaId/pausa/solicitar');
+                          } on DioException catch (e) {
+                            if (!mounted) return;
+                            if (_hayDialogoPopupActivo) {
+                              Navigator.of(context, rootNavigator: true).pop();
+                            }
+                            final detalle = e.response?.data is Map<String, dynamic>
+                                ? (e.response?.data['detail']?.toString() ??
+                                      e.message ??
+                                      'No se pudo solicitar la pausa')
+                                : (e.message ?? 'No se pudo solicitar la pausa');
+                            unawaited(
+                              _mostrarPopup(
+                                titulo: 'Error al pausar',
+                                mensaje: detalle,
+                              ),
+                            );
+                          }
+                        }
+                      },
                       icon: const Icon(Icons.arrow_back_rounded),
                     ),
                   ),
@@ -732,6 +869,7 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
     VoidCallback? alAceptar,
   }) async {
     if (!mounted) return;
+    _hayDialogoPopupActivo = true;
     await showDialog<void>(
       context: context,
       barrierDismissible: barrierDismissible,
@@ -806,6 +944,108 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
         );
       },
     );
+    _hayDialogoPopupActivo = false;
+  }
+
+  Future<bool?> _mostrarPopupDecision({
+    required String titulo,
+    required String mensaje,
+  }) async {
+    if (!mounted) return null;
+    _hayDialogoPopupActivo = true;
+    final respuesta = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 340),
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: const Color(0xFF2A1F0F),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppTheme.borderGoldVivo, width: 1.4),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.6),
+                  blurRadius: 24,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  titulo,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: AppTheme.borderGoldVivo,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  mensaje,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: AppTheme.text,
+                    fontSize: 15,
+                    height: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.of(dialogContext).pop(true),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.borderGoldVivo,
+                      foregroundColor: const Color(0xFF1A1200),
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: const Text(
+                      'SÍ',
+                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.of(dialogContext).pop(false),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF3A2E1A),
+                      foregroundColor: AppTheme.text,
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        side: const BorderSide(
+                          color: AppTheme.borderGoldVivo,
+                          width: 1,
+                        ),
+                      ),
+                    ),
+                    child: const Text(
+                      'NO',
+                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+    _hayDialogoPopupActivo = false;
+    return respuesta;
   }
 
   Future<void> _mostrarDialogoSistemaYSalir(

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../amigos/providers/global_websocket_provider.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../../app/router/app_routes.dart';
 import '../../../shared/widgets/auth_inicio_background.dart';
@@ -11,6 +12,7 @@ class InicioScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(globalWebSocketProvider);
 
     final authState = ref.watch(authProvider);
 

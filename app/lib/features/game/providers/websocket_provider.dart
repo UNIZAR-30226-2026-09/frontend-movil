@@ -14,6 +14,7 @@ class WebSocketState {
   final String? jugadorEventoSistema;
   final String? ganadorEventoSistema;
   final String? mensajeEventoSistema;
+  final Map<String, dynamic>? payloadEventoSistema;
 
   WebSocketState({
     this.isConnected = false,
@@ -23,6 +24,7 @@ class WebSocketState {
     this.jugadorEventoSistema,
     this.ganadorEventoSistema,
     this.mensajeEventoSistema,
+    this.payloadEventoSistema,
   });
 
   WebSocketState copyWith({
@@ -33,6 +35,7 @@ class WebSocketState {
     String? jugadorEventoSistema,
     String? ganadorEventoSistema,
     String? mensajeEventoSistema,
+    Map<String, dynamic>? payloadEventoSistema,
     bool clearCurrentPartidaId = false,
   }) {
     return WebSocketState(
@@ -45,6 +48,7 @@ class WebSocketState {
       jugadorEventoSistema: jugadorEventoSistema ?? this.jugadorEventoSistema,
       ganadorEventoSistema: ganadorEventoSistema ?? this.ganadorEventoSistema,
       mensajeEventoSistema: mensajeEventoSistema ?? this.mensajeEventoSistema,
+      payloadEventoSistema: payloadEventoSistema ?? this.payloadEventoSistema,
     );
   }
 }
@@ -62,8 +66,10 @@ class WebSocketNotifier extends Notifier<WebSocketState> {
 
   @override
   WebSocketState build() {
-    final baseUrl = dotenv.env['API_BASE_URL'] ?? 'ws://127.0.0.1:8000/api/v1';
-    _wsService = WebSocketService(baseUrl: baseUrl);
+    final baseUrl =
+        dotenv.env['API_BASE_URL'] ?? 'https://soberania.dev/api/v1';
+    final wsUrl = baseUrl.replaceFirst('http', 'ws');
+    _wsService = WebSocketService(baseUrl: wsUrl);
 
     _lifecycleListener = AppLifecycleListener(
       onPause: () {
@@ -120,15 +126,29 @@ class WebSocketNotifier extends Notifier<WebSocketState> {
 
             final tipoEvento = data['tipo_evento']?.toString();
 
-            // Eventos de sistema para UI: eliminado y fin de partida
+            // Eventos de sistema para UI
             if (tipoEvento == 'JUGADOR_ELIMINADO' ||
-                tipoEvento == 'FIN_PARTIDA') {
+                tipoEvento == 'FIN_PARTIDA' ||
+              tipoEvento == 'VOTACION_PAUSA_INICIADA' ||
+              tipoEvento == 'PAUSA_RECHAZADA' ||
+              tipoEvento == 'PAUSA_APROBADA') {
+              final rawPayload = data['payload'];
+              final payload = rawPayload is Map<String, dynamic>
+                  ? rawPayload
+                  : (rawPayload is Map
+                        ? Map<String, dynamic>.from(rawPayload)
+                        : data);
+
               state = state.copyWith(
                 tipoEventoSistema: tipoEvento.toString(),
-                jugadorEventoSistema: data['jugador']?.toString(),
+                jugadorEventoSistema:
+                    (payload['jugador_solicitante'] ?? data['jugador'])
+                        ?.toString(),
                 ganadorEventoSistema:
                     (data['ganador'] ?? data['jugador_ganador'])?.toString(),
-                mensajeEventoSistema: data['mensaje']?.toString(),
+                mensajeEventoSistema:
+                    (payload['mensaje'] ?? data['mensaje'])?.toString(),
+                payloadEventoSistema: payload,
                 versionEventoSistema: state.versionEventoSistema + 1,
               );
               return;
