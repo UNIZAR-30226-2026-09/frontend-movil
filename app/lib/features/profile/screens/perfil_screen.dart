@@ -447,6 +447,7 @@ class _PerfilScreenState extends ConsumerState<PerfilScreen> {
     final jugadas = estadisticas.numPartidasJugadas;
     final ganadas = estadisticas.numPartidasGanadas;
     final winrate = jugadas == 0 ? 0.0 : (ganadas / jugadas) * 100;
+    final regionFavorita = estadisticas.regionMasConquistada;
 
     final stats = <Map<String, String>>[
       {'titulo': 'WINRATE', 'valor': '${winrate.toStringAsFixed(1)}%'},
@@ -465,7 +466,12 @@ class _PerfilScreenState extends ConsumerState<PerfilScreen> {
         'titulo': 'CONTINENTES CONQUISTADOS',
         'valor': '${estadisticas.conquistasPorRegion.length}',
       },
-      {'titulo': 'REGION FAVORITA', 'valor': '0'},
+      {
+        'titulo': 'REGION FAVORITA',
+        'valor': (regionFavorita == null || regionFavorita.trim().isEmpty)
+            ? 'Ninguna'
+            : regionFavorita,
+      },
     ];
 
     return GridView.count(
