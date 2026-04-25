@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -10,19 +11,27 @@ import '../../auth/providers/auth_provider.dart';
 class GlobalWebSocketState {
   final bool isConnected;
   final String? username;
+  final int eventVersion;
+  final Map<String, dynamic>? lastEvent;
 
   const GlobalWebSocketState({
     this.isConnected = false,
     this.username,
+    this.eventVersion = 0,
+    this.lastEvent,
   });
 
   GlobalWebSocketState copyWith({
     bool? isConnected,
     String? username,
+    int? eventVersion,
+    Map<String, dynamic>? lastEvent,
   }) {
     return GlobalWebSocketState(
       isConnected: isConnected ?? this.isConnected,
       username: username ?? this.username,
+      eventVersion: eventVersion ?? this.eventVersion,
+      lastEvent: lastEvent ?? this.lastEvent,
     );
   }
 }
@@ -62,7 +71,7 @@ class GlobalWebSocketNotifier extends Notifier<GlobalWebSocketState> {
     _disconnect();
 
     final baseUrl =
-        dotenv.env['API_BASE_URL'] ?? 'https://soberania.dev/api/v1';
+      dotenv.env['API_BASE_URL'] ?? 'http://192.168.1.49:8000/api/v1';
     final wsUrl = baseUrl.replaceFirst('http', 'ws');
     final url = '$wsUrl/global/$username';
     final uri = Uri.parse(url);
@@ -77,6 +86,18 @@ class GlobalWebSocketNotifier extends Notifier<GlobalWebSocketState> {
       _subscription = _channel!.stream.listen(
         (message) {
           debugPrint('🌐 WS Global recibido: $message');
+
+          try {
+            final decoded = jsonDecode(message);
+            if (decoded is Map<String, dynamic>) {
+              state = state.copyWith(
+                lastEvent: decoded,
+                eventVersion: state.eventVersion + 1,
+              );
+            }
+          } catch (e) {
+            debugPrint('🔴 WS Global payload inválido: $e');
+          }
         },
         onError: (error) {
           debugPrint('🔴 Error WS Global: $error');

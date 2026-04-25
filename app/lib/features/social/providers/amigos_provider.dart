@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/legacy.dart';
 
 import '../../../shared/api/dio_provider.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../amigos/providers/global_websocket_provider.dart';
 import '../models/amistad_model.dart';
 import '../models/estado_amistad.dart';
 import '../services/amigos_service.dart';
@@ -63,6 +64,81 @@ class AmigosNotifier extends StateNotifier<AmigosState> {
     required this.usuarioActual,
   }) : super(const AmigosState());
 
+  String _nombreDelAmigo(AmistadModel amistad) {
+    return amistad.otroUsuario(usuarioActual);
+  }
+
+  List<AmistadModel> _aplicarEstadosConexion(
+    List<AmistadModel> amigos,
+    Map<String, String> estadosConexion,
+  ) {
+    return amigos.map((amistad) {
+      final nombreAmigo = _nombreDelAmigo(amistad);
+      final estadoConexion = estadosConexion[nombreAmigo];
+
+      if (estadoConexion == null) {
+        return amistad.copyWith(estadoConexion: 'DESCONECTADO');
+      }
+
+      return amistad.copyWith(estadoConexion: estadoConexion);
+    }).toList();
+  }
+
+  List<AmistadModel> _actualizarAmigoPorNombre(
+    List<AmistadModel> amigos,
+    String nombreAmigo,
+    String estadoConexion,
+  ) {
+    return amigos.map((amistad) {
+      if (_nombreDelAmigo(amistad) != nombreAmigo) {
+        return amistad;
+      }
+
+      return amistad.copyWith(estadoConexion: estadoConexion);
+    }).toList();
+  }
+
+  Future<Map<String, String>> _cargarEstadosConexion() async {
+    try {
+      final response = await service.dio.get('/amigos/activos');
+      final data = response.data;
+
+      if (data is! List) return const {};
+
+      return {
+        for (final item in data)
+          if (item is Map)
+            item['username']?.toString() ?? '':
+                item['estado_conexion']?.toString() ?? 'DESCONECTADO',
+      }..removeWhere((key, value) => key.isEmpty);
+    } catch (_) {
+      return const {};
+    }
+  }
+
+  void procesarEventoPresencia(Map<String, dynamic> event) {
+    final tipoEvento = event['tipo_evento']?.toString();
+    if (tipoEvento != 'PRESENCIA') return;
+
+    final nombreAmigo = event['username']?.toString();
+    final estado = event['estado']?.toString();
+
+    if (nombreAmigo == null || nombreAmigo.isEmpty) return;
+    if (estado == null || estado.isEmpty) return;
+
+    final estadoConexion = estado.toUpperCase() == 'ONLINE'
+        ? 'online'
+        : 'DESCONECTADO';
+
+    state = state.copyWith(
+      amigos: _actualizarAmigoPorNombre(
+        state.amigos,
+        nombreAmigo,
+        estadoConexion,
+      ),
+    );
+  }
+
   List<AmistadModel> get solicitudesRecibidas {
     if (usuarioActual.isEmpty) return [];
 
@@ -113,11 +189,12 @@ class AmigosNotifier extends StateNotifier<AmigosState> {
         service.listarAmigos(),
         service.listarSolicitudes(),
       ]);
+      final estadosConexion = await _cargarEstadosConexion();
 
       if (!mounted) return;
 
       state = state.copyWith(
-        amigos: results[0],
+        amigos: _aplicarEstadosConexion(results[0], estadosConexion),
         solicitudes: results[1],
         isLoading: false,
         errorMessage: null,
@@ -143,11 +220,12 @@ class AmigosNotifier extends StateNotifier<AmigosState> {
         service.listarAmigos(),
         service.listarSolicitudes(),
       ]);
+      final estadosConexion = await _cargarEstadosConexion();
   
       if (!mounted) return;
   
       state = state.copyWith(
-        amigos: results[0],
+        amigos: _aplicarEstadosConexion(results[0], estadosConexion),
         solicitudes: results[1],
       );
     } catch (_) {
@@ -311,6 +389,12 @@ final amigosProvider =
     service: service,
     usuarioActual: usuarioActual ?? '',
   );
+
+  ref.listen(globalWebSocketProvider, (previous, next) {
+    final event = next.lastEvent;
+    if (event == null) return;
+    notifier.procesarEventoPresencia(Map<String, dynamic>.from(event));
+  });
 
   if (usuarioActual == null || usuarioActual.isEmpty) {
     return notifier;

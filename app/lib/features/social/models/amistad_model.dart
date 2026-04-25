@@ -6,6 +6,7 @@ class AmistadModel {
   final String user2;
   final String? username;
   final EstadoAmistad estado;
+  final String? estadoConexion;
 
   const AmistadModel({
     required this.id,
@@ -13,6 +14,7 @@ class AmistadModel {
     required this.user2,
     this.username,
     required this.estado,
+    this.estadoConexion,
   });
 
   factory AmistadModel.fromJson(Map<String, dynamic> json) {
@@ -28,6 +30,27 @@ class AmistadModel {
       estado: estadoAmistadFromJson(
         json['estado']?.toString() ?? 'PENDIENTE',
       ),
+      estadoConexion: json['estado_conexion']?.toString() ?? json['estadoConexion']?.toString(),
+    );
+  }
+
+  AmistadModel copyWith({
+    int? id,
+    String? user1,
+    String? user2,
+    String? username,
+    EstadoAmistad? estado,
+    String? estadoConexion,
+    bool clearEstadoConexion = false,
+  }) {
+    return AmistadModel(
+      id: id ?? this.id,
+      user1: user1 ?? this.user1,
+      user2: user2 ?? this.user2,
+      username: username ?? this.username,
+      estado: estado ?? this.estado,
+      estadoConexion:
+          clearEstadoConexion ? null : (estadoConexion ?? this.estadoConexion),
     );
   }
 
@@ -67,5 +90,10 @@ class AmistadModel {
 
   bool recibidaPorMi(String usuarioActual) {
     return user2 == usuarioActual;
+  }
+
+  bool get estaConectado {
+    final estado = estadoConexion?.toLowerCase();
+    return estado == 'online' || estado == 'conectado' || estado == 'en_partida';
   }
 }

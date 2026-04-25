@@ -412,10 +412,10 @@ class _AlliesList extends StatelessWidget {
       separatorBuilder: (_, __) => const SizedBox(height: 10),
       itemBuilder: (context, index) {
         final amistad = amigos[index];
-        final nombre = amistad.otroUsuario(usuarioActual);
 
         return _AllyCard(
-          name: nombre,
+          amistad: amistad,
+          usuarioActual: usuarioActual,
           onDelete: () => onDelete(amistad.id),
         );
       },
@@ -481,20 +481,25 @@ class _RequestsList extends StatelessWidget {
 }
 
 class _AllyCard extends StatelessWidget {
-  final String name;
+  final AmistadModel amistad;
+  final String usuarioActual;
   final VoidCallback onDelete;
 
   const _AllyCard({
-    required this.name,
+    required this.amistad,
+    required this.usuarioActual,
     required this.onDelete,
   });
 
   @override
   Widget build(BuildContext context) {
+    final nombre = amistad.otroUsuario(usuarioActual);
+    final estaConectado = amistad.estaConectado;
+
     return _BaseCommanderCard(
-      name: name,
-      subtitle: 'CONECTADO',
-      leadingColor: AppTheme.success,
+      name: nombre,
+      subtitle: estaConectado ? 'CONECTADO' : 'DESCONECTADO',
+      leadingColor: estaConectado ? AppTheme.success : Colors.grey,
       trailing: _SquareIconButton(
         icon: Icons.close_rounded,
         tooltip: 'Eliminar aliado',

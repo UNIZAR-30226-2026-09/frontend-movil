@@ -67,7 +67,7 @@ class WebSocketNotifier extends Notifier<WebSocketState> {
   @override
   WebSocketState build() {
     final baseUrl =
-        dotenv.env['API_BASE_URL'] ?? 'https://soberania.dev/api/v1';
+      dotenv.env['API_BASE_URL'] ?? 'http://192.168.1.49:8000/api/v1';
     final wsUrl = baseUrl.replaceFirst('http', 'ws');
     _wsService = WebSocketService(baseUrl: wsUrl);
 
