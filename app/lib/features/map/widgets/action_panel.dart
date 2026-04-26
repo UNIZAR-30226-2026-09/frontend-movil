@@ -406,6 +406,17 @@ class _ActionPanelState extends ConsumerState<ActionPanel> {
                           'tropas': tropasAEnviar,
                         },
                       );
+
+                      final estadoActual = ref.read(gameProvider);
+                      final faseActual = estadoActual.faseActual.trim().toLowerCase();
+                      final tropasReservaRestantes =
+                          estadoActual.jugadores[username]?.tropasReserva ?? 0;
+
+                      if (faseActual == 'refuerzo' && tropasReservaRestantes <= 0) {
+                        await dio.post('/partidas/$partidaId/pasar_fase');
+                        ref.read(gameProvider.notifier).reiniciarTemporizador();
+                      }
+
                       if (!dialogContext.mounted) return;
                       Navigator.of(dialogContext).pop();
                     } on DioException catch (e) {
