@@ -48,11 +48,11 @@ class TechCatalogService {
 
   Future<void> buyTechnology({
     required int partidaId,
-    required String technologyId,
+    required String habilidadId,
   }) async {
     await dio.post(
       '/partidas/$partidaId/comprar_tecnologia',
-      data: {'tecnologia_id': technologyId},
+      data: {'habilidad_id': habilidadId},
     );
   }
 

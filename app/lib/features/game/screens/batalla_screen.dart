@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:soberania/features/auth/providers/auth_provider.dart';
 import 'package:soberania/features/game/providers/game_provider.dart';
 import 'package:soberania/features/game/providers/websocket_provider.dart';
+import 'package:soberania/features/game/data/tech_tree_data.dart';
 import 'package:soberania/features/game/services/tech_catalog_service.dart';
 import 'package:soberania/features/map/services/map_loader.dart';
 import 'package:soberania/features/map/widgets/action_panel.dart';
@@ -55,7 +56,7 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
     ref.read(gameProvider.notifier).actualizarDesdeServidor(payload);
   }
 
-  void _onResearchPressed(String techId, int cost) async {
+  void _onResearchPressed(String habilidadId, int cost) async {
     final partidaId = _partidaIdActual();
     if (partidaId <= 0) {
       if (!mounted) return;
@@ -70,7 +71,7 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
     try {
       await _techCatalogService.buyTechnology(
         partidaId: partidaId,
-        technologyId: techId,
+        habilidadId: habilidadId,
       );
 
       final jugadorId = ref.read(authProvider).user?.username ?? '';
@@ -79,7 +80,7 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
             .read(gameProvider.notifier)
             .marcarTecnologiaComprada(
               jugadorId: jugadorId,
-              tecnologiaId: techId,
+              tecnologiaId: habilidadId,
             );
       }
 
@@ -88,7 +89,7 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Tecnología comprada: $techId ($cost monedas).'),
+          content: Text('Tecnología comprada: $habilidadId ($cost monedas).'),
         ),
       );
     } on DioException catch (e) {
@@ -627,7 +628,27 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
       ),
     ];
 
+    List<TechNodeModel> habilidadesDeRama(String ramaId) {
+      switch (ramaId) {
+        case 'artilleria':
+          return TechTreeData.nodes
+              .where((node) => node.branch == TechBranch.artilleria)
+              .toList(growable: false);
+        case 'logistica':
+          return TechTreeData.nodes
+              .where((node) => node.branch == TechBranch.operaciones)
+              .toList(growable: false);
+        case 'biologica':
+          return TechTreeData.nodes
+              .where((node) => node.branch == TechBranch.biologica)
+              .toList(growable: false);
+        default:
+          return const <TechNodeModel>[];
+      }
+    }
+
     String ramaSeleccionada = 'artilleria';
+    String habilidadSeleccionada = habilidadesDeRama(ramaSeleccionada).first.id;
 
     await showModalBottomSheet<void>(
       context: context,
@@ -637,6 +658,8 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
       builder: (sheetContext) {
         return StatefulBuilder(
           builder: (_, setSheetState) {
+            final sheetMaxHeight = MediaQuery.of(sheetContext).size.height * 0.88;
+
             return Container(
               decoration: const BoxDecoration(
                 color: AppTheme.surface,
@@ -644,12 +667,14 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
               ),
               child: SafeArea(
                 top: false,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxHeight: sheetMaxHeight),
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                       const Text(
                         'Opciones de Gestión',
                         style: TextStyle(
@@ -731,8 +756,10 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
                       ...ramas.map((rama) {
                         final seleccionada = ramaSeleccionada == rama.id;
                         return GestureDetector(
-                          onTap: () =>
-                              setSheetState(() => ramaSeleccionada = rama.id),
+                          onTap: () => setSheetState(() {
+                            ramaSeleccionada = rama.id;
+                            habilidadSeleccionada = habilidadesDeRama(rama.id).first.id;
+                          }),
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 150),
                             margin: const EdgeInsets.only(bottom: 8),
@@ -796,6 +823,87 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
                         );
                       }),
 
+                      const SizedBox(height: 6),
+                      const Text(
+                        'Elige la habilidad exacta a investigar:',
+                        style: TextStyle(
+                          color: AppTheme.textSecondary,
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      ...habilidadesDeRama(ramaSeleccionada).map((habilidad) {
+                        final seleccionada = habilidadSeleccionada == habilidad.id;
+                        return GestureDetector(
+                          onTap: () => setSheetState(() {
+                            habilidadSeleccionada = habilidad.id;
+                          }),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 150),
+                            margin: const EdgeInsets.only(bottom: 8),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 10,
+                            ),
+                            decoration: BoxDecoration(
+                              color: seleccionada
+                                  ? AppTheme.primary.withValues(alpha: 0.15)
+                                  : AppTheme.surface,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: seleccionada
+                                    ? AppTheme.primary
+                                    : AppTheme.borderGold,
+                                width: seleccionada ? 1.8 : 1.0,
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  habilidad.icon,
+                                  color: seleccionada
+                                      ? AppTheme.primary
+                                      : AppTheme.textSecondary,
+                                  size: 22,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        habilidad.name,
+                                        style: TextStyle(
+                                          color: seleccionada
+                                              ? AppTheme.primary
+                                              : AppTheme.text,
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                      Text(
+                                        habilidad.id,
+                                        style: const TextStyle(
+                                          color: AppTheme.textSecondary,
+                                          fontSize: 11,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                if (seleccionada)
+                                  const Icon(
+                                    Icons.check_circle,
+                                    color: AppTheme.primary,
+                                    size: 20,
+                                  ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }),
+
                       const SizedBox(height: 4),
                       SizedBox(
                         width: double.infinity,
@@ -809,6 +917,7 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
                                     data: {
                                       'territorio_id': comarcaId,
                                       'rama': ramaSeleccionada,
+                                      'habilidad_id': habilidadSeleccionada,
                                     },
                                   );
                               if (!mounted || !sheetContext.mounted) return;
@@ -852,6 +961,7 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
                         ),
                       ),
                     ],
+                    ),
                   ),
                 ),
               ),
