@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../map/services/graph_service.dart';
 import '../../map/services/map_loader.dart';
@@ -185,6 +187,7 @@ class GameState {
   final String investigacionCompletada;
   final int tropasRecibidasTurno;
   final int ultimosRefuerzosRecibidos;
+  final int tiempoRestante;
 
   GameState({
     this.origenSeleccionado,
@@ -202,6 +205,7 @@ class GameState {
     this.investigacionCompletada = '',
     this.tropasRecibidasTurno = 0,
     this.ultimosRefuerzosRecibidos = 0,
+    this.tiempoRestante = 60,
   });
 
   GameState copyWith({
@@ -220,6 +224,7 @@ class GameState {
     String? investigacionCompletada,
     int? tropasRecibidasTurno,
     int? ultimosRefuerzosRecibidos,
+    int? tiempoRestante,
     bool clearOrigen = false,
     bool clearDestino = false,
     bool clearResultadoAtaque = false,
@@ -250,14 +255,52 @@ class GameState {
       tropasRecibidasTurno: tropasRecibidasTurno ?? this.tropasRecibidasTurno,
       ultimosRefuerzosRecibidos:
           ultimosRefuerzosRecibidos ?? this.ultimosRefuerzosRecibidos,
+      tiempoRestante: tiempoRestante ?? this.tiempoRestante,
     );
   }
 }
 
 // 3. Notificador (El controlador del estado)
 class GameNotifier extends Notifier<GameState> {
+  Timer? _temporizadorFase;
+
+  static const int _duracionTemporizadorFase = 60;
+
   @override
-  GameState build() => GameState();
+  GameState build() {
+    ref.onDispose(_detenerTemporizador);
+    _iniciarTemporizador();
+    return GameState(tiempoRestante: _duracionTemporizadorFase);
+  }
+
+  void _detenerTemporizador() {
+    _temporizadorFase?.cancel();
+    _temporizadorFase = null;
+  }
+
+  void _iniciarTemporizador() {
+    _detenerTemporizador();
+
+    _temporizadorFase = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (state.faseActual.toUpperCase() == 'ESPERA') return;
+
+      final tiempoActual = state.tiempoRestante;
+      if (tiempoActual <= 0) {
+        reiniciarTemporizador();
+        return;
+      }
+
+      final siguienteTiempo = tiempoActual - 1;
+      state = state.copyWith(
+        tiempoRestante: siguienteTiempo < 0 ? 0 : siguienteTiempo,
+      );
+    });
+  }
+
+  void reiniciarTemporizador() {
+    state = state.copyWith(tiempoRestante: _duracionTemporizadorFase);
+    _iniciarTemporizador();
+  }
 
   String _normalizarFase(String fase) {
     return fase.trim().toLowerCase();
@@ -339,6 +382,13 @@ class GameNotifier extends Notifier<GameState> {
     required int tropasRecibidas,
   }) {
     final faseNormalizada = _normalizarFase(nuevaFase);
+    final faseCambiada = faseNormalizada != state.faseActual;
+    final turnoCambiado = jugadorActivo != state.turnoDe;
+
+    if (faseCambiada || turnoCambiado) {
+      reiniciarTemporizador();
+    }
+
     final jugadoresActualizados = Map<String, PlayerState>.from(
       state.jugadores,
     );
@@ -457,6 +507,13 @@ class GameNotifier extends Notifier<GameState> {
         jsonPartida['turno_de'] ??
         jsonPartida['jugador_activo'] ??
         state.turnoDe;
+    final nuevoTurno = turnoRaw.toString();
+    final faseCambiada = faseNormalizada != state.faseActual;
+    final turnoCambiado = nuevoTurno != state.turnoDe;
+
+    if (faseCambiada || turnoCambiado) {
+      reiniciarTemporizador();
+    }
 
     // CAMBIO_FASE suele venir sin bloque de jugadores. Si trae tropas_recibidas,
     // las sumamos al jugador activo para que el HUD se actualice al instante.
@@ -494,7 +551,7 @@ class GameNotifier extends Notifier<GameState> {
     state = state.copyWith(
       mapa: mapaActualizado,
       jugadores: Map<String, PlayerState>.from(jugadoresActualizados),
-      turnoDe: turnoRaw.toString(),
+      turnoDe: nuevoTurno,
       faseActual: faseNormalizada,
       tropasRecibidasTurno: refuerzosRecibidos,
       ultimosRefuerzosRecibidos: refuerzosRecibidos,
@@ -789,7 +846,9 @@ class GameNotifier extends Notifier<GameState> {
   }
 
   void resetState() {
+    _detenerTemporizador();
     state = GameState();
+    _iniciarTemporizador();
   }
 }
 

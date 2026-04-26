@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../game/providers/game_provider.dart';
 import '../../../app/theme/app_theme.dart';
 
 // CustomClipper para hexágonos verticales — sin tocar
@@ -22,7 +25,7 @@ class HexagonClipper extends CustomClipper<Path> {
   bool shouldReclip(HexagonClipper oldClipper) => false;
 }
 
-class PanelControlGuerra extends StatelessWidget {
+class PanelControlGuerra extends ConsumerWidget {
   final int tropas;
   final String faseActual;
   final VoidCallback onNextPhasePressed;
@@ -68,13 +71,17 @@ class PanelControlGuerra extends StatelessWidget {
   bool _isUltimaFase(int index) => index == faseDisplay.length - 1;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     const panelHeight = 130.0;
     final panelWidth = panelHeight * 2.1;
     final faseIndexActual = _getFaseIndex();
     final textoBoton = _isUltimaFase(faseIndexActual)
         ? 'FIN TURNO'
         : 'SIGUIENTE';
+    final tiempoRestante = ref.watch(
+      gameProvider.select((state) => state.tiempoRestante),
+    );
+    final progresoTemporizador = tiempoRestante / 60.0;
 
     // Solo habilitamos el botón si es nuestro turno
     final esMiTurno = turnoDe == usernamePropio;
@@ -114,17 +121,63 @@ class PanelControlGuerra extends StatelessWidget {
                 Positioned(
                   left: panelWidth * 0.0935,
                   top: panelHeight * 0.205,
-                  child: Container(
+                  child: SizedBox(
                     width: panelHeight * 0.57,
                     height: panelHeight * 0.57,
-                    decoration: const BoxDecoration(
-                      color: Colors.black45,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.person,
-                      color: Colors.white24,
-                      size: panelHeight * 0.12,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Positioned.fill(
+                          child: CircularProgressIndicator(
+                            value: progresoTemporizador.clamp(0.0, 1.0),
+                            strokeWidth: 3,
+                            backgroundColor: Colors.black87,
+                            valueColor: const AlwaysStoppedAnimation<Color>(
+                              AppTheme.success,
+                            ),
+                          ),
+                        ),
+                        Positioned.fill(
+                          child: Padding(
+                            padding: const EdgeInsets.all(3),
+                            child: ClipOval(
+                              child: ColoredBox(
+                                color: Color(0xFF131313),
+                                child: FittedBox(
+                                  fit: BoxFit.contain,
+                                  child: Icon(
+                                    Icons.person,
+                                    color: Colors.white30,
+                                    size: panelHeight * 0.24,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          right: 0,
+                          bottom: 0,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 5,
+                              vertical: 1,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.black87.withValues(alpha: 0.9),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              '$tiempoRestante',
+                              style: const TextStyle(
+                                color: Colors.grey,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),

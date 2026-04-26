@@ -369,6 +369,7 @@ class _InteractiveGameMapState extends ConsumerState<InteractiveGameMap>
       try {
         final dio = ref.read(dioProvider);
         await dio.post('/partidas/$partidaId/pasar_fase');
+        ref.read(gameProvider.notifier).reiniciarTemporizador();
         // Si llega aquí, esperamos CAMBIO_FASE por WS. No hay update optimista.
       } on DioException catch (e) {
         final status = e.response?.statusCode ?? 0;
