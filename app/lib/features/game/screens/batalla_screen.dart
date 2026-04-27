@@ -484,7 +484,6 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
                 minScale: 1.0,
                 maxScale: 5.0,
               ),
-              const ActionPanel(),
               SafeArea(
                 child: Align(
                   alignment: Alignment.topLeft,
@@ -578,6 +577,7 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
                   ),
                 ),
               ),
+              const ActionPanel(),
             ],
           );
         },

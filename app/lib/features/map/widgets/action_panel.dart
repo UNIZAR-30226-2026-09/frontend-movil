@@ -5,6 +5,7 @@ import 'package:soberania/features/auth/providers/auth_provider.dart';
 import 'package:soberania/features/game/providers/game_provider.dart';
 import 'package:soberania/features/game/providers/websocket_provider.dart';
 import '../../../shared/api/dio_provider.dart';
+import '../../../app/theme/app_theme.dart';
 
 class ActionPanel extends ConsumerStatefulWidget {
   const ActionPanel({super.key});
@@ -21,6 +22,30 @@ class _ActionPanelState extends ConsumerState<ActionPanel> {
         .split('_')
         .map((word) => word.isEmpty ? '' : '${word[0].toUpperCase()}${word.substring(1)}')
         .join(' ');
+  }
+
+  ButtonStyle _actionButtonStyle(bool enabled) {
+    return ElevatedButton.styleFrom(
+      elevation: enabled ? 3 : 0,
+      backgroundColor: enabled
+          ? const Color(0xFF3A2A16)
+          : const Color(0xFF2A241C),
+      foregroundColor: enabled
+          ? AppTheme.primary
+          : AppTheme.textSecondary.withValues(alpha: 0.65),
+      disabledBackgroundColor: const Color(0xFF2A241C),
+      disabledForegroundColor: AppTheme.textSecondary.withValues(alpha: 0.65),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(
+          color: enabled
+              ? AppTheme.primary.withValues(alpha: 0.75)
+              : AppTheme.primary.withValues(alpha: 0.18),
+          width: 1.2,
+        ),
+      ),
+    );
   }
 
   @override
@@ -58,7 +83,6 @@ class _ActionPanelState extends ConsumerState<ActionPanel> {
       }
     });
 
-    final double panelHeight = gameState.esperandoDestino ? 280.0 : 220.0;
     final bool isVisible = origenSeleccionado != null;
     final territoryData = origenSeleccionado != null ? gameState.mapa[origenSeleccionado] : null;
     final owner = territoryData?.ownerId ?? 'Neutral';
@@ -67,110 +91,261 @@ class _ActionPanelState extends ConsumerState<ActionPanel> {
     return AnimatedPositioned(
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeInOut,
-      bottom: isVisible ? 0 : -panelHeight,
-      left: 0,
-      right: 0,
-      height: panelHeight,
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Theme.of(context).cardColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.3),
-              blurRadius: 10,
-              offset: const Offset(0, -2),
+      right: isVisible ? 12 : -290,
+      top: MediaQuery.of(context).size.height * 0.14,
+      width: 270,
+      child: Material(
+        color: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: AppTheme.primary,
+              width: 1.4,
             ),
-          ],
-        ),
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Text(
-                      origenSeleccionado != null ? _formatName(origenSeleccionado) : '',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () {
-                      if (origenSeleccionado != null) {
-                        ref.read(gameProvider.notifier).seleccionarComarca(
-                          origenSeleccionado,
-                          jugadorLocalId: username,
-                        );
-                      }
-                    },
-                  ),
-                ],
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.38),
+                blurRadius: 18,
+                offset: const Offset(0, 6),
               ),
-              const Divider(),
-              Row(
-                children: [
-                  const Icon(Icons.person, size: 20),
-                  const SizedBox(width: 8),
-                  Text('Dueño: $owner'),
-                  const Spacer(),
-                  const Icon(Icons.shield, size: 20),
-                  const SizedBox(width: 8),
-                  Text('Tropas: $units', style: const TextStyle(fontWeight: FontWeight.bold)),
-                ],
-              ),
-              if (gameState.esperandoDestino) ...[
-                const SizedBox(height: 12),
-                Text(
-                  // El texto cambia según la fase para que el usuario sepa qué está haciendo
-                  puedeAtacar
-                      ? 'Selecciona el territorio a atacar...'
-                      : 'Selecciona el territorio destino...',
-                  style: const TextStyle(fontStyle: FontStyle.italic),
-                ),
-                const SizedBox(height: 8),
-                TextButton(
-                  onPressed: () => ref.read(gameProvider.notifier).cancelarAtaque(),
-                  child: const Text('Cancelar'),
-                ),
-              ],
-              if (!gameState.esperandoDestino) ...[
-                const SizedBox(height: 16),
+            ],
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    ElevatedButton.icon(
-                      onPressed: puedeAtacar
-                          ? () => ref.read(gameProvider.notifier).prepararAtaque()
-                          : null,
-                      icon: const Icon(Icons.sports_kabaddi),
-                      label: const Text('Atacar'),
+                    Expanded(
+                      child: Text(
+                        origenSeleccionado != null ? _formatName(origenSeleccionado) : '',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          color: AppTheme.primary,
+                          letterSpacing: 0.4,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                    ElevatedButton.icon(
-                      onPressed: gameState.faseActual == 'refuerzo' && esMiTurno && origenSeleccionado != null
-                          ? () => _mostrarDialogoRefuerzo(context, ref, origenSeleccionado)
-                          : null,
-                      icon: const Icon(Icons.add_box),
-                      label: const Text('Reforzar'),
-                    ),
-                    ElevatedButton.icon(
-                      onPressed: puedeFortificar && origenSeleccionado != null && units > 1
-                          ? () => ref.read(gameProvider.notifier).prepararAtaque()
-                          : null,
-                      icon: const Icon(Icons.fort),
-                      label: const Text('Mover'),
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      splashRadius: 20,
+                      icon: const Icon(Icons.close_rounded),
+                      onPressed: () {
+                        if (origenSeleccionado != null) {
+                          ref.read(gameProvider.notifier).seleccionarComarca(
+                            origenSeleccionado,
+                            jugadorLocalId: username,
+                          );
+                        }
+                      },
                     ),
                   ],
                 ),
+                Divider(
+                  color: AppTheme.primary.withValues(alpha: 0.55),
+                  height: 18,
+                  thickness: 1,
+                ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: AppTheme.primary.withValues(alpha: 0.35),
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.person_rounded,
+                              size: 18,
+                              color: AppTheme.primary,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                owner,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: AppTheme.text,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: AppTheme.primary.withValues(alpha: 0.35),
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.shield_rounded,
+                            size: 18,
+                            color: AppTheme.primary,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '$units',
+                            style: const TextStyle(
+                              color: AppTheme.text,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                if (gameState.esperandoDestino) ...[
+                  const SizedBox(height: 14),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: AppTheme.primary.withValues(alpha: 0.30),
+                        width: 1,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.ads_click_rounded,
+                              size: 18,
+                              color: AppTheme.primary,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                puedeAtacar
+                                    ? 'Selecciona un territorio enemigo'
+                                    : 'Selecciona un territorio aliado',
+                                style: const TextStyle(
+                                  color: AppTheme.primary,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          puedeAtacar
+                              ? 'Pulsa sobre una comarca adyacente para iniciar el ataque.'
+                              : 'Pulsa sobre una comarca válida para mover tropas.',
+                          style: const TextStyle(
+                            color: AppTheme.textSecondary,
+                            fontSize: 13,
+                            height: 1.35,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: () => ref.read(gameProvider.notifier).cancelarAtaque(),
+                            icon: const Icon(Icons.close_rounded, size: 18),
+                            label: const Text(
+                              'Cancelar selección',
+                              style: TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppTheme.primary,
+                              side: BorderSide(
+                                color: AppTheme.primary.withValues(alpha: 0.55),
+                                width: 1.1,
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                if (!gameState.esperandoDestino) ...[
+                  const SizedBox(height: 16),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      ElevatedButton.icon(
+                        style: _actionButtonStyle(puedeAtacar),
+                        onPressed: puedeAtacar
+                            ? () => ref.read(gameProvider.notifier).prepararAtaque()
+                            : null,
+                        icon: const Icon(Icons.sports_kabaddi_rounded, size: 20),
+                        label: const Text(
+                          'Atacar',
+                          style: TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      ElevatedButton.icon(
+                        style: _actionButtonStyle(
+                          gameState.faseActual == 'refuerzo' &&
+                              esMiTurno &&
+                              origenSeleccionado != null,
+                        ),
+                        onPressed: gameState.faseActual == 'refuerzo' && esMiTurno && origenSeleccionado != null
+                            ? () => _mostrarDialogoRefuerzo(context, ref, origenSeleccionado)
+                            : null,
+                        icon: const Icon(Icons.add_box_rounded, size: 20),
+                        label: const Text(
+                          'Reforzar',
+                          style: TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      ElevatedButton.icon(
+                        style: _actionButtonStyle(puedeFortificar && origenSeleccionado != null && units > 1),
+                        onPressed: puedeFortificar && origenSeleccionado != null && units > 1
+                            ? () => ref.read(gameProvider.notifier).prepararAtaque()
+                            : null,
+                        icon: const Icon(Icons.fort_rounded, size: 20),
+                        label: const Text(
+                          'Mover',
+                          style: TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
-      ),
+      ),  
     );
   }
 
