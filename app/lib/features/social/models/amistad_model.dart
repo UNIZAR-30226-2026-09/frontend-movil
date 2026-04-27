@@ -5,6 +5,7 @@ class AmistadModel {
   final String user1;
   final String user2;
   final String? username;
+  final String? avatar;
   final EstadoAmistad estado;
   final String? estadoConexion;
 
@@ -13,24 +14,22 @@ class AmistadModel {
     required this.user1,
     required this.user2,
     this.username,
+    this.avatar,
     required this.estado,
     this.estadoConexion,
   });
 
   factory AmistadModel.fromJson(Map<String, dynamic> json) {
     return AmistadModel(
-      id: _parseId(
-        json['id'] ??
-            json['solicitud_id'] ??
-            json['id_solicitud'],
-      ),
+      id: _parseId(json['id'] ?? json['solicitud_id'] ?? json['id_solicitud']),
       user1: json['user_1']?.toString() ?? '',
       user2: json['user_2']?.toString() ?? '',
       username: json['username']?.toString(),
-      estado: estadoAmistadFromJson(
-        json['estado']?.toString() ?? 'PENDIENTE',
-      ),
-      estadoConexion: json['estado_conexion']?.toString() ?? json['estadoConexion']?.toString(),
+      avatar: json['avatar']?.toString(),
+      estado: estadoAmistadFromJson(json['estado']?.toString() ?? 'PENDIENTE'),
+      estadoConexion:
+          json['estado_conexion']?.toString() ??
+          json['estadoConexion']?.toString(),
     );
   }
 
@@ -39,6 +38,7 @@ class AmistadModel {
     String? user1,
     String? user2,
     String? username,
+    String? avatar,
     EstadoAmistad? estado,
     String? estadoConexion,
     bool clearEstadoConexion = false,
@@ -48,9 +48,11 @@ class AmistadModel {
       user1: user1 ?? this.user1,
       user2: user2 ?? this.user2,
       username: username ?? this.username,
+      avatar: avatar ?? this.avatar,
       estado: estado ?? this.estado,
-      estadoConexion:
-          clearEstadoConexion ? null : (estadoConexion ?? this.estadoConexion),
+      estadoConexion: clearEstadoConexion
+          ? null
+          : (estadoConexion ?? this.estadoConexion),
     );
   }
 
@@ -66,6 +68,7 @@ class AmistadModel {
       'user_1': user1,
       'user_2': user2,
       'username': username,
+      'avatar': avatar,
       'estado': estadoAmistadToJson(estado),
     };
   }
@@ -94,6 +97,8 @@ class AmistadModel {
 
   bool get estaConectado {
     final estado = estadoConexion?.toLowerCase();
-    return estado == 'online' || estado == 'conectado' || estado == 'en_partida';
+    return estado == 'online' ||
+        estado == 'conectado' ||
+        estado == 'en_partida';
   }
 }

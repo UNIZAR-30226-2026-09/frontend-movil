@@ -10,25 +10,17 @@ final profileServiceProvider = Provider<ProfileService>((ref) {
   return ProfileService(dio);
 });
 
-enum ProfileActionStatus {
-  idle,
-  loading,
-  success,
-  error,
-}
+enum ProfileActionStatus { idle, loading, success, error }
 
 class ProfileState {
   final ProfileActionStatus status;
   final String? message;
 
-  const ProfileState({
-    required this.status,
-    this.message,
-  });
+  const ProfileState({required this.status, this.message});
 
   const ProfileState.initial()
-      : status = ProfileActionStatus.idle,
-        message = null;
+    : status = ProfileActionStatus.idle,
+      message = null;
 
   ProfileState copyWith({
     ProfileActionStatus? status,
@@ -47,25 +39,34 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
   final Ref ref;
   final ProfileService profileService;
 
-  ProfileNotifier({
-    required this.ref,
-    required this.profileService,
-  }) : super(const ProfileState.initial());
+  ProfileNotifier({required this.ref, required this.profileService})
+    : super(const ProfileState.initial());
 
   Future<bool> updateProfile({
     String? email,
     String? password,
+    String? avatarName,
   }) async {
-    state = state.copyWith(
-      status: ProfileActionStatus.loading,
-      message: null,
-    );
+    state = state.copyWith(status: ProfileActionStatus.loading, message: null);
 
     try {
-      await profileService.updateProfile(
-        email: email,
-        password: password,
-      );
+      final hasProfilePayload =
+          (email != null && email.trim().isNotEmpty) ||
+          (password != null && password.trim().isNotEmpty);
+      final hasAvatarPayload =
+          avatarName != null && avatarName.trim().isNotEmpty;
+
+      if (!hasProfilePayload && !hasAvatarPayload) {
+        throw Exception('No hay datos para actualizar');
+      }
+
+      if (hasProfilePayload) {
+        await profileService.updateProfile(email: email, password: password);
+      }
+
+      if (hasAvatarPayload) {
+        await profileService.updateAvatar(avatarName: avatarName!.trim());
+      }
 
       await ref.read(authProvider.notifier).checkSession();
 
@@ -84,18 +85,13 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
   }
 
   void clearFeedback() {
-    state = state.copyWith(
-      status: ProfileActionStatus.idle,
-      message: null,
-    );
+    state = state.copyWith(status: ProfileActionStatus.idle, message: null);
   }
 }
 
-final profileProvider =
-    StateNotifierProvider<ProfileNotifier, ProfileState>((ref) {
+final profileProvider = StateNotifierProvider<ProfileNotifier, ProfileState>((
+  ref,
+) {
   final profileService = ref.read(profileServiceProvider);
-  return ProfileNotifier(
-    ref: ref,
-    profileService: profileService,
-  );
+  return ProfileNotifier(ref: ref, profileService: profileService);
 });

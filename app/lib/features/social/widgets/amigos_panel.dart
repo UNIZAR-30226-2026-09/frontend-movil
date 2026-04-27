@@ -2,13 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/theme/app_theme.dart';
+import '../../../shared/widgets/app_avatar.dart';
 import '../models/amistad_model.dart';
 import '../providers/amigos_provider.dart';
 
-enum _SocialTab {
-  aliados,
-  solicitudes,
-}
+enum _SocialTab { aliados, solicitudes }
 
 class AmigosPanel extends ConsumerStatefulWidget {
   const AmigosPanel({super.key});
@@ -35,7 +33,9 @@ class _AmigosPanelState extends ConsumerState<AmigosPanel> {
       return;
     }
 
-    final ok = await ref.read(amigosProvider.notifier).enviarSolicitud(username);
+    final ok = await ref
+        .read(amigosProvider.notifier)
+        .enviarSolicitud(username);
 
     if (!mounted) return;
 
@@ -83,10 +83,7 @@ class _AmigosPanelState extends ConsumerState<AmigosPanel> {
             decoration: BoxDecoration(
               color: AppTheme.panelOverlay,
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: AppTheme.borderGold,
-                width: 1.4,
-              ),
+              border: Border.all(color: AppTheme.borderGold, width: 1.4),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withOpacity(0.45),
@@ -131,8 +128,7 @@ class _AmigosPanelState extends ConsumerState<AmigosPanel> {
                       },
                     ),
 
-                  if (state.errorMessage != null)
-                    const SizedBox(height: 12),
+                  if (state.errorMessage != null) const SizedBox(height: 12),
 
                   Expanded(
                     child: AnimatedSwitcher(
@@ -140,30 +136,30 @@ class _AmigosPanelState extends ConsumerState<AmigosPanel> {
                       child: state.isLoading
                           ? const _LoadingState()
                           : _selectedTab == _SocialTab.aliados
-                              ? _AlliesList(
-                                  amigos: state.amigos,
-                                  usuarioActual: notifier.usuarioActual,
-                                  onDelete: (amistadId) {
-                                    ref
-                                        .read(amigosProvider.notifier)
-                                        .eliminarAmigo(amistadId);
-                                  },
-                                )
-                              : _RequestsList(
-                                  usuarioActual: notifier.usuarioActual,
-                                  recibidas: solicitudesRecibidas,
-                                  enviadas: solicitudesEnviadas,
-                                  onAccept: (solicitudId) {
-                                    ref
-                                        .read(amigosProvider.notifier)
-                                        .aceptarSolicitud(solicitudId);
-                                  },
-                                  onReject: (solicitudId) {
-                                    ref
-                                        .read(amigosProvider.notifier)
-                                        .rechazarSolicitud(solicitudId);
-                                  },
-                                ),
+                          ? _AlliesList(
+                              amigos: state.amigos,
+                              usuarioActual: notifier.usuarioActual,
+                              onDelete: (amistadId) {
+                                ref
+                                    .read(amigosProvider.notifier)
+                                    .eliminarAmigo(amistadId);
+                              },
+                            )
+                          : _RequestsList(
+                              usuarioActual: notifier.usuarioActual,
+                              recibidas: solicitudesRecibidas,
+                              enviadas: solicitudesEnviadas,
+                              onAccept: (solicitudId) {
+                                ref
+                                    .read(amigosProvider.notifier)
+                                    .aceptarSolicitud(solicitudId);
+                              },
+                              onReject: (solicitudId) {
+                                ref
+                                    .read(amigosProvider.notifier)
+                                    .rechazarSolicitud(solicitudId);
+                              },
+                            ),
                     ),
                   ),
                 ],
@@ -192,18 +188,12 @@ class _PanelHeader extends StatelessWidget {
             fontWeight: FontWeight.w800,
             letterSpacing: 4,
             shadows: [
-              Shadow(
-                color: Colors.black.withOpacity(0.8),
-                blurRadius: 8,
-              ),
+              Shadow(color: Colors.black.withOpacity(0.8), blurRadius: 8),
             ],
           ),
         ),
         const SizedBox(height: 16),
-        Container(
-          height: 1,
-          color: AppTheme.borderBronze.withOpacity(0.65),
-        ),
+        Container(height: 1, color: AppTheme.borderBronze.withOpacity(0.65)),
       ],
     );
   }
@@ -402,9 +392,7 @@ class _AlliesList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (amigos.isEmpty) {
-      return const _EmptyState(
-        message: 'No tienes aliados todavía.',
-      );
+      return const _EmptyState(message: 'No tienes aliados todavía.');
     }
 
     return ListView.separated(
@@ -441,9 +429,7 @@ class _RequestsList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (recibidas.isEmpty && enviadas.isEmpty) {
-      return const _EmptyState(
-        message: 'No hay tratados pendientes de firma.',
-      );
+      return const _EmptyState(message: 'No hay tratados pendientes de firma.');
     }
 
     return ListView(
@@ -500,6 +486,7 @@ class _AllyCard extends StatelessWidget {
       name: nombre,
       subtitle: estaConectado ? 'CONECTADO' : 'DESCONECTADO',
       leadingColor: estaConectado ? AppTheme.success : Colors.grey,
+      avatar: amistad.avatar,
       trailing: _SquareIconButton(
         icon: Icons.close_rounded,
         tooltip: 'Eliminar aliado',
@@ -526,6 +513,7 @@ class _ReceivedRequestCard extends StatelessWidget {
       name: name,
       subtitle: 'SOLICITA UNA ALIANZA',
       leadingColor: AppTheme.primary,
+      avatar: null,
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -551,9 +539,7 @@ class _ReceivedRequestCard extends StatelessWidget {
 class _SentRequestCard extends StatelessWidget {
   final String name;
 
-  const _SentRequestCard({
-    required this.name,
-  });
+  const _SentRequestCard({required this.name});
 
   @override
   Widget build(BuildContext context) {
@@ -561,6 +547,7 @@ class _SentRequestCard extends StatelessWidget {
       name: name,
       subtitle: 'ESPERANDO RESPUESTA',
       leadingColor: AppTheme.textSecondary,
+      avatar: null,
       trailing: const Text(
         'PENDIENTE',
         style: TextStyle(
@@ -578,28 +565,23 @@ class _BaseCommanderCard extends StatelessWidget {
   final String name;
   final String subtitle;
   final Color leadingColor;
+  final String? avatar;
   final Widget trailing;
 
   const _BaseCommanderCard({
     required this.name,
     required this.subtitle,
     required this.leadingColor,
+    required this.avatar,
     required this.trailing,
   });
 
   @override
   Widget build(BuildContext context) {
-    final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
-
     return Container(
       decoration: BoxDecoration(
         color: Colors.black.withOpacity(0.24),
-        border: Border(
-          left: BorderSide(
-            color: leadingColor,
-            width: 4,
-          ),
-        ),
+        border: Border(left: BorderSide(color: leadingColor, width: 4)),
       ),
       padding: const EdgeInsets.fromLTRB(18, 13, 18, 13),
       child: Row(
@@ -607,21 +589,15 @@ class _BaseCommanderCard extends StatelessWidget {
           Container(
             width: 54,
             height: 54,
-            alignment: Alignment.center,
             decoration: BoxDecoration(
               color: Colors.black.withOpacity(0.24),
-              border: Border.all(
-                color: AppTheme.borderBronze.withOpacity(0.8),
-              ),
+              border: Border.all(color: AppTheme.borderBronze.withOpacity(0.8)),
+              shape: BoxShape.circle,
             ),
-            child: Text(
-              initial,
-              style: const TextStyle(
-                color: AppTheme.primary,
-                fontSize: 26,
-                fontWeight: FontWeight.w800,
-                fontFamily: 'serif',
-              ),
+            child: AppAvatar(
+              avatar: avatar,
+              radius: 27,
+              iconColor: AppTheme.primary,
             ),
           ),
           const SizedBox(width: 18),
@@ -702,20 +678,14 @@ class _SquareIconButton extends StatelessWidget {
         color: AppTheme.surface.withOpacity(0.38),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.zero,
-          side: BorderSide(
-            color: color.withOpacity(0.7),
-          ),
+          side: BorderSide(color: color.withOpacity(0.7)),
         ),
         child: InkWell(
           onTap: onTap,
           child: SizedBox(
             width: 42,
             height: 42,
-            child: Icon(
-              icon,
-              color: color,
-              size: 22,
-            ),
+            child: Icon(icon, color: color, size: 22),
           ),
         ),
       ),
@@ -745,9 +715,7 @@ class _SubsectionTitle extends StatelessWidget {
 class _EmptyState extends StatelessWidget {
   final String message;
 
-  const _EmptyState({
-    required this.message,
-  });
+  const _EmptyState({required this.message});
 
   @override
   Widget build(BuildContext context) {
@@ -772,9 +740,7 @@ class _LoadingState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const Center(
-      child: CircularProgressIndicator(
-        color: AppTheme.primary,
-      ),
+      child: CircularProgressIndicator(color: AppTheme.primary),
     );
   }
 }
@@ -783,24 +749,16 @@ class _ErrorBox extends StatelessWidget {
   final String message;
   final VoidCallback onClose;
 
-  const _ErrorBox({
-    required this.message,
-    required this.onClose,
-  });
+  const _ErrorBox({required this.message, required this.onClose});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
         color: AppTheme.error.withOpacity(0.14),
-        border: Border.all(
-          color: AppTheme.error.withOpacity(0.65),
-        ),
+        border: Border.all(color: AppTheme.error.withOpacity(0.65)),
       ),
-      padding: const EdgeInsets.symmetric(
-        horizontal: 12,
-        vertical: 10,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       child: Row(
         children: [
           const Icon(
@@ -812,10 +770,7 @@ class _ErrorBox extends StatelessWidget {
           Expanded(
             child: Text(
               message,
-              style: const TextStyle(
-                color: AppTheme.text,
-                fontSize: 13,
-              ),
+              style: const TextStyle(color: AppTheme.text, fontSize: 13),
             ),
           ),
           IconButton(

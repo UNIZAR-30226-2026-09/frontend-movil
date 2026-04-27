@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../../shared/widgets/app_avatar.dart';
 import '../../../app/router/app_routes.dart';
 
 class HomeProfileCard extends StatelessWidget {
-  const HomeProfileCard({
-    super.key,
-    required this.username,
-  });
+  const HomeProfileCard({super.key, required this.username, this.avatar});
 
   final String username;
+  final String? avatar;
 
   @override
   Widget build(BuildContext context) {
@@ -24,10 +23,7 @@ class HomeProfileCard extends StatelessWidget {
           decoration: BoxDecoration(
             color: const Color(0xFF252530).withOpacity(0.92),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: const Color(0xFFC5A059),
-              width: 1.2,
-            ),
+            border: Border.all(color: const Color(0xFFC5A059), width: 1.2),
             boxShadow: const [
               BoxShadow(
                 color: Colors.black54,
@@ -39,14 +35,7 @@ class HomeProfileCard extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const CircleAvatar(
-                radius: 20,
-                backgroundColor: Color(0xFF1A1A24),
-                child: Icon(
-                  Icons.person,
-                  color: Color(0xFFC5A059),
-                ),
-              ),
+              AppAvatar(avatar: avatar, radius: 20),
               const SizedBox(width: 10),
               Text(
                 username,

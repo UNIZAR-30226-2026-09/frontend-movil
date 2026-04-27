@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soberania/features/auth/providers/auth_provider.dart';
+
 import '../../../app/router/app_routes.dart';
-import '../widgets/home_background.dart';
 import '../widgets/home_action_button.dart';
 import '../widgets/home_profile_card.dart';
 import '../menu_background.dart';
@@ -11,11 +11,11 @@ import '../menu_background.dart';
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authProvider);
     final username = authState.user?.username ?? 'Jugador';
+    final avatar = authState.user?.avatar;
     return Scaffold(
       body: MenuBackground(
         child: Stack(
@@ -46,9 +46,7 @@ class HomeScreen extends ConsumerWidget {
                 alignment: Alignment.topRight,
                 child: Padding(
                   padding: const EdgeInsets.all(12.0),
-                  child: HomeProfileCard(
-                    username: username,
-                  ),
+                  child: HomeProfileCard(username: username, avatar: avatar),
                 ),
               ),
             ),

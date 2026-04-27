@@ -52,7 +52,7 @@ class TechCatalogService {
   }) async {
     await dio.post(
       '/partidas/$partidaId/comprar_tecnologia',
-      data: {'habilidad_id': habilidadId},
+      data: {'tecnologia_id': habilidadId},
     );
   }
 

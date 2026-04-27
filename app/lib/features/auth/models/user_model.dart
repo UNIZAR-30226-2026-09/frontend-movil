@@ -9,10 +9,10 @@ class UserModel {
   // Correo electrónico asociado a la cuenta del jugador.
   final String email;
 
-  UserModel({
-    required this.username,
-    required this.email,
-  });
+  // Ruta o URL del avatar del usuario.
+  final String? avatar;
+
+  UserModel({required this.username, required this.email, this.avatar});
 
   /* Crea una instancia del usuario a partir del JSON recibido del backend.
      Se usará al consultar información del usuario autenticado para convertir la respuesta en un objeto manejable en Dart.
@@ -21,6 +21,7 @@ class UserModel {
     return UserModel(
       username: json['username'] as String,
       email: json['email'] as String,
+      avatar: json['avatar']?.toString(),
     );
   }
 }

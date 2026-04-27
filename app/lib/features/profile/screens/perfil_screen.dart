@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/theme/app_theme.dart';
+import '../../../shared/widgets/app_avatar.dart';
 import '../models/estadisticas_model.dart';
 import '../providers/estadisticas_provider.dart';
 import '../widgets/editar_perfil_panel.dart';
@@ -46,6 +47,7 @@ class _PerfilScreenState extends ConsumerState<PerfilScreen> {
     final estadisticasAsync = ref.watch(estadisticasProvider);
     final username = authState.user?.username ?? 'Jugador';
     final email = authState.user?.email ?? '';
+    final avatar = authState.user?.avatar;
 
     return Scaffold(
       resizeToAvoidBottomInset: false,
@@ -55,7 +57,8 @@ class _PerfilScreenState extends ConsumerState<PerfilScreen> {
             child: RefreshIndicator(
               color: AppTheme.borderGoldVivo,
               onRefresh: () async {
-                await ref.refresh(estadisticasProvider.future);
+                ref.invalidate(estadisticasProvider);
+                await ref.read(estadisticasProvider.future);
               },
               child: LayoutBuilder(
                 builder: (context, constraints) {
@@ -64,7 +67,9 @@ class _PerfilScreenState extends ConsumerState<PerfilScreen> {
                     padding: EdgeInsets.zero,
                     children: [
                       ConstrainedBox(
-                        constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                        constraints: BoxConstraints(
+                          minHeight: constraints.maxHeight,
+                        ),
                         child: Stack(
                           children: [
                             Align(
@@ -96,17 +101,27 @@ class _PerfilScreenState extends ConsumerState<PerfilScreen> {
                             ),
                             Center(
                               child: ConstrainedBox(
-                                constraints: const BoxConstraints(maxWidth: 750),
+                                constraints: const BoxConstraints(
+                                  maxWidth: 750,
+                                ),
                                 child: Padding(
-                                  padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
+                                  padding: const EdgeInsets.fromLTRB(
+                                    20,
+                                    24,
+                                    20,
+                                    20,
+                                  ),
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
                                     children: [
                                       Container(
                                         padding: const EdgeInsets.all(20),
                                         decoration: BoxDecoration(
                                           color: const Color(0xFF252530),
-                                          borderRadius: BorderRadius.circular(20),
+                                          borderRadius: BorderRadius.circular(
+                                            20,
+                                          ),
                                           border: Border.all(
                                             color: const Color(0xFFC5A059),
                                             width: 1.2,
@@ -120,20 +135,17 @@ class _PerfilScreenState extends ConsumerState<PerfilScreen> {
                                           ],
                                         ),
                                         child: Row(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
                                           children: [
                                             SizedBox(
                                               width: 180,
                                               child: Column(
                                                 children: [
-                                                  const CircleAvatar(
+                                                  AppAvatar(
+                                                    avatar: avatar,
                                                     radius: 42,
-                                                    backgroundColor: Color(0xFF1A1A24),
-                                                    child: Icon(
-                                                      Icons.person,
-                                                      size: 42,
-                                                      color: Color(0xFFC5A059),
-                                                    ),
+                                                    fallbackIcon: Icons.person,
                                                   ),
                                                   const SizedBox(height: 12),
                                                   Text(
@@ -141,7 +153,8 @@ class _PerfilScreenState extends ConsumerState<PerfilScreen> {
                                                     textAlign: TextAlign.center,
                                                     style: const TextStyle(
                                                       fontSize: 22,
-                                                      fontWeight: FontWeight.bold,
+                                                      fontWeight:
+                                                          FontWeight.bold,
                                                     ),
                                                   ),
                                                 ],
@@ -179,34 +192,53 @@ class _PerfilScreenState extends ConsumerState<PerfilScreen> {
                                                   Row(
                                                     children: [
                                                       ElevatedButton(
-                                                        onPressed: _openEditProfile,
-                                                        child: const Text('Editar perfil'),
+                                                        onPressed:
+                                                            _openEditProfile,
+                                                        child: const Text(
+                                                          'Editar perfil',
+                                                        ),
                                                       ),
                                                       const SizedBox(width: 12),
                                                       OutlinedButton(
                                                         onPressed: () async {
                                                           await ref
-                                                              .read(authProvider.notifier)
+                                                              .read(
+                                                                authProvider
+                                                                    .notifier,
+                                                              )
                                                               .logout();
                                                           if (context.mounted) {
-                                                            context.go('/inicio');
+                                                            context.go(
+                                                              '/inicio',
+                                                            );
                                                           }
                                                         },
                                                         style: OutlinedButton.styleFrom(
                                                           backgroundColor:
-                                                              const Color(0xFF1A1A24),
+                                                              const Color(
+                                                                0xFF1A1A24,
+                                                              ),
                                                           foregroundColor:
-                                                              const Color(0xFFD32F2F),
-                                                          side: const BorderSide(
-                                                            color: Color(0xFFD32F2F),
-                                                            width: 1.2,
-                                                          ),
+                                                              const Color(
+                                                                0xFFD32F2F,
+                                                              ),
+                                                          side:
+                                                              const BorderSide(
+                                                                color: Color(
+                                                                  0xFFD32F2F,
+                                                                ),
+                                                                width: 1.2,
+                                                              ),
                                                           shape: RoundedRectangleBorder(
                                                             borderRadius:
-                                                                BorderRadius.circular(12),
+                                                                BorderRadius.circular(
+                                                                  12,
+                                                                ),
                                                           ),
                                                         ),
-                                                        child: const Text('Cerrar sesión'),
+                                                        child: const Text(
+                                                          'Cerrar sesión',
+                                                        ),
                                                       ),
                                                     ],
                                                   ),
@@ -221,7 +253,9 @@ class _PerfilScreenState extends ConsumerState<PerfilScreen> {
                                         padding: const EdgeInsets.all(20),
                                         decoration: BoxDecoration(
                                           color: AppTheme.surface,
-                                          borderRadius: BorderRadius.circular(20),
+                                          borderRadius: BorderRadius.circular(
+                                            20,
+                                          ),
                                           border: Border.all(
                                             color: AppTheme.borderGold,
                                             width: 1.2,
@@ -234,7 +268,9 @@ class _PerfilScreenState extends ConsumerState<PerfilScreen> {
                                             ),
                                           ],
                                         ),
-                                        child: _buildStatsContainer(estadisticasAsync),
+                                        child: _buildStatsContainer(
+                                          estadisticasAsync,
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -257,9 +293,7 @@ class _PerfilScreenState extends ConsumerState<PerfilScreen> {
                 child: AnimatedOpacity(
                   duration: const Duration(milliseconds: 180),
                   opacity: _showEditProfile ? 1 : 0,
-                  child: Container(
-                    color: Colors.black54,
-                  ),
+                  child: Container(color: Colors.black54),
                 ),
               ),
             ),
@@ -271,8 +305,10 @@ class _PerfilScreenState extends ConsumerState<PerfilScreen> {
               return FadeTransition(
                 opacity: animation,
                 child: ScaleTransition(
-                  scale:
-                      Tween<double>(begin: 0.96, end: 1.0).animate(animation),
+                  scale: Tween<double>(
+                    begin: 0.96,
+                    end: 1.0,
+                  ).animate(animation),
                   child: child,
                 ),
               );
@@ -282,9 +318,7 @@ class _PerfilScreenState extends ConsumerState<PerfilScreen> {
                     key: const ValueKey('editProfileOpen'),
                     onClose: _closeEditProfile,
                   )
-                : const SizedBox.shrink(
-                    key: ValueKey('editProfileClosed'),
-                  ),
+                : const SizedBox.shrink(key: ValueKey('editProfileClosed')),
           ),
         ],
       ),
@@ -434,10 +468,18 @@ class _PerfilScreenState extends ConsumerState<PerfilScreen> {
       decoration: BoxDecoration(
         color: Colors.transparent,
         border: Border(
-          top: top ? const BorderSide(color: AppTheme.borderGoldVivo, width: 3) : BorderSide.none,
-          right: right ? const BorderSide(color: AppTheme.borderGoldVivo, width: 3) : BorderSide.none,
-          bottom: bottom ? const BorderSide(color: AppTheme.borderGoldVivo, width: 3) : BorderSide.none,
-          left: left ? const BorderSide(color: AppTheme.borderGoldVivo, width: 3) : BorderSide.none,
+          top: top
+              ? const BorderSide(color: AppTheme.borderGoldVivo, width: 3)
+              : BorderSide.none,
+          right: right
+              ? const BorderSide(color: AppTheme.borderGoldVivo, width: 3)
+              : BorderSide.none,
+          bottom: bottom
+              ? const BorderSide(color: AppTheme.borderGoldVivo, width: 3)
+              : BorderSide.none,
+          left: left
+              ? const BorderSide(color: AppTheme.borderGoldVivo, width: 3)
+              : BorderSide.none,
         ),
       ),
     );
@@ -483,19 +525,14 @@ class _PerfilScreenState extends ConsumerState<PerfilScreen> {
       childAspectRatio: 2.2,
       children: stats
           .map(
-            (item) => _buildStatBox(
-              titulo: item['titulo']!,
-              valor: item['valor']!,
-            ),
+            (item) =>
+                _buildStatBox(titulo: item['titulo']!, valor: item['valor']!),
           )
           .toList(),
     );
   }
 
-  Widget _buildStatBox({
-    required String titulo,
-    required String valor,
-  }) {
+  Widget _buildStatBox({required String titulo, required String valor}) {
     return Container(
       color: const Color(0xFF080808),
       child: Column(

@@ -52,6 +52,13 @@ class AmigosState {
 
 const _noChange = Object();
 
+class _PresenciaInfo {
+  final String estadoConexion;
+  final String? avatar;
+
+  const _PresenciaInfo({required this.estadoConexion, required this.avatar});
+}
+
 class AmigosNotifier extends StateNotifier<AmigosState> {
   final AmigosService service;
   final String usuarioActual;
@@ -59,28 +66,35 @@ class AmigosNotifier extends StateNotifier<AmigosState> {
   Timer? _pollingTimer;
   bool _isRefreshing = false;
 
-  AmigosNotifier({
-    required this.service,
-    required this.usuarioActual,
-  }) : super(const AmigosState());
+  AmigosNotifier({required this.service, required this.usuarioActual})
+    : super(const AmigosState());
 
   String _nombreDelAmigo(AmistadModel amistad) {
     return amistad.otroUsuario(usuarioActual);
   }
 
+  String? _cleanAvatar(dynamic rawAvatar) {
+    if (rawAvatar == null) return null;
+    final avatar = rawAvatar.toString().trim();
+    return avatar.isEmpty ? null : avatar;
+  }
+
   List<AmistadModel> _aplicarEstadosConexion(
     List<AmistadModel> amigos,
-    Map<String, String> estadosConexion,
+    Map<String, _PresenciaInfo> estadosConexion,
   ) {
     return amigos.map((amistad) {
       final nombreAmigo = _nombreDelAmigo(amistad);
-      final estadoConexion = estadosConexion[nombreAmigo];
+      final presencia = estadosConexion[nombreAmigo];
 
-      if (estadoConexion == null) {
-        return amistad.copyWith(estadoConexion: 'DESCONECTADO');
+      if (presencia == null) {
+        return amistad.copyWith(estadoConexion: 'DESCONECTADO', avatar: null);
       }
 
-      return amistad.copyWith(estadoConexion: estadoConexion);
+      return amistad.copyWith(
+        estadoConexion: presencia.estadoConexion,
+        avatar: presencia.avatar,
+      );
     }).toList();
   }
 
@@ -88,17 +102,18 @@ class AmigosNotifier extends StateNotifier<AmigosState> {
     List<AmistadModel> amigos,
     String nombreAmigo,
     String estadoConexion,
+    String? avatar,
   ) {
     return amigos.map((amistad) {
       if (_nombreDelAmigo(amistad) != nombreAmigo) {
         return amistad;
       }
 
-      return amistad.copyWith(estadoConexion: estadoConexion);
+      return amistad.copyWith(estadoConexion: estadoConexion, avatar: avatar);
     }).toList();
   }
 
-  Future<Map<String, String>> _cargarEstadosConexion() async {
+  Future<Map<String, _PresenciaInfo>> _cargarEstadosConexion() async {
     try {
       final response = await service.dio.get('/amigos/activos');
       final data = response.data;
@@ -108,8 +123,11 @@ class AmigosNotifier extends StateNotifier<AmigosState> {
       return {
         for (final item in data)
           if (item is Map)
-            item['username']?.toString() ?? '':
-                item['estado_conexion']?.toString() ?? 'DESCONECTADO',
+            item['username']?.toString() ?? '': _PresenciaInfo(
+              estadoConexion:
+                  item['estado_conexion']?.toString() ?? 'DESCONECTADO',
+              avatar: _cleanAvatar(item['avatar']),
+            ),
       }..removeWhere((key, value) => key.isEmpty);
     } catch (_) {
       return const {};
@@ -122,6 +140,7 @@ class AmigosNotifier extends StateNotifier<AmigosState> {
 
     final nombreAmigo = event['username']?.toString();
     final estado = event['estado']?.toString();
+    final avatar = _cleanAvatar(event['avatar']);
 
     if (nombreAmigo == null || nombreAmigo.isEmpty) return;
     if (estado == null || estado.isEmpty) return;
@@ -135,6 +154,7 @@ class AmigosNotifier extends StateNotifier<AmigosState> {
         state.amigos,
         nombreAmigo,
         estadoConexion,
+        avatar,
       ),
     );
   }
@@ -179,10 +199,7 @@ class AmigosNotifier extends StateNotifier<AmigosState> {
   Future<void> cargarDatos() async {
     if (usuarioActual.isEmpty) return;
 
-    state = state.copyWith(
-      isLoading: true,
-      errorMessage: null,
-    );
+    state = state.copyWith(isLoading: true, errorMessage: null);
 
     try {
       final results = await Future.wait([
@@ -212,18 +229,18 @@ class AmigosNotifier extends StateNotifier<AmigosState> {
   Future<void> refrescarSilencioso() async {
     if (usuarioActual.isEmpty) return;
     if (_isRefreshing) return;
-  
+
     _isRefreshing = true;
-  
+
     try {
       final results = await Future.wait([
         service.listarAmigos(),
         service.listarSolicitudes(),
       ]);
       final estadosConexion = await _cargarEstadosConexion();
-  
+
       if (!mounted) return;
-  
+
       state = state.copyWith(
         amigos: _aplicarEstadosConexion(results[0], estadosConexion),
         solicitudes: results[1],
@@ -241,10 +258,7 @@ class AmigosNotifier extends StateNotifier<AmigosState> {
     if (usuarioActual.isEmpty) return false;
     if (user2Limpio.isEmpty) return false;
 
-    state = state.copyWith(
-      isSendingRequest: true,
-      errorMessage: null,
-    );
+    state = state.copyWith(isSendingRequest: true, errorMessage: null);
 
     try {
       await service.solicitarAmistad(user2Limpio);
@@ -261,7 +275,10 @@ class AmigosNotifier extends StateNotifier<AmigosState> {
 
       state = state.copyWith(
         isSendingRequest: false,
-        errorMessage: _mensajeDesdeDio(e, 'No se pudo enviar la solicitud de amistad'),
+        errorMessage: _mensajeDesdeDio(
+          e,
+          'No se pudo enviar la solicitud de amistad',
+        ),
       );
 
       return false;
@@ -296,9 +313,7 @@ class AmigosNotifier extends StateNotifier<AmigosState> {
     } catch (_) {
       if (!mounted) return;
 
-      state = state.copyWith(
-        errorMessage: 'No se pudo aceptar la solicitud',
-      );
+      state = state.copyWith(errorMessage: 'No se pudo aceptar la solicitud');
     }
   }
 
@@ -321,9 +336,7 @@ class AmigosNotifier extends StateNotifier<AmigosState> {
     } catch (_) {
       if (!mounted) return;
 
-      state = state.copyWith(
-        errorMessage: 'No se pudo rechazar la solicitud',
-      );
+      state = state.copyWith(errorMessage: 'No se pudo rechazar la solicitud');
     }
   }
 
@@ -342,9 +355,7 @@ class AmigosNotifier extends StateNotifier<AmigosState> {
     } catch (_) {
       if (!mounted) return;
 
-      state = state.copyWith(
-        errorMessage: 'No se pudo eliminar el amigo',
-      );
+      state = state.copyWith(errorMessage: 'No se pudo eliminar el amigo');
     }
   }
 
@@ -380,28 +391,28 @@ class AmigosNotifier extends StateNotifier<AmigosState> {
 
 final amigosProvider =
     StateNotifierProvider.autoDispose<AmigosNotifier, AmigosState>((ref) {
-  final service = ref.read(amigosServiceProvider);
-  final authState = ref.watch(authProvider);
+      final service = ref.read(amigosServiceProvider);
+      final authState = ref.watch(authProvider);
 
-  final usuarioActual = authState.user?.username;
+      final usuarioActual = authState.user?.username;
 
-  final notifier = AmigosNotifier(
-    service: service,
-    usuarioActual: usuarioActual ?? '',
-  );
+      final notifier = AmigosNotifier(
+        service: service,
+        usuarioActual: usuarioActual ?? '',
+      );
 
-  ref.listen(globalWebSocketProvider, (previous, next) {
-    final event = next.lastEvent;
-    if (event == null) return;
-    notifier.procesarEventoPresencia(Map<String, dynamic>.from(event));
-  });
+      ref.listen(globalWebSocketProvider, (previous, next) {
+        final event = next.lastEvent;
+        if (event == null) return;
+        notifier.procesarEventoPresencia(Map<String, dynamic>.from(event));
+      });
 
-  if (usuarioActual == null || usuarioActual.isEmpty) {
-    return notifier;
-  }
+      if (usuarioActual == null || usuarioActual.isEmpty) {
+        return notifier;
+      }
 
-  notifier.cargarDatos();
-  notifier.iniciarPolling();
+      notifier.cargarDatos();
+      notifier.iniciarPolling();
 
-  return notifier;
-});
+      return notifier;
+    });

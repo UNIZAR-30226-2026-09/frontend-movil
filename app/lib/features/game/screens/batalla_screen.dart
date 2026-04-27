@@ -8,7 +8,9 @@ import 'package:soberania/features/auth/providers/auth_provider.dart';
 import 'package:soberania/features/game/providers/game_provider.dart';
 import 'package:soberania/features/game/providers/websocket_provider.dart';
 import 'package:soberania/features/game/data/tech_tree_data.dart';
+import 'package:soberania/features/game/models/partida_log_model.dart';
 import 'package:soberania/features/game/services/tech_catalog_service.dart';
+import 'package:soberania/features/game/services/partida_logs_service.dart';
 import 'package:soberania/features/map/services/map_loader.dart';
 import 'package:soberania/features/map/widgets/action_panel.dart';
 import 'package:soberania/features/map/widgets/interactive_game_map.dart';
@@ -41,6 +43,9 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
 
   TechCatalogService get _techCatalogService =>
       TechCatalogService(ref.read(dioProvider));
+
+  PartidaLogsService get _partidaLogsService =>
+      PartidaLogsService(ref.read(dioProvider));
 
   int _partidaIdActual() {
     if (widget.partidaId > 0) return widget.partidaId;
@@ -243,13 +248,15 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
       final miUsuario = ref.read(authProvider).user?.username;
       final payload = next.payloadEventoSistema ?? const <String, dynamic>{};
 
-        if (tipo == 'VOTACION_PAUSA_INICIADA') {
+      if (tipo == 'VOTACION_PAUSA_INICIADA') {
         final solicitante =
             (payload['jugador_solicitante'] ?? next.jugadorEventoSistema)
                 ?.toString() ??
             '';
 
-        if (miUsuario != null && miUsuario.isNotEmpty && solicitante == miUsuario) {
+        if (miUsuario != null &&
+            miUsuario.isNotEmpty &&
+            solicitante == miUsuario) {
           return;
         }
 
@@ -269,7 +276,7 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
                 .read(dioProvider)
                 .post(
                   '/partidas/$partidaId/pausa/votar',
-                  data: {'aceptar': voto == true},
+                  data: {'voto_a_favor': voto == true},
                 );
           } on DioException catch (e) {
             if (!mounted) return;
@@ -279,10 +286,7 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
                       'No se pudo registrar tu voto')
                 : (e.message ?? 'No se pudo registrar tu voto');
             unawaited(
-              _mostrarPopup(
-                titulo: 'Error al votar pausa',
-                mensaje: detalle,
-              ),
+              _mostrarPopup(titulo: 'Error al votar pausa', mensaje: detalle),
             );
           }
         });
@@ -414,6 +418,11 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
         scrolledUnderElevation: 0,
         automaticallyImplyLeading: false,
         actions: [
+          IconButton(
+            tooltip: 'Logs de partida',
+            onPressed: _mostrarLogsPartidaModal,
+            icon: const Icon(Icons.feed_outlined, color: AppTheme.text),
+          ),
           Padding(
             padding: const EdgeInsets.only(right: 14),
             child: Row(
@@ -529,11 +538,13 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
                             if (_hayDialogoPopupActivo) {
                               Navigator.of(context, rootNavigator: true).pop();
                             }
-                            final detalle = e.response?.data is Map<String, dynamic>
+                            final detalle =
+                                e.response?.data is Map<String, dynamic>
                                 ? (e.response?.data['detail']?.toString() ??
                                       e.message ??
                                       'No se pudo solicitar la pausa')
-                                : (e.message ?? 'No se pudo solicitar la pausa');
+                                : (e.message ??
+                                      'No se pudo solicitar la pausa');
                             unawaited(
                               _mostrarPopup(
                                 titulo: 'Error al pausar',
@@ -582,6 +593,219 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
           );
         },
       ),
+    );
+  }
+
+  String _formatearFechaLog(DateTime? timestamp) {
+    if (timestamp == null) return '--';
+
+    String two(int value) => value.toString().padLeft(2, '0');
+
+    return '${two(timestamp.day)}/${two(timestamp.month)} '
+        '${two(timestamp.hour)}:${two(timestamp.minute)}';
+  }
+
+  String _resumenDatosLog(Map<String, dynamic> datos) {
+    if (datos.isEmpty) return 'Sin datos extra';
+
+    final entries = datos.entries
+        .take(3)
+        .map((entry) {
+          final key = entry.key;
+          final value = entry.value;
+          return '$key=$value';
+        })
+        .toList(growable: false);
+
+    final suffix = datos.length > 3 ? '...' : '';
+    return '${entries.join(', ')}$suffix';
+  }
+
+  Future<void> _mostrarLogsPartidaModal() async {
+    final partidaId = _partidaIdActual();
+    if (partidaId <= 0) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No se pudo identificar la partida para cargar logs.'),
+        ),
+      );
+      return;
+    }
+
+    List<PartidaLogModel> logs = const <PartidaLogModel>[];
+    bool cargando = true;
+    String? error;
+
+    Future<void> cargar(StateSetter setModalState) async {
+      setModalState(() {
+        cargando = true;
+        error = null;
+      });
+
+      try {
+        final fetched = await _partidaLogsService.fetchLogs(
+          partidaId: partidaId,
+        );
+        setModalState(() {
+          logs = fetched;
+          cargando = false;
+        });
+      } on DioException catch (e) {
+        final detalle = e.response?.data is Map<String, dynamic>
+            ? (e.response?.data['detail']?.toString() ??
+                  e.message ??
+                  'No se pudieron cargar logs')
+            : (e.message ?? 'No se pudieron cargar logs');
+
+        setModalState(() {
+          error = detalle;
+          cargando = false;
+        });
+      } catch (e) {
+        setModalState(() {
+          error = 'Error al cargar logs: $e';
+          cargando = false;
+        });
+      }
+    }
+
+    try {
+      logs = await _partidaLogsService.fetchLogs(partidaId: partidaId);
+      cargando = false;
+    } on DioException catch (e) {
+      final detalle = e.response?.data is Map<String, dynamic>
+          ? (e.response?.data['detail']?.toString() ??
+                e.message ??
+                'No se pudieron cargar logs')
+          : (e.message ?? 'No se pudieron cargar logs');
+      error = detalle;
+      cargando = false;
+    } catch (e) {
+      error = 'Error al cargar logs: $e';
+      cargando = false;
+    }
+
+    if (!mounted) return;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final maxHeight = MediaQuery.of(sheetContext).size.height * 0.86;
+
+            return SafeArea(
+              child: Container(
+                constraints: BoxConstraints(maxHeight: maxHeight),
+                decoration: const BoxDecoration(
+                  color: AppTheme.surface,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                ),
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 12, 10, 8),
+                      child: Row(
+                        children: [
+                          const Expanded(
+                            child: Text(
+                              'Logs de la partida',
+                              style: TextStyle(
+                                color: AppTheme.text,
+                                fontSize: 17,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            tooltip: 'Recargar',
+                            onPressed: () => cargar(setModalState),
+                            icon: const Icon(Icons.refresh_rounded),
+                          ),
+                          IconButton(
+                            tooltip: 'Cerrar',
+                            onPressed: () => Navigator.of(sheetContext).pop(),
+                            icon: const Icon(Icons.close_rounded),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Divider(height: 1, color: AppTheme.borderGold),
+                    if (cargando && logs.isEmpty)
+                      const Expanded(
+                        child: Center(child: CircularProgressIndicator()),
+                      )
+                    else if (error != null)
+                      Expanded(
+                        child: Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(18),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  error!,
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(color: AppTheme.text),
+                                ),
+                                const SizedBox(height: 12),
+                                ElevatedButton.icon(
+                                  onPressed: () => cargar(setModalState),
+                                  icon: const Icon(Icons.refresh),
+                                  label: const Text('Reintentar'),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      )
+                    else if (logs.isEmpty)
+                      const Expanded(
+                        child: Center(
+                          child: Text(
+                            'No hay logs todavía.',
+                            style: TextStyle(color: AppTheme.textSecondary),
+                          ),
+                        ),
+                      )
+                    else
+                      Expanded(
+                        child: ListView.separated(
+                          itemCount: logs.length,
+                          separatorBuilder: (_, __) => const Divider(
+                            height: 1,
+                            color: Color(0x338C6D3F),
+                          ),
+                          itemBuilder: (context, index) {
+                            final log = logs[index];
+
+                            return ListTile(
+                              dense: true,
+                              title: Text(
+                                '${log.tipoEvento}${log.user == null ? '' : ' - ${log.user}'}',
+                                style: const TextStyle(color: AppTheme.text),
+                              ),
+                              subtitle: Text(
+                                'Turno ${log.turnoNumero} | ${log.fase} | ${_formatearFechaLog(log.timestamp)}\n${_resumenDatosLog(log.datos)}',
+                                style: const TextStyle(
+                                  color: AppTheme.textSecondary,
+                                  height: 1.35,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -658,7 +882,8 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
       builder: (sheetContext) {
         return StatefulBuilder(
           builder: (_, setSheetState) {
-            final sheetMaxHeight = MediaQuery.of(sheetContext).size.height * 0.88;
+            final sheetMaxHeight =
+                MediaQuery.of(sheetContext).size.height * 0.88;
 
             return Container(
               decoration: const BoxDecoration(
@@ -675,259 +900,40 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                      const Text(
-                        'Opciones de Gestión',
-                        style: TextStyle(
-                          color: AppTheme.text,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-
-                      // --- MINA ---
-                      ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: const Icon(
-                          Icons.monetization_on,
-                          color: AppTheme.borderGoldVivo,
-                        ),
-                        title: const Text(
-                          'Mandar a la mina (Generar Monedas)',
-                          style: TextStyle(color: AppTheme.text),
-                        ),
-                        onTap: () async {
-                          try {
-                            await ref
-                                .read(dioProvider)
-                                .post(
-                                  '/partidas/$partidaIdEfectiva/trabajar',
-                                  data: {'territorio_id': comarcaId},
-                                );
-                            if (!mounted || !sheetContext.mounted) return;
-                            Navigator.of(sheetContext).pop();
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Comarca enviada a la mina'),
-                                backgroundColor: Colors.green,
-                              ),
-                            );
-                          } on DioException catch (e) {
-                            if (!mounted) return;
-                            final detalle =
-                                e.response?.data is Map<String, dynamic>
-                                ? (e.response?.data['detail']?.toString() ??
-                                      e.message ??
-                                      'Error al enviar comarca a la mina')
-                                : (e.message ??
-                                      'Error al enviar comarca a la mina');
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(detalle),
-                                backgroundColor: Colors.red,
-                              ),
-                            );
-                          }
-                        },
-                      ),
-
-                      const Divider(color: AppTheme.borderGold),
-
-                      // --- LABORATORIO ---
-                      const Text(
-                        'Mandar al laboratorio (Investigar)',
-                        style: TextStyle(
-                          color: AppTheme.text,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Elige la rama tecnológica a investigar:',
-                        style: TextStyle(
-                          color: AppTheme.textSecondary,
-                          fontSize: 13,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-
-                      // Selector de rama — tres opciones como cards seleccionables.
-                      ...ramas.map((rama) {
-                        final seleccionada = ramaSeleccionada == rama.id;
-                        return GestureDetector(
-                          onTap: () => setSheetState(() {
-                            ramaSeleccionada = rama.id;
-                            habilidadSeleccionada = habilidadesDeRama(rama.id).first.id;
-                          }),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 150),
-                            margin: const EdgeInsets.only(bottom: 8),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 10,
-                            ),
-                            decoration: BoxDecoration(
-                              color: seleccionada
-                                  ? AppTheme.primary.withValues(alpha: 0.15)
-                                  : AppTheme.surface,
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                color: seleccionada
-                                    ? AppTheme.primary
-                                    : AppTheme.borderGold,
-                                width: seleccionada ? 1.8 : 1.0,
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                Text(
-                                  rama.emoji,
-                                  style: const TextStyle(fontSize: 22),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        rama.nombre,
-                                        style: TextStyle(
-                                          color: seleccionada
-                                              ? AppTheme.primary
-                                              : AppTheme.text,
-                                          fontWeight: FontWeight.w700,
-                                          fontSize: 14,
-                                        ),
-                                      ),
-                                      Text(
-                                        rama.descripcion,
-                                        style: const TextStyle(
-                                          color: AppTheme.textSecondary,
-                                          fontSize: 11,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                if (seleccionada)
-                                  const Icon(
-                                    Icons.check_circle,
-                                    color: AppTheme.primary,
-                                    size: 20,
-                                  ),
-                              ],
-                            ),
+                        const Text(
+                          'Opciones de Gestión',
+                          style: TextStyle(
+                            color: AppTheme.text,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
                           ),
-                        );
-                      }),
-
-                      const SizedBox(height: 6),
-                      const Text(
-                        'Elige la habilidad exacta a investigar:',
-                        style: TextStyle(
-                          color: AppTheme.textSecondary,
-                          fontSize: 13,
                         ),
-                      ),
-                      const SizedBox(height: 10),
-                      ...habilidadesDeRama(ramaSeleccionada).map((habilidad) {
-                        final seleccionada = habilidadSeleccionada == habilidad.id;
-                        return GestureDetector(
-                          onTap: () => setSheetState(() {
-                            habilidadSeleccionada = habilidad.id;
-                          }),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 150),
-                            margin: const EdgeInsets.only(bottom: 8),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 10,
-                            ),
-                            decoration: BoxDecoration(
-                              color: seleccionada
-                                  ? AppTheme.primary.withValues(alpha: 0.15)
-                                  : AppTheme.surface,
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                color: seleccionada
-                                    ? AppTheme.primary
-                                    : AppTheme.borderGold,
-                                width: seleccionada ? 1.8 : 1.0,
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  habilidad.icon,
-                                  color: seleccionada
-                                      ? AppTheme.primary
-                                      : AppTheme.textSecondary,
-                                  size: 22,
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        habilidad.name,
-                                        style: TextStyle(
-                                          color: seleccionada
-                                              ? AppTheme.primary
-                                              : AppTheme.text,
-                                          fontWeight: FontWeight.w700,
-                                          fontSize: 14,
-                                        ),
-                                      ),
-                                      Text(
-                                        habilidad.id,
-                                        style: const TextStyle(
-                                          color: AppTheme.textSecondary,
-                                          fontSize: 11,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                if (seleccionada)
-                                  const Icon(
-                                    Icons.check_circle,
-                                    color: AppTheme.primary,
-                                    size: 20,
-                                  ),
-                              ],
-                            ),
-                          ),
-                        );
-                      }),
+                        const SizedBox(height: 12),
 
-                      const SizedBox(height: 4),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          onPressed: () async {
+                        // --- MINA ---
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: const Icon(
+                            Icons.monetization_on,
+                            color: AppTheme.borderGoldVivo,
+                          ),
+                          title: const Text(
+                            'Mandar a la mina (Generar Monedas)',
+                            style: TextStyle(color: AppTheme.text),
+                          ),
+                          onTap: () async {
                             try {
                               await ref
                                   .read(dioProvider)
                                   .post(
-                                    '/partidas/$partidaIdEfectiva/investigar',
-                                    data: {
-                                      'territorio_id': comarcaId,
-                                      'rama': ramaSeleccionada,
-                                      'habilidad_id': habilidadSeleccionada,
-                                    },
+                                    '/partidas/$partidaIdEfectiva/trabajar',
+                                    data: {'territorio_id': comarcaId},
                                   );
                               if (!mounted || !sheetContext.mounted) return;
                               Navigator.of(sheetContext).pop();
-                              final label = ramas
-                                  .firstWhere((r) => r.id == ramaSeleccionada)
-                                  .nombre;
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Comarca investigando: $label'),
+                                const SnackBar(
+                                  content: Text('Comarca enviada a la mina'),
                                   backgroundColor: Colors.green,
                                 ),
                               );
@@ -937,9 +943,9 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
                                   e.response?.data is Map<String, dynamic>
                                   ? (e.response?.data['detail']?.toString() ??
                                         e.message ??
-                                        'Error al iniciar investigación')
+                                        'Error al enviar comarca a la mina')
                                   : (e.message ??
-                                        'Error al iniciar investigación');
+                                        'Error al enviar comarca a la mina');
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text(detalle),
@@ -948,19 +954,243 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
                               );
                             }
                           },
-                          icon: const Icon(Icons.science_rounded),
-                          label: const Text('Investigar'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.primary,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
+                        ),
+
+                        const Divider(color: AppTheme.borderGold),
+
+                        // --- LABORATORIO ---
+                        const Text(
+                          'Mandar al laboratorio (Investigar)',
+                          style: TextStyle(
+                            color: AppTheme.text,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Elige la rama tecnológica a investigar:',
+                          style: TextStyle(
+                            color: AppTheme.textSecondary,
+                            fontSize: 13,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+
+                        // Selector de rama — tres opciones como cards seleccionables.
+                        ...ramas.map((rama) {
+                          final seleccionada = ramaSeleccionada == rama.id;
+                          return GestureDetector(
+                            onTap: () => setSheetState(() {
+                              ramaSeleccionada = rama.id;
+                              habilidadSeleccionada = habilidadesDeRama(
+                                rama.id,
+                              ).first.id;
+                            }),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 150),
+                              margin: const EdgeInsets.only(bottom: 8),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 10,
+                              ),
+                              decoration: BoxDecoration(
+                                color: seleccionada
+                                    ? AppTheme.primary.withValues(alpha: 0.15)
+                                    : AppTheme.surface,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: seleccionada
+                                      ? AppTheme.primary
+                                      : AppTheme.borderGold,
+                                  width: seleccionada ? 1.8 : 1.0,
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Text(
+                                    rama.emoji,
+                                    style: const TextStyle(fontSize: 22),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          rama.nombre,
+                                          style: TextStyle(
+                                            color: seleccionada
+                                                ? AppTheme.primary
+                                                : AppTheme.text,
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                        Text(
+                                          rama.descripcion,
+                                          style: const TextStyle(
+                                            color: AppTheme.textSecondary,
+                                            fontSize: 11,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  if (seleccionada)
+                                    const Icon(
+                                      Icons.check_circle,
+                                      color: AppTheme.primary,
+                                      size: 20,
+                                    ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }),
+
+                        const SizedBox(height: 6),
+                        const Text(
+                          'Elige la habilidad exacta a investigar:',
+                          style: TextStyle(
+                            color: AppTheme.textSecondary,
+                            fontSize: 13,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        ...habilidadesDeRama(ramaSeleccionada).map((habilidad) {
+                          final seleccionada =
+                              habilidadSeleccionada == habilidad.id;
+                          return GestureDetector(
+                            onTap: () => setSheetState(() {
+                              habilidadSeleccionada = habilidad.id;
+                            }),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 150),
+                              margin: const EdgeInsets.only(bottom: 8),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 10,
+                              ),
+                              decoration: BoxDecoration(
+                                color: seleccionada
+                                    ? AppTheme.primary.withValues(alpha: 0.15)
+                                    : AppTheme.surface,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: seleccionada
+                                      ? AppTheme.primary
+                                      : AppTheme.borderGold,
+                                  width: seleccionada ? 1.8 : 1.0,
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    habilidad.icon,
+                                    color: seleccionada
+                                        ? AppTheme.primary
+                                        : AppTheme.textSecondary,
+                                    size: 22,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          habilidad.name,
+                                          style: TextStyle(
+                                            color: seleccionada
+                                                ? AppTheme.primary
+                                                : AppTheme.text,
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                        Text(
+                                          habilidad.id,
+                                          style: const TextStyle(
+                                            color: AppTheme.textSecondary,
+                                            fontSize: 11,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  if (seleccionada)
+                                    const Icon(
+                                      Icons.check_circle,
+                                      color: AppTheme.primary,
+                                      size: 20,
+                                    ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }),
+
+                        const SizedBox(height: 4),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: () async {
+                              try {
+                                await ref
+                                    .read(dioProvider)
+                                    .post(
+                                      '/partidas/$partidaIdEfectiva/investigar',
+                                      data: {
+                                        'territorio_id': comarcaId,
+                                        'rama': ramaSeleccionada,
+                                        'habilidad_id': habilidadSeleccionada,
+                                      },
+                                    );
+                                if (!mounted || !sheetContext.mounted) return;
+                                Navigator.of(sheetContext).pop();
+                                final label = ramas
+                                    .firstWhere((r) => r.id == ramaSeleccionada)
+                                    .nombre;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      'Comarca investigando: $label',
+                                    ),
+                                    backgroundColor: Colors.green,
+                                  ),
+                                );
+                              } on DioException catch (e) {
+                                if (!mounted) return;
+                                final detalle =
+                                    e.response?.data is Map<String, dynamic>
+                                    ? (e.response?.data['detail']?.toString() ??
+                                          e.message ??
+                                          'Error al iniciar investigación')
+                                    : (e.message ??
+                                          'Error al iniciar investigación');
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(detalle),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              }
+                            },
+                            icon: const Icon(Icons.science_rounded),
+                            label: const Text('Investigar'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.primary,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
                     ),
                   ),
                 ),
@@ -1121,7 +1351,10 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
                     ),
                     child: const Text(
                       'SÍ',
-                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 15,
+                      ),
                     ),
                   ),
                 ),
@@ -1144,7 +1377,10 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
                     ),
                     child: const Text(
                       'NO',
-                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 15,
+                      ),
                     ),
                   ),
                 ),

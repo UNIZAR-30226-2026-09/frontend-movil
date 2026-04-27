@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../app/router/app_routes.dart';
 import '../../../shared/api/dio_provider.dart';
+import '../../../shared/widgets/app_avatar.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../providers/game_provider.dart';
 import '../providers/websocket_provider.dart';
@@ -103,8 +104,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
       final faseActual = next.faseActual.toLowerCase();
 
       final partidaIniciadaAntes =
-          faseAnterior.isNotEmpty &&
-          faseAnterior != 'espera';
+          faseAnterior.isNotEmpty && faseAnterior != 'espera';
       final partidaIniciadaAhora =
           faseActual.isNotEmpty &&
           faseActual != 'espera' &&
@@ -296,17 +296,14 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                                   ),
                                   child: Row(
                                     children: [
-                                      CircleAvatar(
+                                      AppAvatar(
+                                        avatar: isCurrentUser
+                                            ? authState.user?.avatar
+                                            : null,
                                         radius: 18,
-                                        backgroundColor: const Color(
-                                          0xFF252530,
-                                        ),
-                                        child: Icon(
-                                          Icons.person,
-                                          color: isCurrentUser
-                                              ? const Color(0xFFC5A059)
-                                              : const Color(0xFFF0F0F5),
-                                        ),
+                                        iconColor: isCurrentUser
+                                            ? const Color(0xFFC5A059)
+                                            : const Color(0xFFF0F0F5),
                                       ),
                                       const SizedBox(width: 14),
                                       Expanded(
