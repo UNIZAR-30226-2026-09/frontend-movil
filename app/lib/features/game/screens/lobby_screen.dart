@@ -11,11 +11,18 @@ import '../providers/game_provider.dart';
 import '../providers/websocket_provider.dart';
 import '../providers/lobby_info_provider.dart';
 import '../providers/matchmaking_provider.dart';
+import '../services/matchmaking_service.dart';
 
 class LobbyScreen extends ConsumerStatefulWidget {
   final int partidaId;
+  // Cuando se llega desde el panel de partidas pausadas ya sabemos el estado.
+  final bool esPausada;
 
-  const LobbyScreen({super.key, required this.partidaId});
+  const LobbyScreen({
+    super.key,
+    required this.partidaId,
+    this.esPausada = false,
+  });
 
   @override
   ConsumerState<LobbyScreen> createState() => _LobbyScreenState();
@@ -60,12 +67,34 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
       await dio.post('/partidas/${widget.partidaId}/empezar');
 
       if (!mounted) return;
-      // El host navega en cuanto el /empezar responde OK.
       context.go(AppRoutes.batalla);
     } on DioException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error al iniciar: ${e.response?.data}')),
+      );
+    }
+  }
+
+  Future<void> _handleReanudarPartida() async {
+    final codigo = ref.read(lobbyInfoProvider).codigoInvitacion;
+    if (codigo == null || codigo.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se encontró el código de la partida.')),
+      );
+      return;
+    }
+
+    try {
+      await ref.read(matchmakingServiceProvider).reanudarPartida(codigo);
+      // La navegación de todos los jugadores la dispara PARTIDA_REANUDADA por WS.
+    } on DioException catch (e) {
+      if (!mounted) return;
+      final detalle = (e.response?.data is Map<String, dynamic>)
+          ? (e.response?.data['detail']?.toString() ?? e.message ?? 'Error al reanudar')
+          : (e.message ?? 'Error al reanudar');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(detalle)),
       );
     }
   }
@@ -95,11 +124,19 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     final visibilidad = lobbyInfo.visibility;
     final matchmakingState = ref.watch(matchmakingProvider);
     final esCreador = usuarioActual == creador;
+    // esPausada viene del parámetro de navegación o de lobbyInfo si el backend
+    // lo devuelve en el futuro. Por ahora confiamos en el flag de navegación.
+    final esPartidaPausada = widget.esPausada;
 
     // Cuando el backend emite PARTIDA_INICIADA, el gameProvider actualiza faseActual
     // de 'ESPERA' a 'refuerzo' y manda el mapa — eso es la señal para navegar.
     // Lo hacemos aquí en la UI para que todos los jugadores naveguen a la vez.
+    // IMPORTANTE: si la partida está pausada, el WS ya enviará el estado actual
+    // (faseActual != 'espera') al conectar — ignoramos esa señal para no entrar
+    // al mapa antes de que el host pulse Reanudar.
     ref.listen<GameState>(gameProvider, (previous, next) {
+      if (widget.esPausada) return;
+
       final faseAnterior = (previous?.faseActual ?? '').toLowerCase();
       final faseActual = next.faseActual.toLowerCase();
 
@@ -112,6 +149,18 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
 
       if (!partidaIniciadaAntes && partidaIniciadaAhora && mounted) {
         // Los no-host entran por evento WS en cuanto llega PARTIDA_INICIADA.
+        context.go(AppRoutes.batalla);
+      }
+    });
+
+    // Cuando el host reanuda la partida pausada, todos los jugadores reciben
+    // PARTIDA_REANUDADA por WS. Este listener reemplaza al de GameState para
+    // el flujo de reanudación.
+    ref.listen<WebSocketState>(webSocketProvider, (previous, next) {
+      final prevVersion = previous?.versionEventoSistema ?? 0;
+      if (next.versionEventoSistema <= prevVersion) return;
+
+      if (next.tipoEventoSistema == 'PARTIDA_REANUDADA' && mounted) {
         context.go(AppRoutes.batalla);
       }
     });
@@ -360,30 +409,48 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                           ),
                   ),
                   const SizedBox(height: 18),
-                  // El creador ve el botón de iniciar, el resto espera
                   if (esCreador)
                     ElevatedButton(
-                      onPressed: jugadoresConectados.length >= 2
-                          ? _handleIniciarPartida
-                          : null,
+                      onPressed: esPartidaPausada
+                          ? _handleReanudarPartida
+                          : (jugadoresConectados.length >= 2
+                              ? _handleIniciarPartida
+                              : null),
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
+                        backgroundColor: esPartidaPausada
+                            ? const Color(0xFF1B5E20)
+                            : null,
                       ),
-                      child: const Text(
-                        'INICIAR PARTIDA',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            esPartidaPausada
+                                ? Icons.play_arrow_rounded
+                                : Icons.flag_rounded,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            esPartidaPausada ? 'REANUDAR PARTIDA' : 'INICIAR PARTIDA',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
                       ),
                     )
                   else
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 16),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
                       child: Center(
                         child: Text(
-                          'Esperando a que el creador inicie la partida...',
-                          style: TextStyle(color: Color(0xFFA0A0B0)),
+                          esPartidaPausada
+                              ? 'Esperando a que el creador reanude la partida...'
+                              : 'Esperando a que el creador inicie la partida...',
+                          style: const TextStyle(color: Color(0xFFA0A0B0)),
                         ),
                       ),
                     ),

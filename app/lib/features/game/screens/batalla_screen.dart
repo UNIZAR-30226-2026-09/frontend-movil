@@ -18,6 +18,9 @@ import 'package:soberania/features/game/models/tech_tree_model.dart';
 import 'package:soberania/features/game/widgets/tech_tree_view.dart';
 import '../../../app/theme/app_theme.dart';
 import '../../../shared/api/dio_provider.dart';
+import '../../../app/router/app_routes.dart';
+import '../providers/matchmaking_provider.dart';
+import '../providers/lobby_info_provider.dart';
 
 class BatallaScreen extends ConsumerStatefulWidget {
   const BatallaScreen({super.key, required this.title, this.partidaId = 0});
@@ -248,15 +251,13 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
       final miUsuario = ref.read(authProvider).user?.username;
       final payload = next.payloadEventoSistema ?? const <String, dynamic>{};
 
-      if (tipo == 'VOTACION_PAUSA_INICIADA') {
+      // SOLICITUD_PAUSA: alguien pidió pausar — mostramos el diálogo de voto
+      // a todos menos al solicitante, que ya está esperando.
+      if (tipo == 'SOLICITUD_PAUSA') {
         final solicitante =
-            (payload['jugador_solicitante'] ?? next.jugadorEventoSistema)
-                ?.toString() ??
-            '';
+            (payload['solicitante'] ?? next.jugadorEventoSistema)?.toString() ?? '';
 
-        if (miUsuario != null &&
-            miUsuario.isNotEmpty &&
-            solicitante == miUsuario) {
+        if (miUsuario != null && miUsuario.isNotEmpty && solicitante == miUsuario) {
           return;
         }
 
@@ -264,26 +265,30 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
           if (!mounted) return;
           final voto = await _mostrarPopupDecision(
             titulo: 'Pausar partida',
-            mensaje: 'El jugador $solicitante propone pausar. ¿Pausar partida?',
+            mensaje: '${solicitante.isNotEmpty ? solicitante : 'Un jugador'} propone pausar. ¿Pausar partida?',
           );
-          if (!mounted) return;
+          // voto es null si el usuario descartó el dialog — no votamos.
+          if (!mounted || voto == null) return;
 
-          final partidaId = _partidaIdActual();
-          if (partidaId <= 0) return;
+          final codigo = ref.read(lobbyInfoProvider).codigoInvitacion;
+          if (codigo == null || codigo.isEmpty) {
+            unawaited(
+              _mostrarPopup(
+                titulo: 'Error al votar',
+                mensaje: 'No se encontró el código de la partida.',
+              ),
+            );
+            return;
+          }
 
           try {
             await ref
-                .read(dioProvider)
-                .post(
-                  '/partidas/$partidaId/pausa/votar',
-                  data: {'voto_a_favor': voto == true},
-                );
+                .read(matchmakingServiceProvider)
+                .votarPausa(codigo, aFavor: voto == true);
           } on DioException catch (e) {
             if (!mounted) return;
             final detalle = e.response?.data is Map<String, dynamic>
-                ? (e.response?.data['detail']?.toString() ??
-                      e.message ??
-                      'No se pudo registrar tu voto')
+                ? (e.response?.data['detail']?.toString() ?? e.message ?? 'No se pudo registrar tu voto')
                 : (e.message ?? 'No se pudo registrar tu voto');
             unawaited(
               _mostrarPopup(titulo: 'Error al votar pausa', mensaje: detalle),
@@ -309,7 +314,7 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
         return;
       }
 
-      if (tipo == 'PAUSA_APROBADA') {
+      if (tipo == 'PARTIDA_PAUSADA') {
         _partidaTerminada = true;
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
@@ -319,12 +324,25 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
           unawaited(
             _mostrarPopup(
               titulo: 'Partida pausada',
-              mensaje: 'La pausa fue aprobada. Volverás al lobby.',
+              mensaje: 'La pausa fue aprobada. Volverás al menú principal.',
               alAceptar: () {
                 if (mounted) context.go('/inicio');
               },
             ),
           );
+        });
+        return;
+      }
+
+      // PARTIDA_REANUDADA: el host reanudó desde el lobby — volvemos a batallar.
+      if (tipo == 'PARTIDA_REANUDADA') {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          if (_hayDialogoPopupActivo) {
+            Navigator.of(context, rootNavigator: true).pop();
+          }
+          // La fase ya la actualizó el websocket_provider; navegamos directamente.
+          context.go(AppRoutes.batalla);
         });
         return;
       }
@@ -498,41 +516,60 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
                   alignment: Alignment.topLeft,
                   child: Padding(
                     padding: const EdgeInsets.all(12.0),
-                    child: IconButton(
-                      // go_router para navegar — consistente con el resto de la app
-                      onPressed: () async {
-                        final confirmar = await _mostrarPopupDecision(
-                          titulo: '¿Pausar partida?',
-                          mensaje: '¿Quieres proponer pausa?',
-                        );
-
-                        if (confirmar == true) {
-                          unawaited(
-                            _mostrarPopup(
-                              titulo: 'Votación',
-                              mensaje: 'Esperando al resto de jugadores...',
-                            ),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF252530).withOpacity(0.92),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: const Color(0xFFC5A059),
+                          width: 1.2,
+                        ),
+                      ),
+                      child: IconButton(
+                        tooltip: 'Solicitar pausa',
+                        icon: const Icon(
+                          Icons.pause_circle_outline_rounded,
+                          color: AppTheme.text,
+                        ),
+                        onPressed: () async {
+                          final confirmar = await _mostrarPopupDecision(
+                            titulo: '¿Solicitar pausa?',
+                            mensaje:
+                                'Se pedirá al resto de jugadores que voten para pausar la partida.',
                           );
 
-                          final partidaId = _partidaIdActual();
-                          if (partidaId <= 0) {
-                            if (_hayDialogoPopupActivo) {
-                              Navigator.of(context, rootNavigator: true).pop();
-                            }
+                          if (!mounted || confirmar != true) return;
+
+                          final codigo =
+                              ref.read(lobbyInfoProvider).codigoInvitacion;
+                          if (codigo == null || codigo.isEmpty) {
                             unawaited(
                               _mostrarPopup(
-                                titulo: 'Error al pausar',
-                                mensaje:
-                                    'No se pudo identificar la partida actual.',
+                                titulo: 'Error',
+                                mensaje: 'No se encontró el código de la partida.',
                               ),
                             );
                             return;
                           }
 
+                          // Mostramos la espera antes de llamar — el popup se cerrará
+                          // cuando llegue PARTIDA_PAUSADA o PAUSA_RECHAZADA por WS.
+                          unawaited(
+                            _mostrarPopup(
+                              titulo: 'Votación en curso',
+                              mensaje: 'Esperando al resto de jugadores...',
+                            ),
+                          );
+
                           try {
                             await ref
-                                .read(dioProvider)
-                                .post('/partidas/$partidaId/pausa/solicitar');
+                                .read(matchmakingServiceProvider)
+                                .solicitarPausa(codigo);
+                            // El backend no auto-asigna el voto al iniciador,
+                            // así que lo emitimos explícitamente como 'a favor'.
+                            await ref
+                                .read(matchmakingServiceProvider)
+                                .votarPausa(codigo, aFavor: true);
                           } on DioException catch (e) {
                             if (!mounted) return;
                             if (_hayDialogoPopupActivo) {
@@ -543,8 +580,7 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
                                 ? (e.response?.data['detail']?.toString() ??
                                       e.message ??
                                       'No se pudo solicitar la pausa')
-                                : (e.message ??
-                                      'No se pudo solicitar la pausa');
+                                : (e.message ?? 'No se pudo solicitar la pausa');
                             unawaited(
                               _mostrarPopup(
                                 titulo: 'Error al pausar',
@@ -552,9 +588,8 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
                               ),
                             );
                           }
-                        }
-                      },
-                      icon: const Icon(Icons.arrow_back_rounded),
+                        },
+                      ),
                     ),
                   ),
                 ),

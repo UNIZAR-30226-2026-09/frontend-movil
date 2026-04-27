@@ -5,6 +5,7 @@ import '../../home/widgets/home_action_button.dart';
 import '../widgets/partida_rapida_panel.dart';
 import '../widgets/crear_partida_panel.dart';
 import '../widgets/introducir_codigo_panel.dart';
+import '../widgets/partidas_pausadas_panel.dart';
 
 class MenubatallasScreen extends StatefulWidget {
   const MenubatallasScreen({super.key});
@@ -20,6 +21,8 @@ class _MenubatallasScreenState extends State<MenubatallasScreen> {
   bool _showCreateMatchOverlay = false;
   bool _showJoinByCode = false;
   bool _showJoinByCodeOverlay = false;
+  bool _showPausadas = false;
+  bool _showPausadasOverlay = false;
 
   void _openQuickMatch() {
     setState(() {
@@ -84,6 +87,27 @@ class _MenubatallasScreenState extends State<MenubatallasScreen> {
     });
   }
 
+  void _openPausadas() {
+    setState(() {
+      _showPausadasOverlay = true;
+      _showPausadas = true;
+    });
+  }
+
+  void _closePausadas() {
+    setState(() {
+      _showPausadas = false;
+    });
+
+    Future.delayed(const Duration(milliseconds: 180), () {
+      if (mounted) {
+        setState(() {
+          _showPausadasOverlay = false;
+        });
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -109,6 +133,11 @@ class _MenubatallasScreenState extends State<MenubatallasScreen> {
                     HomeActionButton(
                       text: 'Introducir código',
                       onPressed: _openJoinByCode,
+                    ),
+                    const SizedBox(height: 18),
+                    HomeActionButton(
+                      text: 'Partidas pausadas',
+                      onPressed: _openPausadas,
                     ),
                   ],
                 ),
@@ -182,6 +211,19 @@ class _MenubatallasScreenState extends State<MenubatallasScreen> {
                   ),
                 ),
               ),
+            if (_showPausadasOverlay)
+              Positioned.fill(
+                child: GestureDetector(
+                  onTap: _closePausadas,
+                  child: AnimatedOpacity(
+                    duration: const Duration(milliseconds: 180),
+                    opacity: _showPausadas ? 1 : 0,
+                    child: Container(
+                      color: Colors.black54,
+                    ),
+                  ),
+                ),
+              ),
             AnimatedSwitcher(
               duration: const Duration(milliseconds: 180),
               switchInCurve: Curves.easeOut,
@@ -246,6 +288,28 @@ class _MenubatallasScreenState extends State<MenubatallasScreen> {
                     )
                   : const SizedBox.shrink(
                       key: ValueKey('joinByCodeClosed'),
+                    ),
+            ),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 180),
+              switchInCurve: Curves.easeOut,
+              switchOutCurve: Curves.easeIn,
+              transitionBuilder: (child, animation) {
+                return FadeTransition(
+                  opacity: animation,
+                  child: ScaleTransition(
+                    scale: Tween<double>(begin: 0.96, end: 1.0).animate(animation),
+                    child: child,
+                  ),
+                );
+              },
+              child: _showPausadas
+                  ? PartidasPausadasPanel(
+                      key: const ValueKey('pausadasOpen'),
+                      onClose: _closePausadas,
+                    )
+                  : const SizedBox.shrink(
+                      key: ValueKey('pausadasClosed'),
                     ),
             ),
           ],

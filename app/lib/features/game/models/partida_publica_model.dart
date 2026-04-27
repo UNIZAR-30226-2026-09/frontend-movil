@@ -18,14 +18,33 @@ class PublicMatchModel {
   });
 
   factory PublicMatchModel.fromJson(Map<String, dynamic> json) {
+    // /partidas devuelve 'id', pero /partidas/mi-partida devuelve 'partida_id'.
+    final id =
+        json['id'] as int? ??
+        json['partida_id'] as int? ??
+        0;
+
+    // El endpoint de resumen no incluye campos de configuración.
+    final configMaxPlayers = json['config_max_players'] as int? ?? 0;
+    final configVisibility =
+        json['config_visibility'] as String? ?? '';
+    final codigoInvitacion =
+        json['codigo_invitacion'] as String? ?? '';
+    final configTimerSeconds = json['config_timer_seconds'] as int? ?? 0;
+
+    // 'estado' puede venir en minúsculas desde el endpoint de resumen.
+    final estado = (json['estado'] as String? ?? '').toUpperCase();
+
+    final ganador = json['ganador'] as String?;
+
     return PublicMatchModel(
-      id: json['id'] as int,
-      configMaxPlayers: json['config_max_players'] as int,
-      configVisibility: json['config_visibility'] as String,
-      codigoInvitacion: json['codigo_invitacion'] as String,
-      configTimerSeconds: json['config_timer_seconds'] as int,
-      estado: json['estado'] as String,
-      ganador: json['ganador'] as String?,
+      id: id,
+      configMaxPlayers: configMaxPlayers,
+      configVisibility: configVisibility,
+      codigoInvitacion: codigoInvitacion,
+      configTimerSeconds: configTimerSeconds,
+      estado: estado,
+      ganador: ganador,
     );
   }
 }

@@ -68,7 +68,9 @@ final GoRouter appRouter = GoRouter(
       path: AppRoutes.lobby,
       builder: (BuildContext context, GoRouterState state) {
           final partidaId = int.parse(state.pathParameters['partidaId']!);
-          return LobbyScreen(partidaId: partidaId);
+          final extra = state.extra as Map<String, dynamic>?;
+          final esPausada = extra?['esPausada'] == true;
+          return LobbyScreen(partidaId: partidaId, esPausada: esPausada);
       },
     ),
   ],

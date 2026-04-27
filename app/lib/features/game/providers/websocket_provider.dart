@@ -16,6 +16,10 @@ class WebSocketState {
   final String? mensajeEventoSistema;
   final Map<String, dynamic>? payloadEventoSistema;
 
+  // Progreso de la votación de pausa en curso.
+  final int? votosAFavor;
+  final int? totalJugadores;
+
   WebSocketState({
     this.isConnected = false,
     this.currentPartidaId,
@@ -25,6 +29,8 @@ class WebSocketState {
     this.ganadorEventoSistema,
     this.mensajeEventoSistema,
     this.payloadEventoSistema,
+    this.votosAFavor,
+    this.totalJugadores,
   });
 
   WebSocketState copyWith({
@@ -36,7 +42,10 @@ class WebSocketState {
     String? ganadorEventoSistema,
     String? mensajeEventoSistema,
     Map<String, dynamic>? payloadEventoSistema,
+    int? votosAFavor,
+    int? totalJugadores,
     bool clearCurrentPartidaId = false,
+    bool clearVotacion = false,
   }) {
     return WebSocketState(
       isConnected: isConnected ?? this.isConnected,
@@ -49,6 +58,10 @@ class WebSocketState {
       ganadorEventoSistema: ganadorEventoSistema ?? this.ganadorEventoSistema,
       mensajeEventoSistema: mensajeEventoSistema ?? this.mensajeEventoSistema,
       payloadEventoSistema: payloadEventoSistema ?? this.payloadEventoSistema,
+      // clearVotacion resetea el marcador cuando la pausa termina (aprobada o rechazada).
+      votosAFavor: clearVotacion ? null : (votosAFavor ?? this.votosAFavor),
+      totalJugadores:
+          clearVotacion ? null : (totalJugadores ?? this.totalJugadores),
     );
   }
 }
@@ -126,12 +139,13 @@ class WebSocketNotifier extends Notifier<WebSocketState> {
 
             final tipoEvento = data['tipo_evento']?.toString();
 
-            // Eventos de sistema para UI
+            // ── Eventos que la UI consume como notificaciones de sistema ──────────
+            // Cualquier pantalla puede escuchar versionEventoSistema para reaccionar.
             if (tipoEvento == 'JUGADOR_ELIMINADO' ||
                 tipoEvento == 'FIN_PARTIDA' ||
-              tipoEvento == 'VOTACION_PAUSA_INICIADA' ||
-              tipoEvento == 'PAUSA_RECHAZADA' ||
-              tipoEvento == 'PAUSA_APROBADA') {
+                tipoEvento == 'SOLICITUD_PAUSA' ||
+                tipoEvento == 'PAUSA_RECHAZADA' ||
+                tipoEvento == 'PARTIDA_PAUSADA') {
               final rawPayload = data['payload'];
               final payload = rawPayload is Map<String, dynamic>
                   ? rawPayload
@@ -139,10 +153,17 @@ class WebSocketNotifier extends Notifier<WebSocketState> {
                         ? Map<String, dynamic>.from(rawPayload)
                         : data);
 
+              // Al resolver la pausa (aprobada o rechazada) limpiamos el marcador.
+              final esFinVotacion =
+                  tipoEvento == 'PARTIDA_PAUSADA' ||
+                  tipoEvento == 'PAUSA_RECHAZADA';
+
               state = state.copyWith(
-                tipoEventoSistema: tipoEvento.toString(),
+                tipoEventoSistema: tipoEvento,
                 jugadorEventoSistema:
-                    (payload['jugador_solicitante'] ?? data['jugador'])
+                    (payload['solicitante'] ??
+                            payload['jugador_solicitante'] ??
+                            data['jugador'])
                         ?.toString(),
                 ganadorEventoSistema:
                     (data['ganador'] ?? data['jugador_ganador'])?.toString(),
@@ -150,14 +171,72 @@ class WebSocketNotifier extends Notifier<WebSocketState> {
                     (payload['mensaje'] ?? data['mensaje'])?.toString(),
                 payloadEventoSistema: payload,
                 versionEventoSistema: state.versionEventoSistema + 1,
+                clearVotacion: esFinVotacion,
               );
               return;
             }
 
-            // --- ATAQUE_RESULTADO ---
-            // Registramos para el popup Y actualizamos tropas de ambos territorios.
-            // NO cambiamos el dueño aquí — el evento es broadcast y no incluye
-            // el atacante, así que el cambio de owner lo dejamos para MOVIMIENTO_CONQUISTA.
+            // ── VOTO_PAUSA — actualiza el marcador de votos sin disparar popup ──
+            if (tipoEvento == 'VOTO_PAUSA') {
+              final rawPayload = data['payload'];
+              final payload = rawPayload is Map
+                  ? Map<String, dynamic>.from(rawPayload)
+                  : data;
+
+              // El backend puede mandar los contadores dentro del payload o en la raíz.
+              final votosAFavor =
+                  _toInt(payload['votos_a_favor'] ?? data['votos_a_favor']);
+              final totalJugadores =
+                  _toInt(payload['total_jugadores'] ?? data['total_jugadores']);
+
+              // También lo subimos como evento de sistema para que la UI pueda
+              // mostrar el progreso ("X/Y votos") si lo necesita.
+              state = state.copyWith(
+                tipoEventoSistema: tipoEvento,
+                jugadorEventoSistema:
+                    (payload['votante'] ?? data['votante'])?.toString(),
+                payloadEventoSistema:
+                    payload is Map<String, dynamic> ? payload : data,
+                votosAFavor: votosAFavor,
+                totalJugadores: totalJugadores,
+                versionEventoSistema: state.versionEventoSistema + 1,
+              );
+              return;
+            }
+
+            // ── PARTIDA_REANUDADA — el host reanudó, volvemos al juego ──────────
+            if (tipoEvento == 'PARTIDA_REANUDADA') {
+              final rawPayload = data['payload'];
+              final payload = rawPayload is Map
+                  ? Map<String, dynamic>.from(rawPayload)
+                  : data;
+
+              final nuevaFase = payload['nueva_fase']?.toString();
+              final jugadorActivo = payload['jugador_activo']?.toString();
+
+              // Actualizamos la fase en el gameProvider para que la batalla_screen
+              // pueda arrancar correctamente tras la reanudación.
+              if (nuevaFase != null && jugadorActivo != null) {
+                ref
+                    .read(gameProvider.notifier)
+                    .actualizarCambioFaseDesdeWs(
+                      nuevaFase: nuevaFase,
+                      jugadorActivo: jugadorActivo,
+                      tropasRecibidas: 0,
+                    );
+              }
+
+              state = state.copyWith(
+                tipoEventoSistema: tipoEvento,
+                payloadEventoSistema:
+                    payload is Map<String, dynamic> ? payload : data,
+                versionEventoSistema: state.versionEventoSistema + 1,
+                clearVotacion: true,
+              );
+              return;
+            }
+
+            // ── ATAQUE_RESULTADO ──────────────────────────────────────────────────
             if (tipoEvento == 'ATAQUE_RESULTADO') {
               ref.read(gameProvider.notifier).registrarResultadoAtaque(data);
 
@@ -185,9 +264,8 @@ class WebSocketNotifier extends Notifier<WebSocketState> {
               }
             }
 
-            // --- MOVIMIENTO_CONQUISTA ---
+            // ── MOVIMIENTO_CONQUISTA ──────────────────────────────────────────────
             // Aquí sí tenemos el jugador correcto en el payload — cambiamos dueño y tropas.
-            // Lo procesamos quirúrgicamente y NO lo dejamos pasar al bloque genérico de abajo.
             if (tipoEvento == 'MOVIMIENTO_CONQUISTA') {
               final origen = data['origen'] as String?;
               final destino = data['destino'] as String?;
@@ -206,7 +284,6 @@ class WebSocketNotifier extends Notifier<WebSocketState> {
                       territorioId: origen,
                       units: tropasOrigen,
                     );
-                // Al mover la conquista el destino ya es nuestro — usamos el jugador del payload
                 if (jugador != null) {
                   ref
                       .read(gameProvider.notifier)
@@ -224,13 +301,10 @@ class WebSocketNotifier extends Notifier<WebSocketState> {
                       );
                 }
               }
-              // Salimos — no dejamos que este evento entre al bloque genérico
               return;
             }
 
-            // --- TROPAS_COLOCADAS ---
-            // Actualización quirúrgica de un territorio — igual que MOVIMIENTO_CONQUISTA,
-            // lo procesamos aquí y no lo dejamos pasar al bloque genérico.
+            // ── TROPAS_COLOCADAS ──────────────────────────────────────────────────
             if (tipoEvento == 'TROPAS_COLOCADAS') {
               final territorioId = data['territorio']?.toString();
               final tropasTotalesAhora = _toInt(data['tropas_totales_ahora']);
@@ -244,8 +318,7 @@ class WebSocketNotifier extends Notifier<WebSocketState> {
                     );
               }
 
-              // Además descontamos la reserva del jugador que acaba de colocar.
-              // Esto hace que el HUD de tropas se refresque al momento.
+              // Descontamos la reserva del jugador que acaba de colocar.
               final jugador = data['jugador']?.toString();
               final tropasColocadas =
                   _toInt(data['tropas_añadidas']) ??
@@ -266,6 +339,7 @@ class WebSocketNotifier extends Notifier<WebSocketState> {
               return;
             }
 
+            // ── TRABAJO_COMPLETADO ────────────────────────────────────────────────
             if (tipoEvento == 'TRABAJO_COMPLETADO') {
               // El backend manda: usuario_id, territorio_id, ganancia.
               // No hay payload anidado para este evento.
@@ -284,6 +358,7 @@ class WebSocketNotifier extends Notifier<WebSocketState> {
               return;
             }
 
+            // ── INVESTIGACION_COMPLETADA ──────────────────────────────────────────
             if (tipoEvento == 'INVESTIGACION_COMPLETADA') {
               final rawPayload = data['payload'];
               final payload = rawPayload is Map
@@ -319,9 +394,8 @@ class WebSocketNotifier extends Notifier<WebSocketState> {
               }
 
               if (ramaLabel.isNotEmpty) {
-                final resumen = nivel > 0
-                    ? '$ramaLabel Nivel $nivel'
-                    : ramaLabel;
+                final resumen =
+                    nivel > 0 ? '$ramaLabel Nivel $nivel' : ramaLabel;
                 ref
                     .read(gameProvider.notifier)
                     .registrarInvestigacionCompletadaDesdeWs(resumen);
@@ -329,7 +403,7 @@ class WebSocketNotifier extends Notifier<WebSocketState> {
               return;
             }
 
-            // --- NUEVO_JUGADOR ---
+            // ── NUEVO_JUGADOR ─────────────────────────────────────────────────────
             if (tipoEvento == 'NUEVO_JUGADOR') {
               final username = data['jugador'] as String?;
               if (username != null) {
@@ -338,9 +412,9 @@ class WebSocketNotifier extends Notifier<WebSocketState> {
               return;
             }
 
+            // ── CAMBIO_FASE ───────────────────────────────────────────────────────
             if (tipoEvento == 'CAMBIO_FASE') {
               // Algunos backends lo envían directo y otros anidado en payload.
-              // Unificamos la lectura para no perder nueva_fase/jugador_activo.
               final rawPayload = data['payload'];
               final payload = rawPayload is Map
                   ? Map<String, dynamic>.from(rawPayload)
@@ -357,7 +431,6 @@ class WebSocketNotifier extends Notifier<WebSocketState> {
                               0);
 
               if (nuevaFase == null || jugadorActivo == null) {
-                // Fallback: si llega un shape incompleto, mantenemos la vía genérica.
                 ref
                     .read(gameProvider.notifier)
                     .actualizarDesdeServidor(payload);
@@ -374,10 +447,7 @@ class WebSocketNotifier extends Notifier<WebSocketState> {
               return;
             }
 
-            // --- Eventos de estado global (fase, turno, mapa completo) ---
-            // Solo estos tres eventos pasan por actualizarDesdeServidor.
-            // El bloque genérico de 'mapa'/'fase_actual' lo quitamos para evitar
-            // dobles actualizaciones en eventos que ya procesamos arriba.
+            // ── Eventos de estado global (mapa completo) ──────────────────────────
             if (tipoEvento == 'ACTUALIZACION_MAPA' ||
                 tipoEvento == 'PARTIDA_INICIADA') {
               ref.read(gameProvider.notifier).actualizarDesdeServidor(data);
