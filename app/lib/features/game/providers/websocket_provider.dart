@@ -448,9 +448,17 @@ class WebSocketNotifier extends Notifier<WebSocketState> {
             }
 
             // ── Eventos de estado global (mapa completo) ──────────────────────────
-            if (tipoEvento == 'ACTUALIZACION_MAPA' ||
-                tipoEvento == 'PARTIDA_INICIADA') {
+            if (tipoEvento == 'ACTUALIZACION_MAPA') {
               ref.read(gameProvider.notifier).actualizarDesdeServidor(data);
+            }
+
+            if (tipoEvento == 'PARTIDA_INICIADA') {
+              ref.read(gameProvider.notifier).actualizarDesdeServidor(data);
+              state = state.copyWith(
+                tipoEventoSistema: tipoEvento,
+                versionEventoSistema: state.versionEventoSistema + 1,
+              );
+              return;
             }
           } catch (e) {
             debugPrint('⚠️ Error parseando el JSON del WebSocket: $e');

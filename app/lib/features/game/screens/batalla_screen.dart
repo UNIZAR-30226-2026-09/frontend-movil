@@ -43,6 +43,10 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
   Set<String> _techCatalogOwnedIds = const <String>{};
   bool _techCatalogHasAuthoritativeAvailability = false;
   String? _techCatalogError;
+  // Código de invitación de la partida actual. Se rellena en initState
+  // llamando al servidor para cubrir el caso en que el jugador
+  // llega desde el menú de pausadas (lobbyInfoProvider vacío).
+  String? _codigoPartida;
 
   TechCatalogService get _techCatalogService =>
       TechCatalogService(ref.read(dioProvider));
@@ -129,10 +133,36 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
   void initState() {
     super.initState();
     _mapFuture = MapLoader.loadMap();
-
-    // Precargamos el catalogo para que el modal abra con datos frescos
-    // cuando el backend expone precios/descripciones dinamicos.
     Future<void>.microtask(_cargarCatalogoTecnologias);
+    Future<void>.microtask(_resolverCodigoPartida);
+  }
+
+  // Intenta obtener el código de invitación desde el servidor.
+  // El lobbyInfoProvider puede estar vacío si el jugador entró
+  // desde el menú de partidas pausadas en lugar del flujo normal.
+  Future<void> _resolverCodigoPartida() async {
+    // Primero intentamos el provider en memoria (flujo normal).
+    final codigoEnMemoria =
+        ref.read(lobbyInfoProvider).codigoInvitacion;
+    if (codigoEnMemoria != null && codigoEnMemoria.isNotEmpty) {
+      if (mounted) setState(() => _codigoPartida = codigoEnMemoria);
+      return;
+    }
+
+    // Si no hay nada en memoria, preguntamos al servidor.
+    try {
+      final partida = await ref
+          .read(matchmakingServiceProvider)
+          .getMiPartidaActiva();
+      if (partida != null &&
+          partida.codigoInvitacion.isNotEmpty &&
+          mounted) {
+        setState(() => _codigoPartida = partida.codigoInvitacion);
+      }
+    } catch (_) {
+      // Si falla, _codigoPartida sigue siendo null y el botón
+      // de pausa lo notificará al usuario cuando lo pulse.
+    }
   }
 
   Future<void> _cargarCatalogoTecnologias() async {
@@ -267,10 +297,9 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
             titulo: 'Pausar partida',
             mensaje: '${solicitante.isNotEmpty ? solicitante : 'Un jugador'} propone pausar. ¿Pausar partida?',
           );
-          // voto es null si el usuario descartó el dialog — no votamos.
           if (!mounted || voto == null) return;
 
-          final codigo = ref.read(lobbyInfoProvider).codigoInvitacion;
+          final codigo = _codigoPartida;
           if (codigo == null || codigo.isEmpty) {
             unawaited(
               _mostrarPopup(
@@ -540,8 +569,7 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
 
                           if (!mounted || confirmar != true) return;
 
-                          final codigo =
-                              ref.read(lobbyInfoProvider).codigoInvitacion;
+                          final codigo = _codigoPartida;
                           if (codigo == null || codigo.isEmpty) {
                             unawaited(
                               _mostrarPopup(

@@ -39,25 +39,21 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
   }
 
   Future<void> _handleLeaveMatch() async {
-    final success = await ref
-        .read(matchmakingProvider.notifier)
-        .leaveMatch(widget.partidaId);
-
-    if (!mounted) return;
-
-    if (success) {
+    try {
+      await ref.read(matchmakingServiceProvider).leaveMatch(widget.partidaId);
+      if (!mounted) return;
       ref.read(lobbyInfoProvider.notifier).clear();
       ref.read(gameProvider.notifier).resetState();
       ref.read(webSocketProvider.notifier).disconnect();
       context.go(AppRoutes.batallas);
-    } else {
-      final errorMessage =
-          ref.read(matchmakingProvider).errorMessage ??
-          'No se pudo abandonar la partida';
-
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(errorMessage)));
+    } on DioException catch (e) {
+      if (!mounted) return;
+      final detalle = e.response?.data is Map<String, dynamic>
+          ? (e.response?.data['detail']?.toString() ?? e.message ?? 'No se pudo abandonar')
+          : (e.message ?? 'No se pudo abandonar');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(detalle)),
+      );
     }
   }
 
@@ -124,43 +120,30 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     final visibilidad = lobbyInfo.visibility;
     final matchmakingState = ref.watch(matchmakingProvider);
     final esCreador = usuarioActual == creador;
-    // esPausada viene del parámetro de navegación o de lobbyInfo si el backend
-    // lo devuelve en el futuro. Por ahora confiamos en el flag de navegación.
     final esPartidaPausada = widget.esPausada;
 
-    // Cuando el backend emite PARTIDA_INICIADA, el gameProvider actualiza faseActual
-    // de 'ESPERA' a 'refuerzo' y manda el mapa — eso es la señal para navegar.
-    // Lo hacemos aquí en la UI para que todos los jugadores naveguen a la vez.
-    // IMPORTANTE: si la partida está pausada, el WS ya enviará el estado actual
-    // (faseActual != 'espera') al conectar — ignoramos esa señal para no entrar
-    // al mapa antes de que el host pulse Reanudar.
-    ref.listen<GameState>(gameProvider, (previous, next) {
-      if (widget.esPausada) return;
+    // Para la reanudación exigimos que todos los jugadores que entraron
+    // por HTTP (los que estaban en la partida original) estén reconectados
+    // al WS. Sin esto, el host podría reanudar con jugadores desconectados.
+    final todosReconectados = esPartidaPausada &&
+        jugadoresIniciales.isNotEmpty &&
+        jugadoresIniciales.every((j) => jugadoresWs.contains(j));
 
-      final faseAnterior = (previous?.faseActual ?? '').toLowerCase();
-      final faseActual = next.faseActual.toLowerCase();
-
-      final partidaIniciadaAntes =
-          faseAnterior.isNotEmpty && faseAnterior != 'espera';
-      final partidaIniciadaAhora =
-          faseActual.isNotEmpty &&
-          faseActual != 'espera' &&
-          next.mapa.isNotEmpty;
-
-      if (!partidaIniciadaAntes && partidaIniciadaAhora && mounted) {
-        // Los no-host entran por evento WS en cuanto llega PARTIDA_INICIADA.
-        context.go(AppRoutes.batalla);
-      }
-    });
-
-    // Cuando el host reanuda la partida pausada, todos los jugadores reciben
-    // PARTIDA_REANUDADA por WS. Este listener reemplaza al de GameState para
-    // el flujo de reanudación.
+    // Escuchamos los eventos de sistema del WS para navegar al momento exacto:
+    // PARTIDA_INICIADA    → partida normal arrancada por el host.
+    // PARTIDA_REANUDADA   → partida pausada reanudada por el host.
+    // El guard de versión evita disparos duplicados.
     ref.listen<WebSocketState>(webSocketProvider, (previous, next) {
       final prevVersion = previous?.versionEventoSistema ?? 0;
       if (next.versionEventoSistema <= prevVersion) return;
 
-      if (next.tipoEventoSistema == 'PARTIDA_REANUDADA' && mounted) {
+      final tipo = next.tipoEventoSistema;
+
+      if (tipo == 'PARTIDA_INICIADA' && !widget.esPausada && mounted) {
+        context.go(AppRoutes.batalla);
+      }
+
+      if (tipo == 'PARTIDA_REANUDADA' && mounted) {
         context.go(AppRoutes.batalla);
       }
     });
@@ -206,9 +189,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                               ),
                             ),
                             OutlinedButton.icon(
-                              onPressed: matchmakingState.isLeaving
-                                  ? null
-                                  : _handleLeaveMatch,
+                              onPressed: _handleLeaveMatch,
                               style: OutlinedButton.styleFrom(
                                 backgroundColor: const Color(0xFF1A1A24),
                                 foregroundColor: const Color(0xFFD32F2F),
@@ -220,15 +201,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                               ),
-                              icon: matchmakingState.isLeaving
-                                  ? const SizedBox(
-                                      width: 16,
-                                      height: 16,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                  : const Icon(Icons.logout_rounded, size: 18),
+                              icon: const Icon(Icons.logout_rounded, size: 18),
                               label: const Text(
                                 'Abandonar',
                                 style: TextStyle(fontWeight: FontWeight.bold),
@@ -330,8 +303,12 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                                 final isCreator = nombreJugador == creador;
                                 final playerState =
                                     gameState.jugadores[nombreJugador];
+                                final estaOnline =
+                                    jugadoresWs.contains(nombreJugador);
 
-                                return Container(
+                                return Opacity(
+                                  opacity: estaOnline ? 1.0 : 0.55,
+                                  child: Container(
                                   padding: const EdgeInsets.all(10),
                                   decoration: BoxDecoration(
                                     color: const Color(0xFF1A1A24),
@@ -388,6 +365,13 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                                                         Colors.blueGrey,
                                                     textColor: Colors.white,
                                                   ),
+                                                if (!estaOnline)
+                                                  const _MiniTag(
+                                                    text: 'Offline',
+                                                    backgroundColor:
+                                                        Color(0xFFB71C1C),
+                                                    textColor: Colors.white,
+                                                  ),
                                               ],
                                             ),
                                             const SizedBox(height: 6),
@@ -403,6 +387,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                                       ),
                                     ],
                                   ),
+                                ),
                                 );
                               },
                             ),
@@ -412,7 +397,17 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                   if (esCreador)
                     ElevatedButton(
                       onPressed: esPartidaPausada
-                          ? _handleReanudarPartida
+                          ? (todosReconectados
+                              ? _handleReanudarPartida
+                              : () {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Faltan jugadores por conectarse.',
+                                      ),
+                                    ),
+                                  );
+                                })
                           : (jugadoresConectados.length >= 2
                               ? _handleIniciarPartida
                               : null),
