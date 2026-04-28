@@ -21,6 +21,7 @@ import '../../../shared/api/dio_provider.dart';
 import '../../../app/router/app_routes.dart';
 import '../providers/matchmaking_provider.dart';
 import '../providers/lobby_info_provider.dart';
+import '../../map/widgets/gestion_panel.dart';
 
 class BatallaScreen extends ConsumerStatefulWidget {
   const BatallaScreen({super.key, required this.title, this.partidaId = 0});
@@ -47,6 +48,7 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
   // llamando al servidor para cubrir el caso en que el jugador
   // llega desde el menú de pausadas (lobbyInfoProvider vacío).
   String? _codigoPartida;
+  String? _comarcaGestionSeleccionada;
 
   TechCatalogService get _techCatalogService =>
       TechCatalogService(ref.read(dioProvider));
@@ -127,6 +129,22 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
               : '${word[0].toUpperCase()}${word.substring(1)}',
         )
         .join(' ');
+  }
+
+  void _cerrarPanelGestion() {
+    final comarcaId = _comarcaGestionSeleccionada;
+    final miUsuario = ref.read(authProvider).user?.username ?? '';
+  
+    if (comarcaId != null && miUsuario.isNotEmpty) {
+      ref.read(gameProvider.notifier).seleccionarComarca(
+        comarcaId,
+        jugadorLocalId: miUsuario,
+      );
+    }
+
+    setState(() {
+      _comarcaGestionSeleccionada = null;
+    });
   }
 
   @override
@@ -226,6 +244,14 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
 
       final faseActual = next.faseActual.toLowerCase();
       final faseAnterior = previous?.faseActual.toLowerCase();
+
+      if (faseActual != 'gestion' && _comarcaGestionSeleccionada != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          _cerrarPanelGestion();
+        });
+      }
+      
 
       final esMiTurno = next.turnoDe == miUsuario;
       final antesEraMiTurno = previous?.turnoDe == miUsuario;
@@ -457,6 +483,7 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
       }),
     );
 
+
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
@@ -516,16 +543,26 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
                   final estadoActual = ref.read(gameProvider);
                   final miUsuario = ref.read(authProvider).user?.username ?? '';
                   final faseActual = estadoActual.faseActual.toLowerCase();
+                  final esMiTurno = estadoActual.turnoDe == miUsuario;
 
                   if (faseActual == 'gestion') {
                     final ownerId = estadoActual.mapa[c.id]?.ownerId ?? '';
                     final esComarcaPropia =
                         miUsuario.isNotEmpty && ownerId == miUsuario;
 
-                    // En gestión solo abrimos menú sobre comarcas propias.
-                    if (!esComarcaPropia) return;
+                    if (!esComarcaPropia || !esMiTurno) return;
 
-                    _mostrarOpcionesGestionComarca(c.id, widget.partidaId);
+                    final yaEstabaAbierta = _comarcaGestionSeleccionada == c.id;
+
+                    ref.read(gameProvider.notifier).seleccionarComarca(
+                      c.id,
+                      jugadorLocalId: miUsuario,
+                    );
+
+                    setState(() {
+                      _comarcaGestionSeleccionada = yaEstabaAbierta ? null : c.id;
+                    });
+
                     return;
                   }
 
@@ -540,84 +577,79 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
                 minScale: 1.0,
                 maxScale: 5.0,
               ),
-              SafeArea(
-                child: Align(
-                  alignment: Alignment.topLeft,
-                  child: Padding(
-                    padding: const EdgeInsets.all(12.0),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF252530).withOpacity(0.92),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: const Color(0xFFC5A059),
-                          width: 1.2,
-                        ),
+              Positioned(
+                top: 0,
+                left: 0,
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 30, top: 30),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF252530).withOpacity(0.92),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: const Color(0xFFC5A059),
+                        width: 1.2,
                       ),
-                      child: IconButton(
-                        tooltip: 'Solicitar pausa',
-                        icon: const Icon(
-                          Icons.pause_circle_outline_rounded,
-                          color: AppTheme.text,
-                        ),
-                        onPressed: () async {
-                          final confirmar = await _mostrarPopupDecision(
-                            titulo: '¿Solicitar pausa?',
-                            mensaje:
-                                'Se pedirá al resto de jugadores que voten para pausar la partida.',
-                          );
-
-                          if (!mounted || confirmar != true) return;
-
-                          final codigo = _codigoPartida;
-                          if (codigo == null || codigo.isEmpty) {
-                            unawaited(
-                              _mostrarPopup(
-                                titulo: 'Error',
-                                mensaje: 'No se encontró el código de la partida.',
-                              ),
-                            );
-                            return;
-                          }
-
-                          // Mostramos la espera antes de llamar — el popup se cerrará
-                          // cuando llegue PARTIDA_PAUSADA o PAUSA_RECHAZADA por WS.
+                    ),
+                    child: IconButton(
+                      tooltip: 'Solicitar pausa',
+                      icon: const Icon(
+                        Icons.pause_circle_outline_rounded,
+                        color: AppTheme.borderGold,
+                      ),
+                      onPressed: () async {
+                        final confirmar = await _mostrarPopupDecision(
+                          titulo: '¿Solicitar pausa?',
+                          mensaje:
+                              'Se pedirá al resto de jugadores que voten para pausar la partida.',
+                        );
+                        if (!mounted || confirmar != true) return;
+                        final codigo = _codigoPartida;
+                        if (codigo == null || codigo.isEmpty) {
                           unawaited(
                             _mostrarPopup(
-                              titulo: 'Votación en curso',
-                              mensaje: 'Esperando al resto de jugadores...',
+                              titulo: 'Error',
+                              mensaje: 'No se encontró el código de la partida.',
                             ),
                           );
-
-                          try {
-                            await ref
-                                .read(matchmakingServiceProvider)
-                                .solicitarPausa(codigo);
-                            // El backend no auto-asigna el voto al iniciador,
-                            // así que lo emitimos explícitamente como 'a favor'.
-                            await ref
-                                .read(matchmakingServiceProvider)
-                                .votarPausa(codigo, aFavor: true);
-                          } on DioException catch (e) {
-                            if (!mounted) return;
-                            if (_hayDialogoPopupActivo) {
-                              Navigator.of(context, rootNavigator: true).pop();
-                            }
-                            final detalle =
-                                e.response?.data is Map<String, dynamic>
-                                ? (e.response?.data['detail']?.toString() ??
-                                      e.message ??
-                                      'No se pudo solicitar la pausa')
-                                : (e.message ?? 'No se pudo solicitar la pausa');
-                            unawaited(
-                              _mostrarPopup(
-                                titulo: 'Error al pausar',
-                                mensaje: detalle,
-                              ),
-                            );
+                          return;
+                        }
+                        // Mostramos la espera antes de llamar — el popup se cerrará
+                        // cuando llegue PARTIDA_PAUSADA o PAUSA_RECHAZADA por WS.
+                        unawaited(
+                          _mostrarPopup(
+                            titulo: 'Votación en curso',
+                            mensaje: 'Esperando al resto de jugadores...',
+                          ),
+                        );
+                        try {
+                          await ref
+                              .read(matchmakingServiceProvider)
+                              .solicitarPausa(codigo);
+                          // El backend no auto-asigna el voto al iniciador,
+                          // así que lo emitimos explícitamente como 'a favor'.
+                          await ref
+                              .read(matchmakingServiceProvider)
+                              .votarPausa(codigo, aFavor: true);
+                        } on DioException catch (e) {
+                          if (!mounted) return;
+                          if (_hayDialogoPopupActivo) {
+                            Navigator.of(context, rootNavigator: true).pop();
                           }
-                        },
-                      ),
+                          final detalle =
+                              e.response?.data is Map<String, dynamic>
+                              ? (e.response?.data['detail']?.toString() ??
+                                    e.message ??
+                                    'No se pudo solicitar la pausa')
+                              : (e.message ?? 'No se pudo solicitar la pausa');
+                          unawaited(
+                            _mostrarPopup(
+                              titulo: 'Error al pausar',
+                              mensaje: detalle,
+                            ),
+                          );
+                        }
+                      },
                     ),
                   ),
                 ),
@@ -652,6 +684,21 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
                 ),
               ),
               const ActionPanel(),
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeInOut,
+                right: _comarcaGestionSeleccionada != null ? 12 : -360,
+                top: MediaQuery.of(context).size.height * 0.12,
+                width: 360,
+                child: IgnorePointer(
+                  ignoring: _comarcaGestionSeleccionada == null,
+                  child: GestionPanel(
+                    comarcaId: _comarcaGestionSeleccionada ?? '',
+                    partidaId: widget.partidaId,
+                    onClose: _cerrarPanelGestion,
+                  ),
+                ),
+              ),
             ],
           );
         },
@@ -872,396 +919,64 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
     );
   }
 
-  Future<void> _mostrarOpcionesGestionComarca(
-    String comarcaId,
-    int partidaId,
-  ) async {
-    if (!mounted) return;
+  
 
-    final partidaIdEfectiva = partidaId > 0
-        ? partidaId
-        : (ref.read(webSocketProvider).currentPartidaId ?? 0);
-
-    if (partidaIdEfectiva <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No se pudo identificar la partida actual'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
-    // Las tres ramas disponibles — coinciden exactamente con las claves
-    // del ARBOL_TECNOLOGICO del backend (minúsculas, sin tildes).
-    const ramas = [
-      _RamaInfo(
-        'artilleria',
-        '💣',
-        'Artillería',
-        'Mortero → Misil → Bomba nuclear',
-      ),
-      _RamaInfo(
-        'logistica',
-        '🏛️',
-        'Logística',
-        'Academia → Propaganda → Sanciones',
-      ),
-      _RamaInfo(
-        'biologica',
-        '🦠',
-        'Biológica',
-        'Gripe → Vacuna/Fatiga → Coronavirus',
-      ),
-    ];
-
-    List<TechNodeModel> habilidadesDeRama(String ramaId) {
-      switch (ramaId) {
-        case 'artilleria':
-          return TechTreeData.nodes
-              .where((node) => node.branch == TechBranch.artilleria)
-              .toList(growable: false);
-        case 'logistica':
-          return TechTreeData.nodes
-              .where((node) => node.branch == TechBranch.operaciones)
-              .toList(growable: false);
-        case 'biologica':
-          return TechTreeData.nodes
-              .where((node) => node.branch == TechBranch.biologica)
-              .toList(growable: false);
-        default:
-          return const <TechNodeModel>[];
-      }
-    }
-
-    String ramaSeleccionada = 'artilleria';
-    String habilidadSeleccionada = habilidadesDeRama(ramaSeleccionada).first.id;
-
-    await showModalBottomSheet<void>(
-      context: context,
+  Widget _buildBattleDialog({
+    required BuildContext context,
+    required Widget child,
+    double maxWidth = 360,
+  }) {
+    return Dialog(
       backgroundColor: Colors.transparent,
-      // isScrollControlled para que el sheet no se corte si hay mucho contenido.
-      isScrollControlled: true,
-      builder: (sheetContext) {
-        return StatefulBuilder(
-          builder: (_, setSheetState) {
-            final sheetMaxHeight =
-                MediaQuery.of(sheetContext).size.height * 0.88;
+      child: Container(
+        constraints: BoxConstraints(maxWidth: maxWidth),
+        padding: const EdgeInsets.all(22),
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: AppTheme.primary,
+            width: 1.4,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.42),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: child,
+      ),
+    );
+  }
 
-            return Container(
-              decoration: const BoxDecoration(
-                color: AppTheme.surface,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
-              ),
-              child: SafeArea(
-                top: false,
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(maxHeight: sheetMaxHeight),
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Opciones de Gestión',
-                          style: TextStyle(
-                            color: AppTheme.text,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
+  ButtonStyle _battlePrimaryButtonStyle() {
+    return ElevatedButton.styleFrom(
+      backgroundColor: const Color(0xFF3A2A16),
+      foregroundColor: AppTheme.primary,
+      padding: const EdgeInsets.symmetric(vertical: 13),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: AppTheme.primary.withValues(alpha: 0.75),
+          width: 1.1,
+        ),
+      ),
+    );
+  }
 
-                        // --- MINA ---
-                        ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          leading: const Icon(
-                            Icons.monetization_on,
-                            color: AppTheme.borderGoldVivo,
-                          ),
-                          title: const Text(
-                            'Mandar a la mina (Generar Monedas)',
-                            style: TextStyle(color: AppTheme.text),
-                          ),
-                          onTap: () async {
-                            try {
-                              await ref
-                                  .read(dioProvider)
-                                  .post(
-                                    '/partidas/$partidaIdEfectiva/trabajar',
-                                    data: {'territorio_id': comarcaId},
-                                  );
-                              if (!mounted || !sheetContext.mounted) return;
-                              Navigator.of(sheetContext).pop();
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Comarca enviada a la mina'),
-                                  backgroundColor: Colors.green,
-                                ),
-                              );
-                            } on DioException catch (e) {
-                              if (!mounted) return;
-                              final detalle =
-                                  e.response?.data is Map<String, dynamic>
-                                  ? (e.response?.data['detail']?.toString() ??
-                                        e.message ??
-                                        'Error al enviar comarca a la mina')
-                                  : (e.message ??
-                                        'Error al enviar comarca a la mina');
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(detalle),
-                                  backgroundColor: Colors.red,
-                                ),
-                              );
-                            }
-                          },
-                        ),
-
-                        const Divider(color: AppTheme.borderGold),
-
-                        // --- LABORATORIO ---
-                        const Text(
-                          'Mandar al laboratorio (Investigar)',
-                          style: TextStyle(
-                            color: AppTheme.text,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Elige la rama tecnológica a investigar:',
-                          style: TextStyle(
-                            color: AppTheme.textSecondary,
-                            fontSize: 13,
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-
-                        // Selector de rama — tres opciones como cards seleccionables.
-                        ...ramas.map((rama) {
-                          final seleccionada = ramaSeleccionada == rama.id;
-                          return GestureDetector(
-                            onTap: () => setSheetState(() {
-                              ramaSeleccionada = rama.id;
-                              habilidadSeleccionada = habilidadesDeRama(
-                                rama.id,
-                              ).first.id;
-                            }),
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 150),
-                              margin: const EdgeInsets.only(bottom: 8),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 10,
-                              ),
-                              decoration: BoxDecoration(
-                                color: seleccionada
-                                    ? AppTheme.primary.withValues(alpha: 0.15)
-                                    : AppTheme.surface,
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(
-                                  color: seleccionada
-                                      ? AppTheme.primary
-                                      : AppTheme.borderGold,
-                                  width: seleccionada ? 1.8 : 1.0,
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  Text(
-                                    rama.emoji,
-                                    style: const TextStyle(fontSize: 22),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          rama.nombre,
-                                          style: TextStyle(
-                                            color: seleccionada
-                                                ? AppTheme.primary
-                                                : AppTheme.text,
-                                            fontWeight: FontWeight.w700,
-                                            fontSize: 14,
-                                          ),
-                                        ),
-                                        Text(
-                                          rama.descripcion,
-                                          style: const TextStyle(
-                                            color: AppTheme.textSecondary,
-                                            fontSize: 11,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  if (seleccionada)
-                                    const Icon(
-                                      Icons.check_circle,
-                                      color: AppTheme.primary,
-                                      size: 20,
-                                    ),
-                                ],
-                              ),
-                            ),
-                          );
-                        }),
-
-                        const SizedBox(height: 6),
-                        const Text(
-                          'Elige la habilidad exacta a investigar:',
-                          style: TextStyle(
-                            color: AppTheme.textSecondary,
-                            fontSize: 13,
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        ...habilidadesDeRama(ramaSeleccionada).map((habilidad) {
-                          final seleccionada =
-                              habilidadSeleccionada == habilidad.id;
-                          return GestureDetector(
-                            onTap: () => setSheetState(() {
-                              habilidadSeleccionada = habilidad.id;
-                            }),
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 150),
-                              margin: const EdgeInsets.only(bottom: 8),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 10,
-                              ),
-                              decoration: BoxDecoration(
-                                color: seleccionada
-                                    ? AppTheme.primary.withValues(alpha: 0.15)
-                                    : AppTheme.surface,
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(
-                                  color: seleccionada
-                                      ? AppTheme.primary
-                                      : AppTheme.borderGold,
-                                  width: seleccionada ? 1.8 : 1.0,
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    habilidad.icon,
-                                    color: seleccionada
-                                        ? AppTheme.primary
-                                        : AppTheme.textSecondary,
-                                    size: 22,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          habilidad.name,
-                                          style: TextStyle(
-                                            color: seleccionada
-                                                ? AppTheme.primary
-                                                : AppTheme.text,
-                                            fontWeight: FontWeight.w700,
-                                            fontSize: 14,
-                                          ),
-                                        ),
-                                        Text(
-                                          habilidad.id,
-                                          style: const TextStyle(
-                                            color: AppTheme.textSecondary,
-                                            fontSize: 11,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  if (seleccionada)
-                                    const Icon(
-                                      Icons.check_circle,
-                                      color: AppTheme.primary,
-                                      size: 20,
-                                    ),
-                                ],
-                              ),
-                            ),
-                          );
-                        }),
-
-                        const SizedBox(height: 4),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton.icon(
-                            onPressed: () async {
-                              try {
-                                await ref
-                                    .read(dioProvider)
-                                    .post(
-                                      '/partidas/$partidaIdEfectiva/investigar',
-                                      data: {
-                                        'territorio_id': comarcaId,
-                                        'rama': ramaSeleccionada,
-                                        'habilidad_id': habilidadSeleccionada,
-                                      },
-                                    );
-                                if (!mounted || !sheetContext.mounted) return;
-                                Navigator.of(sheetContext).pop();
-                                final label = ramas
-                                    .firstWhere((r) => r.id == ramaSeleccionada)
-                                    .nombre;
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      'Comarca investigando: $label',
-                                    ),
-                                    backgroundColor: Colors.green,
-                                  ),
-                                );
-                              } on DioException catch (e) {
-                                if (!mounted) return;
-                                final detalle =
-                                    e.response?.data is Map<String, dynamic>
-                                    ? (e.response?.data['detail']?.toString() ??
-                                          e.message ??
-                                          'Error al iniciar investigación')
-                                    : (e.message ??
-                                          'Error al iniciar investigación');
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(detalle),
-                                    backgroundColor: Colors.red,
-                                  ),
-                                );
-                              }
-                            },
-                            icon: const Icon(Icons.science_rounded),
-                            label: const Text('Investigar'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.primary,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            );
-          },
-        );
-      },
+  ButtonStyle _battleSecondaryButtonStyle() {
+    return OutlinedButton.styleFrom(
+      foregroundColor: AppTheme.primary,
+      side: BorderSide(
+        color: AppTheme.primary.withValues(alpha: 0.55),
+        width: 1.1,
+      ),
+      padding: const EdgeInsets.symmetric(vertical: 13),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
     );
   }
 
@@ -1273,77 +988,55 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
   }) async {
     if (!mounted) return;
     _hayDialogoPopupActivo = true;
+
     await showDialog<void>(
       context: context,
       barrierDismissible: barrierDismissible,
       builder: (dialogContext) {
-        return Dialog(
-          backgroundColor: Colors.transparent,
-          child: Container(
-            constraints: const BoxConstraints(maxWidth: 340),
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: const Color(0xFF2A1F0F),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppTheme.borderGoldVivo, width: 1.4),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.6),
-                  blurRadius: 24,
-                  offset: const Offset(0, 8),
+        return _buildBattleDialog(
+          context: context,
+          maxWidth: 360,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                titulo,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: AppTheme.primary,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
                 ),
-              ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  titulo,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: AppTheme.borderGoldVivo,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                  ),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                mensaje,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: AppTheme.text,
+                  fontSize: 14,
+                  height: 1.45,
                 ),
-                const SizedBox(height: 14),
-                Text(
-                  mensaje,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: AppTheme.text,
-                    fontSize: 15,
-                    height: 1.5,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.of(dialogContext).pop();
-                      alAceptar?.call();
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.borderGoldVivo,
-                      foregroundColor: const Color(0xFF1A1200),
-                      padding: const EdgeInsets.symmetric(vertical: 13),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                    child: const Text(
-                      'Aceptar',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 15,
-                      ),
+              ),
+              const SizedBox(height: 18),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(dialogContext).pop();
+                    alAceptar?.call();
+                  },
+                  style: _battlePrimaryButtonStyle(),
+                  child: const Text(
+                    'Aceptar',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
                 ),
-              ],
-            ),
-          ),
+              ),
+            ],
+          )
         );
       },
     );
@@ -1356,99 +1049,61 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
   }) async {
     if (!mounted) return null;
     _hayDialogoPopupActivo = true;
+
     final respuesta = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) {
-        return Dialog(
-          backgroundColor: Colors.transparent,
-          child: Container(
-            constraints: const BoxConstraints(maxWidth: 340),
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: const Color(0xFF2A1F0F),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppTheme.borderGoldVivo, width: 1.4),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.6),
-                  blurRadius: 24,
-                  offset: const Offset(0, 8),
+        return _buildBattleDialog(
+          context: context,
+          maxWidth: 360,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                titulo,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: AppTheme.primary,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
                 ),
-              ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  titulo,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: AppTheme.borderGoldVivo,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
+              ),
+              const SizedBox(height: 14),
+              Text(
+                mensaje,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: AppTheme.text,
+                  fontSize: 14,
+                  height: 1.45,
+                ),
+              ),
+              const SizedBox(height: 18),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                  style: _battlePrimaryButtonStyle(),
+                  child: const Text(
+                    'Sí',
+                    style: TextStyle(fontWeight: FontWeight.w800),
                   ),
                 ),
-                const SizedBox(height: 14),
-                Text(
-                  mensaje,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: AppTheme.text,
-                    fontSize: 15,
-                    height: 1.5,
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  style: _battleSecondaryButtonStyle(),
+                  child: const Text(
+                    'No',
+                    style: TextStyle(fontWeight: FontWeight.w700),
                   ),
                 ),
-                const SizedBox(height: 20),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () => Navigator.of(dialogContext).pop(true),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.borderGoldVivo,
-                      foregroundColor: const Color(0xFF1A1200),
-                      padding: const EdgeInsets.symmetric(vertical: 13),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                    child: const Text(
-                      'SÍ',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 15,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () => Navigator.of(dialogContext).pop(false),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF3A2E1A),
-                      foregroundColor: AppTheme.text,
-                      padding: const EdgeInsets.symmetric(vertical: 13),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        side: const BorderSide(
-                          color: AppTheme.borderGoldVivo,
-                          width: 1,
-                        ),
-                      ),
-                    ),
-                    child: const Text(
-                      'NO',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 15,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         );
       },
@@ -1589,27 +1244,47 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
       builder: (dialogContext) {
         return StatefulBuilder(
           builder: (_, setDialogState) {
-            return AlertDialog(
-              title: Text(
-                '¡${_formatName(territorioConquistado)} conquistado!',
-              ),
-              content: Column(
+            return _buildBattleDialog(
+              context: context,
+              maxWidth: 380,
+              child: Column(
                 mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Mueve tropas al nuevo territorio para consolidar la conquista.',
-                  ),
-                  const SizedBox(height: 16),
                   Text(
-                    '$tropasAMover',
-                    style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
+                    '¡${_formatName(territorioConquistado)} conquistado!',
+                    style: const TextStyle(
+                      color: AppTheme.primary,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'Mueve tropas al nuevo territorio para consolidar la conquista.',
+                    style: TextStyle(
+                      color: AppTheme.textSecondary,
+                      fontSize: 13,
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Center(
+                    child: Text(
+                      '$tropasAMover',
+                      style: const TextStyle(
+                        color: AppTheme.primary,
+                        fontSize: 34,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
                   Row(
                     children: [
                       IconButton(
-                        icon: const Icon(Icons.remove_circle_outline, size: 32),
+                        icon: const Icon(Icons.remove_circle_outline, size: 34),
+                        color: AppTheme.primary,
                         onPressed: tropasAMover > 1
                             ? () => setDialogState(() => tropasAMover--)
                             : null,
@@ -1624,43 +1299,58 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.add_circle_outline, size: 32),
+                        icon: const Icon(Icons.add_circle_outline, size: 34),
+                        color: AppTheme.primary,
                         onPressed: tropasAMover < maxMover
                             ? () => setDialogState(() => tropasAMover++)
                             : null,
                       ),
                     ],
                   ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Disponibles para mover: $maxMover',
+                    style: const TextStyle(
+                      color: AppTheme.textSecondary,
+                      fontSize: 13,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        final partidaId =
+                            ref.read(webSocketProvider).currentPartidaId;
+                        if (partidaId == null) return;
+
+                        try {
+                          final dio = ref.read(dioProvider);
+                          await dio.post(
+                            '/partidas/$partidaId/mover_conquista',
+                            data: {'tropas': tropasAMover},
+                          );
+                          if (!dialogContext.mounted) return;
+                          Navigator.of(dialogContext).pop();
+                        } on DioException catch (e) {
+                          final detalle =
+                              e.response?.data?.toString() ?? e.message;
+                          debugPrint('🔴 ERROR mover_conquista: $detalle');
+                          if (!mounted || !dialogContext.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Error: $detalle')),
+                          );
+                        }
+                      },
+                      style: _battlePrimaryButtonStyle(),
+                      child: const Text(
+                        'Mover tropas',
+                        style: TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                  ),
                 ],
               ),
-              actions: [
-                ElevatedButton(
-                  onPressed: () async {
-                    final partidaId = ref
-                        .read(webSocketProvider)
-                        .currentPartidaId;
-                    if (partidaId == null) return;
-
-                    try {
-                      final dio = ref.read(dioProvider);
-                      await dio.post(
-                        '/partidas/$partidaId/mover_conquista',
-                        data: {'tropas': tropasAMover},
-                      );
-                      if (!dialogContext.mounted) return;
-                      Navigator.of(dialogContext).pop();
-                    } on DioException catch (e) {
-                      final detalle = e.response?.data?.toString() ?? e.message;
-                      debugPrint('🔴 ERROR mover_conquista: $detalle');
-                      if (!mounted || !dialogContext.mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Error: $detalle')),
-                      );
-                    }
-                  },
-                  child: const Text('Mover tropas'),
-                ),
-              ],
             );
           },
         );

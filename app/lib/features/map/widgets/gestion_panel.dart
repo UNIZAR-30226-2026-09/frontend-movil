@@ -1,0 +1,604 @@
+import 'package:dio/dio.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:soberania/features/game/data/tech_tree_data.dart';
+import 'package:soberania/features/game/models/tech_tree_model.dart';
+import 'package:soberania/features/game/providers/websocket_provider.dart';
+import '../../../app/theme/app_theme.dart';
+import '../../../shared/api/dio_provider.dart';
+
+class GestionPanel extends ConsumerStatefulWidget {
+  const GestionPanel({
+    super.key,
+    required this.comarcaId,
+    required this.partidaId,
+    required this.onClose,
+  });
+
+  final String comarcaId;
+  final int partidaId;
+  final VoidCallback onClose;
+
+  @override
+  ConsumerState<GestionPanel> createState() => _GestionPanelState();
+}
+
+class _GestionPanelState extends ConsumerState<GestionPanel> {
+  static const List<_RamaInfo> ramas = [
+    _RamaInfo(
+      'artilleria',
+      '💣',
+      'Artillería',
+      'Mortero → Misil → Bomba nuclear',
+    ),
+    _RamaInfo(
+      'logistica',
+      '🏛️',
+      'Logística',
+      'Academia → Propaganda → Sanciones',
+    ),
+    _RamaInfo(
+      'biologica',
+      '🦠',
+      'Biológica',
+      'Gripe → Vacuna/Fatiga → Coronavirus',
+    ),
+  ];
+
+  late String ramaSeleccionada;
+  late String habilidadSeleccionada;
+
+  @override
+  void initState() {
+    super.initState();
+    ramaSeleccionada = 'artilleria';
+    habilidadSeleccionada = _habilidadesDeRama(ramaSeleccionada).first.id;
+  }
+
+  String _formatName(String id) {
+    return id
+        .split('_')
+        .map(
+          (word) => word.isEmpty
+              ? ''
+              : '${word[0].toUpperCase()}${word.substring(1)}',
+        )
+        .join(' ');
+  }
+
+  List<TechNodeModel> _habilidadesDeRama(String ramaId) {
+    switch (ramaId) {
+      case 'artilleria':
+        return TechTreeData.nodes
+            .where((node) => node.branch == TechBranch.artilleria)
+            .toList(growable: false);
+      case 'logistica':
+        return TechTreeData.nodes
+            .where((node) => node.branch == TechBranch.operaciones)
+            .toList(growable: false);
+      case 'biologica':
+        return TechTreeData.nodes
+            .where((node) => node.branch == TechBranch.biologica)
+            .toList(growable: false);
+      default:
+        return const <TechNodeModel>[];
+    }
+  }
+
+  int _partidaIdEfectiva() {
+    if (widget.partidaId > 0) return widget.partidaId;
+    return ref.read(webSocketProvider).currentPartidaId ?? 0;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final partidaIdEfectiva = _partidaIdEfectiva();
+    final panelMaxHeight = MediaQuery.of(context).size.height * 0.74;
+
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        clipBehavior: Clip.antiAlias,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: AppTheme.primary,
+            width: 1.4,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.38),
+              blurRadius: 18,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: panelMaxHeight),
+          child: SingleChildScrollView(
+            padding: EdgeInsets.symmetric(horizontal: 4),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        _formatName(widget.comarcaId),
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          color: AppTheme.primary,
+                          letterSpacing: 0.4,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      splashRadius: 20,
+                      onPressed: widget.onClose,
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+                  ],
+                ),
+                Divider(
+                  color: AppTheme.primary.withValues(alpha: 0.55),
+                  height: 18,
+                  thickness: 1,
+                ),
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: () async {
+                      if (partidaIdEfectiva <= 0) {
+                        if (!mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('No se pudo identificar la partida actual'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                        return;
+                      }
+                      try {
+                        await ref.read(dioProvider).post(
+                          '/partidas/$partidaIdEfectiva/trabajar',
+                          data: {'territorio_id': widget.comarcaId},
+                        );
+                        if (!mounted) return;
+                        widget.onClose();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Comarca enviada a la mina'),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                      } on DioException catch (e) {
+                        if (!mounted) return;
+                        final detalle =
+                            e.response?.data is Map<String, dynamic>
+                            ? (e.response?.data['detail']?.toString() ??
+                                  e.message ??
+                                  'Error al enviar comarca a la mina')
+                            : (e.message ?? 'Error al enviar comarca a la mina');
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(detalle),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                    },
+                    child: Ink(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 13),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: AppTheme.primary.withValues(alpha: 0.35),
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 38,
+                            height: 38,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.18),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: AppTheme.primary.withValues(alpha: 0.22),
+                                width: 1,
+                              ),
+                            ),
+                            child: const Icon(
+                              Icons.monetization_on,
+                              size: 20,
+                              color: AppTheme.borderGoldVivo,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Mandar a la mina',
+                                  style: TextStyle(
+                                    color: AppTheme.text,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                SizedBox(height: 2),
+                                Text(
+                                  'Generar monedas con esta comarca',
+                                  style: TextStyle(
+                                    color: AppTheme.textSecondary,
+                                    fontSize: 12,
+                                    height: 1.3,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(
+                            Icons.chevron_right_rounded,
+                            color: AppTheme.primary.withValues(alpha: 0.75),
+                            size: 22,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                
+                Divider(
+                  color: AppTheme.primary.withValues(alpha: 0.55),
+                  height: 18,
+                  thickness: 1,
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 2),
+                  child: Row(
+                    children: const [
+                      Icon(
+                        Icons.science_rounded,
+                        size: 18,
+                        color: AppTheme.primary,
+                      ),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Mandar al laboratorio',
+                          style: TextStyle(
+                            color: AppTheme.primary,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 2),
+                  child: Text(
+                    'Elige una rama y una habilidad para poner esta comarca a investigar.',
+                    style: TextStyle(
+                      color: AppTheme.textSecondary,
+                      fontSize: 13,
+                      height: 1.35,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.fromLTRB(8, 14, 8, 14),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: AppTheme.primary.withValues(alpha: 0.22),
+                      width: 1,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Elige la rama tecnológica:',
+                        style: TextStyle(
+                          color: AppTheme.textSecondary,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      ...ramas.map((rama) {
+                        final seleccionada = ramaSeleccionada == rama.id;
+                        return Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(12),
+                            onTap: () {
+                              setState(() {
+                                ramaSeleccionada = rama.id;
+                                habilidadSeleccionada =
+                                    _habilidadesDeRama(rama.id).first.id;
+                              });
+                            },
+                            child: Ink(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 12,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: seleccionada
+                                      ? AppTheme.primary
+                                      : AppTheme.primary.withValues(alpha: 0.30),
+                                  width: seleccionada ? 1.4 : 1,
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 38,
+                                    height: 38,
+                                    alignment: Alignment.center,
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withValues(alpha: 0.18),
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(
+                                        color: AppTheme.primary.withValues(alpha: 0.22),
+                                        width: 1,
+                                      ),
+                                    ),
+                                    child: Text(
+                                      rama.emoji,
+                                      style: const TextStyle(fontSize: 20),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          rama.nombre,
+                                          style: TextStyle(
+                                            color: seleccionada
+                                                ? AppTheme.primary
+                                                : AppTheme.text,
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          rama.descripcion,
+                                          style: const TextStyle(
+                                            color: AppTheme.textSecondary,
+                                            fontSize: 11,
+                                            height: 1.3,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  if (seleccionada)
+                                    const Icon(
+                                      Icons.check_circle_rounded,
+                                      color: AppTheme.primary,
+                                      size: 20,
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      }),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'Elige la habilidad exacta a investigar:',
+                        style: TextStyle(
+                          color: AppTheme.textSecondary,
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      ..._habilidadesDeRama(ramaSeleccionada).map((habilidad) {
+                        final seleccionada = habilidadSeleccionada == habilidad.id;
+                        return Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(12),
+                            onTap: () {
+                              setState(() {
+                                habilidadSeleccionada = habilidad.id;
+                              });
+                            },
+                            child: Ink(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 12,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: seleccionada
+                                      ? AppTheme.primary
+                                      : AppTheme.primary.withValues(alpha: 0.30),
+                                  width: seleccionada ? 1.4 : 1,
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 38,
+                                    height: 38,
+                                    alignment: Alignment.center,
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withValues(alpha: 0.18),
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(
+                                        color: AppTheme.primary.withValues(alpha: 0.22),
+                                        width: 1,
+                                      ),
+                                    ),
+                                    child: Icon(
+                                      habilidad.icon,
+                                      color: seleccionada
+                                          ? AppTheme.primary
+                                          : AppTheme.textSecondary,
+                                      size: 20,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          habilidad.name,
+                                          style: TextStyle(
+                                            color: seleccionada
+                                                ? AppTheme.primary
+                                                : AppTheme.text,
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          habilidad.id,
+                                          style: const TextStyle(
+                                            color: AppTheme.textSecondary,
+                                            fontSize: 11,
+                                            height: 1.3,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  if (seleccionada)
+                                    const Icon(
+                                      Icons.check_circle_rounded,
+                                      color: AppTheme.primary,
+                                      size: 20,
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      }),
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: () async {
+                            if (partidaIdEfectiva <= 0) {
+                              if (!mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('No se pudo identificar la partida actual'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                              return;
+                            }
+                            try {
+                              await ref.read(dioProvider).post(
+                                '/partidas/$partidaIdEfectiva/investigar',
+                                data: {
+                                  'territorio_id': widget.comarcaId,
+                                  'rama': ramaSeleccionada,
+                                  'habilidad_id': habilidadSeleccionada,
+                                },
+                              );
+                              if (!mounted) return;
+                              widget.onClose();
+                              final label = ramas
+                                  .firstWhere((r) => r.id == ramaSeleccionada)
+                                  .nombre;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Comarca investigando: $label'),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+                            } on DioException catch (e) {
+                              if (!mounted) return;
+                              final detalle =
+                                  e.response?.data is Map<String, dynamic>
+                                  ? (e.response?.data['detail']?.toString() ??
+                                        e.message ??
+                                        'Error al iniciar investigación')
+                                  : (e.message ?? 'Error al iniciar investigación');
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(detalle),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          },
+                          icon: const Icon(Icons.science_rounded),
+                          label: const Text(
+                            'Investigar',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.2,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            elevation: 3,
+                            backgroundColor: const Color(0xFF3A2A16),
+                            foregroundColor: AppTheme.primary,
+                            padding: const EdgeInsets.symmetric(vertical: 15),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              side: BorderSide(
+                                color: AppTheme.primary.withValues(alpha: 0.75),
+                                width: 1.2,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],  
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RamaInfo {
+  final String id;
+  final String emoji;
+  final String nombre;
+  final String descripcion;
+
+  const _RamaInfo(this.id, this.emoji, this.nombre, this.descripcion);
+}

@@ -48,6 +48,65 @@ class _ActionPanelState extends ConsumerState<ActionPanel> {
     );
   }
 
+  Widget _buildGameDialog({
+    required BuildContext context,
+    required Widget child,
+    double maxWidth = 380,
+  }) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      child: Container(
+        constraints: BoxConstraints(maxWidth: maxWidth),
+        padding: const EdgeInsets.all(22),
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: AppTheme.primary,
+            width: 1.4,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.42),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: child,
+      ),
+    );
+  }
+  
+  ButtonStyle _dialogPrimaryButtonStyle() {
+    return ElevatedButton.styleFrom(
+      backgroundColor: const Color(0xFF3A2A16),
+      foregroundColor: AppTheme.primary,
+      padding: const EdgeInsets.symmetric(vertical: 13),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: AppTheme.primary.withValues(alpha: 0.75),
+          width: 1.1,
+        ),
+      ),
+    );
+  }
+  
+  ButtonStyle _dialogSecondaryButtonStyle() {
+    return OutlinedButton.styleFrom(
+      foregroundColor: AppTheme.primary,
+      side: BorderSide(
+        color: AppTheme.primary.withValues(alpha: 0.55),
+        width: 1.1,
+      ),
+      padding: const EdgeInsets.symmetric(vertical: 13),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final gameState = ref.watch(gameProvider);
@@ -83,7 +142,7 @@ class _ActionPanelState extends ConsumerState<ActionPanel> {
       }
     });
 
-    final bool isVisible = origenSeleccionado != null;
+    final bool isVisible = origenSeleccionado != null && gameState.faseActual.toLowerCase() != 'gestion';
     final territoryData = origenSeleccionado != null ? gameState.mapa[origenSeleccionado] : null;
     final owner = territoryData?.ownerId ?? 'Neutral';
     final units = territoryData?.units ?? 0;
@@ -361,33 +420,70 @@ class _ActionPanelState extends ConsumerState<ActionPanel> {
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) {
-        return AlertDialog(
-          title: Text('Atacar ${_formatName(destino)}'),
-          content: Text(
-            '¿Confirmas el ataque de ${_formatName(origen)} a ${_formatName(destino)}?\n\n'
-            'Todas tus tropas lucharán hasta conquistar o quedarse con 1.',
+        return _buildGameDialog(
+          context: context,
+          maxWidth: 360,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Atacar ${_formatName(destino)}',
+                style: const TextStyle(
+                  color: AppTheme.primary,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                '¿Confirmas el ataque de ${_formatName(origen)} a ${_formatName(destino)}?\n\n'
+                'Todas tus tropas lucharán hasta conquistar o quedarse con 1.',
+                style: const TextStyle(
+                  color: AppTheme.text,
+                  fontSize: 14,
+                  height: 1.45,
+                ),
+              ),
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () {
+                        ref.read(gameProvider.notifier).cancelarAtaque();
+                        Navigator.of(dialogContext).pop();
+                      },
+                      style: _dialogSecondaryButtonStyle(),
+                      child: const Text(
+                        'Cancelar',
+                        style: TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        await _enviarAtaquePorHttp(
+                          context: context,
+                          dialogContext: dialogContext,
+                          ref: ref,
+                          origen: origen,
+                          destino: destino,
+                        );
+                      },
+                      style: _dialogPrimaryButtonStyle(),
+                      child: const Text(
+                        '¡Atacar!',
+                        style: TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                ref.read(gameProvider.notifier).cancelarAtaque();
-                Navigator.of(dialogContext).pop();
-              },
-              child: const Text('Cancelar'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                await _enviarAtaquePorHttp(
-                  context: context,
-                  dialogContext: dialogContext,
-                  ref: ref,
-                  origen: origen,
-                  destino: destino,
-                );
-              },
-              child: const Text('¡Atacar!'),
-            ),
-          ],
         );
       },
     );
@@ -411,26 +507,47 @@ class _ActionPanelState extends ConsumerState<ActionPanel> {
       builder: (dialogContext) {
         return StatefulBuilder(
           builder: (_, setDialogState) {
-            return AlertDialog(
-              title: Text('Mover tropas a ${_formatName(destino)}'),
-              content: Column(
+            return _buildGameDialog(
+              context: context,
+              maxWidth: 380,
+              child: Column(
                 mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'De ${_formatName(origen)} → ${_formatName(destino)}',
-                    style: const TextStyle(fontStyle: FontStyle.italic),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    '$tropasAMover',
-                    style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
+                    'Mover tropas a ${_formatName(destino)}',
+                    style: const TextStyle(
+                      color: AppTheme.primary,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'De ${_formatName(origen)} → ${_formatName(destino)}',
+                    style: const TextStyle(
+                      color: AppTheme.textSecondary,
+                      fontStyle: FontStyle.italic,
+                      fontSize: 13,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Center(
+                    child: Text(
+                      '$tropasAMover',
+                      style: const TextStyle(
+                        color: AppTheme.primary,
+                        fontSize: 34,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
                   Row(
                     children: [
                       IconButton(
-                        icon: const Icon(Icons.remove_circle_outline, size: 36),
+                        icon: const Icon(Icons.remove_circle_outline, size: 34),
+                        color: AppTheme.primary,
                         onPressed: tropasAMover > 1
                             ? () => setDialogState(() => tropasAMover--)
                             : null,
@@ -444,54 +561,78 @@ class _ActionPanelState extends ConsumerState<ActionPanel> {
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.add_circle_outline, size: 36),
+                        icon: const Icon(Icons.add_circle_outline, size: 34),
+                        color: AppTheme.primary,
                         onPressed: tropasAMover < maxMover
                             ? () => setDialogState(() => tropasAMover++)
                             : null,
                       ),
                     ],
                   ),
-                  Text('Disponibles: $tropasOrigen (mín. 1 se queda en origen)'),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Disponibles: $tropasOrigen (mín. 1 se queda en origen)',
+                    style: const TextStyle(
+                      color: AppTheme.textSecondary,
+                      fontSize: 13,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () {
+                            ref.read(gameProvider.notifier).cancelarAtaque();
+                            Navigator.of(dialogContext).pop();
+                          },
+                          style: _dialogSecondaryButtonStyle(),
+                          child: const Text(
+                            'Cancelar',
+                            style: TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () async {
+                            final partidaId = ref.read(webSocketProvider).currentPartidaId;
+                            if (partidaId == null) return;
+
+                            try {
+                              final dio = ref.read(dioProvider);
+                              await dio.post(
+                                '/partidas/$partidaId/fortificar',
+                                data: {
+                                  'origen': origen,
+                                  'destino': destino,
+                                  'tropas': tropasAMover,
+                                },
+                              );
+                              if (!dialogContext.mounted) return;
+                              Navigator.of(dialogContext).pop();
+                              ref.read(gameProvider.notifier).cancelarAtaque();
+                            } on DioException catch (e) {
+                              final detalle = e.response?.data?.toString() ?? e.message;
+                              debugPrint('🔴 ERROR fortificacion: $detalle');
+                              if (!dialogContext.mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Error: $detalle')),
+                              );
+                            }
+                          },
+                          style: _dialogPrimaryButtonStyle(),
+                          child: const Text(
+                            'Mover',
+                            style: TextStyle(fontWeight: FontWeight.w800),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    ref.read(gameProvider.notifier).cancelarAtaque();
-                    Navigator.of(dialogContext).pop();
-                  },
-                  child: const Text('Cancelar'),
-                ),
-                ElevatedButton(
-                  onPressed: () async {
-                    final partidaId = ref.read(webSocketProvider).currentPartidaId;
-                    if (partidaId == null) return;
-
-                    try {
-                      final dio = ref.read(dioProvider);
-                      await dio.post(
-                        '/partidas/$partidaId/fortificar',
-                        data: {
-                          'origen': origen,
-                          'destino': destino,
-                          'tropas': tropasAMover,
-                        },
-                      );
-                      if (!dialogContext.mounted) return;
-                      Navigator.of(dialogContext).pop();
-                      ref.read(gameProvider.notifier).cancelarAtaque();
-                    } on DioException catch (e) {
-                      final detalle = e.response?.data?.toString() ?? e.message;
-                      debugPrint('🔴 ERROR fortificacion: $detalle');
-                      if (!dialogContext.mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Error: $detalle')),
-                      );
-                    }
-                  },
-                  child: const Text('Mover'),
-                ),
-              ],
             );
           },
         );
@@ -522,21 +663,47 @@ class _ActionPanelState extends ConsumerState<ActionPanel> {
       builder: (dialogContext) {
         return StatefulBuilder(
           builder: (_, setDialogState) {
-            return AlertDialog(
-              title: Text('Reforzar ${_formatName(territorio)}'),
-              content: Column(
+            return _buildGameDialog(
+              context: context,
+              maxWidth: 380,
+              child: Column(
                 mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Reserva disponible: $reserva', style: const TextStyle(fontStyle: FontStyle.italic)),
-                  const SizedBox(height: 16),
                   Text(
-                    '$tropasAEnviar',
-                    style: Theme.of(context).textTheme.displayMedium?.copyWith(fontWeight: FontWeight.bold),
+                    'Reforzar ${_formatName(territorio)}',
+                    style: const TextStyle(
+                      color: AppTheme.primary,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'Reserva disponible: $reserva',
+                    style: const TextStyle(
+                      color: AppTheme.textSecondary,
+                      fontStyle: FontStyle.italic,
+                      fontSize: 13,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Center(
+                    child: Text(
+                      '$tropasAEnviar',
+                      style: const TextStyle(
+                        color: AppTheme.primary,
+                        fontSize: 34,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
                   Row(
                     children: [
                       IconButton(
-                        icon: const Icon(Icons.remove_circle_outline, size: 36),
+                        icon: const Icon(Icons.remove_circle_outline, size: 34),
+                        color: AppTheme.primary,
                         onPressed: tropasAEnviar > 1
                             ? () => setDialogState(() => tropasAEnviar--)
                             : null,
@@ -550,62 +717,79 @@ class _ActionPanelState extends ConsumerState<ActionPanel> {
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.add_circle_outline, size: 36),
+                        icon: const Icon(Icons.add_circle_outline, size: 34),
+                        color: AppTheme.primary,
                         onPressed: tropasAEnviar < reserva
                             ? () => setDialogState(() => tropasAEnviar++)
                             : null,
                       ),
                     ],
                   ),
+                  const SizedBox(height: 18),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () {
+                            ref.read(gameProvider.notifier).cancelarAtaque();
+                            Navigator.of(dialogContext).pop();
+                          },
+                          style: _dialogSecondaryButtonStyle(),
+                          child: const Text(
+                            'Cancelar',
+                            style: TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () async {
+                            final partidaId = ref.read(webSocketProvider).currentPartidaId;
+                            if (partidaId == null) return;
+            
+                            try {
+                              final dio = ref.read(dioProvider);
+                              await dio.post(
+                                '/partidas/$partidaId/colocar_tropas',
+                                data: {
+                                  'territorio_id': territorio,
+                                  'tropas': tropasAEnviar,
+                                },
+                              );
+            
+                              final estadoActual = ref.read(gameProvider);
+                              final faseActual = estadoActual.faseActual.trim().toLowerCase();
+                              final tropasReservaRestantes =
+                                  estadoActual.jugadores[username]?.tropasReserva ?? 0;
+            
+                              if (faseActual == 'refuerzo' && tropasReservaRestantes <= 0) {
+                                await dio.post('/partidas/$partidaId/pasar_fase');
+                                ref.read(gameProvider.notifier).reiniciarTemporizador();
+                              }
+            
+                              if (!dialogContext.mounted) return;
+                              Navigator.of(dialogContext).pop();
+                            } on DioException catch (e) {
+                              final detalle = e.response?.data?.toString() ?? e.message;
+                              debugPrint('🔴 ERROR refuerzo: $detalle');
+                              if (!dialogContext.mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Error: $detalle')),
+                              );
+                            }
+                          },
+                          style: _dialogPrimaryButtonStyle(),
+                          child: const Text(
+                            'Reforzar',
+                            style: TextStyle(fontWeight: FontWeight.w800),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    ref.read(gameProvider.notifier).cancelarAtaque();
-                    Navigator.of(dialogContext).pop();
-                  },
-                  child: const Text('Cancelar'),
-                ),
-                ElevatedButton(
-                  onPressed: () async {
-                    final partidaId = ref.read(webSocketProvider).currentPartidaId;
-                    if (partidaId == null) return;
-
-                    try {
-                      final dio = ref.read(dioProvider);
-                      await dio.post(
-                        '/partidas/$partidaId/colocar_tropas',
-                        data: {
-                          'territorio_id': territorio,
-                          'tropas': tropasAEnviar,
-                        },
-                      );
-
-                      final estadoActual = ref.read(gameProvider);
-                      final faseActual = estadoActual.faseActual.trim().toLowerCase();
-                      final tropasReservaRestantes =
-                          estadoActual.jugadores[username]?.tropasReserva ?? 0;
-
-                      if (faseActual == 'refuerzo' && tropasReservaRestantes <= 0) {
-                        await dio.post('/partidas/$partidaId/pasar_fase');
-                        ref.read(gameProvider.notifier).reiniciarTemporizador();
-                      }
-
-                      if (!dialogContext.mounted) return;
-                      Navigator.of(dialogContext).pop();
-                    } on DioException catch (e) {
-                      final detalle = e.response?.data?.toString() ?? e.message;
-                      debugPrint('🔴 ERROR refuerzo: $detalle');
-                      if (!dialogContext.mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Error: $detalle')),
-                      );
-                    }
-                  },
-                  child: const Text('Reforzar'),
-                ),
-              ],
             );
           },
         );

@@ -88,12 +88,12 @@ class PanelControlGuerra extends ConsumerWidget {
 
     return Stack(
       clipBehavior: Clip.none,
-      alignment: Alignment.bottomCenter,
+      alignment: Alignment.bottomLeft,
       children: [
         // --- PANEL LATERAL DE JUGADORES (a la izquierda del panel central) ---
         Positioned(
           bottom: 10,
-          right: panelWidth / 2 + 10,
+          right: panelWidth / 2 + 12, // 12 es el padding horizontal del Stack
           child: _PanelJugadores(
             turnoDe: turnoDe,
             usernamePropio: usernamePropio,
@@ -103,11 +103,11 @@ class PanelControlGuerra extends ConsumerWidget {
 
         // --- EL PANEL CENTRAL (imagen + controles) ---
         Align(
-          alignment: Alignment.bottomCenter,
+          alignment: Alignment.bottomLeft,
           child: Container(
             width: panelWidth,
             height: panelHeight,
-            margin: EdgeInsets.zero,
+            margin: EdgeInsets.only(left: 35),
             child: Stack(
               fit: StackFit.expand,
               children: [

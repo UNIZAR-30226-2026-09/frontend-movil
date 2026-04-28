@@ -274,7 +274,7 @@ class _InteractiveGameMapState extends ConsumerState<InteractiveGameMap>
           // Boton de capas del mapa. Va encima del HUD para cambiar rapido de vista.
           Positioned(
             left: 12,
-            bottom: 110,
+            bottom: 140,
             child: SafeArea(
               top: false,
               right: false,
