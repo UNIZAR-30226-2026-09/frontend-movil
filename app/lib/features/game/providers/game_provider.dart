@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../map/services/graph_service.dart';
 import '../../map/services/map_loader.dart';
+import 'lobby_info_provider.dart';
 
 String _normalizeTechId(String raw) {
   final normalized = raw
@@ -26,17 +27,23 @@ class TerritoryState {
   final String ownerId;
   final int units;
   final String? estadoBloqueo;
+  final bool isWorking;
+  final bool isInvestigating;
 
   TerritoryState({
     required this.ownerId,
     required this.units,
     this.estadoBloqueo,
+    this.isWorking = false,
+    this.isInvestigating = false,
   });
 
   TerritoryState copyWith({
     String? ownerId,
     int? units,
     Object? estadoBloqueo = _sentinel,
+    bool? isWorking,
+    bool? isInvestigating,
   }) {
     return TerritoryState(
       ownerId: ownerId ?? this.ownerId,
@@ -44,14 +51,19 @@ class TerritoryState {
       estadoBloqueo: estadoBloqueo == _sentinel
           ? this.estadoBloqueo
           : estadoBloqueo as String?,
+      isWorking: isWorking ?? this.isWorking,
+      isInvestigating: isInvestigating ?? this.isInvestigating,
     );
   }
 
   factory TerritoryState.fromJson(Map<String, dynamic> json) {
+    final estadoBloqueo = json['estado_bloqueo']?.toString().toLowerCase();
     return TerritoryState(
       ownerId: json['owner_id']?.toString() ?? '',
       units: json['units'] as int? ?? 0,
       estadoBloqueo: json['estado_bloqueo']?.toString(),
+      isWorking: estadoBloqueo == 'trabajando',
+      isInvestigating: estadoBloqueo == 'investigando',
     );
   }
 }
@@ -206,6 +218,8 @@ class GameState {
   final Map<String, PlayerState> jugadores;
   final String turnoDe;
   final String faseActual;
+  final DateTime? finFaseUtc;
+  final int duracionTemporizadorFase;
   final int monedasGanadasUltimoTurno;
   final String investigacionCompletada;
   final int tropasRecibidasTurno;
@@ -224,6 +238,8 @@ class GameState {
     this.jugadores = const {},
     this.turnoDe = '',
     this.faseActual = 'ESPERA',
+    this.finFaseUtc,
+    this.duracionTemporizadorFase = 60,
     this.monedasGanadasUltimoTurno = 0,
     this.investigacionCompletada = '',
     this.tropasRecibidasTurno = 0,
@@ -243,6 +259,8 @@ class GameState {
     Map<String, PlayerState>? jugadores,
     String? turnoDe,
     String? faseActual,
+    Object? finFaseUtc = _sentinel,
+    int? duracionTemporizadorFase,
     int? monedasGanadasUltimoTurno,
     String? investigacionCompletada,
     int? tropasRecibidasTurno,
@@ -271,6 +289,11 @@ class GameState {
       jugadores: jugadores ?? this.jugadores,
       turnoDe: turnoDe ?? this.turnoDe,
       faseActual: faseActual ?? this.faseActual,
+        finFaseUtc: finFaseUtc == _sentinel
+          ? this.finFaseUtc
+          : finFaseUtc as DateTime?,
+        duracionTemporizadorFase:
+          duracionTemporizadorFase ?? this.duracionTemporizadorFase,
       monedasGanadasUltimoTurno:
           monedasGanadasUltimoTurno ?? this.monedasGanadasUltimoTurno,
       investigacionCompletada:
@@ -286,14 +309,90 @@ class GameState {
 // 3. Notificador (El controlador del estado)
 class GameNotifier extends Notifier<GameState> {
   Timer? _temporizadorFase;
+  bool _escuchandoTimerLobby = false;
 
-  static const int _duracionTemporizadorFase = 60;
+  int _normalizarDuracionTemporizador(int? duracion) {
+    if (duracion == null || duracion <= 0) return 60;
+    return duracion;
+  }
+
+  DateTime? _parseUtcDateTime(dynamic raw) {
+    if (raw == null) return null;
+
+    final text = raw.toString().trim();
+    if (text.isEmpty) return null;
+
+    try {
+      return DateTime.parse(text).toUtc();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  int _calcularTiempoRestante({
+    required DateTime? finFaseUtc,
+    required int duracionBase,
+  }) {
+    if (finFaseUtc == null) return duracionBase;
+
+    final restante = finFaseUtc.difference(DateTime.now().toUtc()).inSeconds;
+    return restante < 0 ? 0 : restante;
+  }
+
+  void _sincronizarTemporizadorDesdeDeadline({
+    DateTime? finFaseUtc,
+    int? duracionTemporizadorFase,
+  }) {
+    if (state.faseActual.trim().toUpperCase() == 'ESPERA') return;
+
+    final duracionBase = _normalizarDuracionTemporizador(
+      duracionTemporizadorFase ?? state.duracionTemporizadorFase,
+    );
+    final tiempoRestante = _calcularTiempoRestante(
+      finFaseUtc: finFaseUtc ?? state.finFaseUtc,
+      duracionBase: duracionBase,
+    );
+
+    state = state.copyWith(
+      duracionTemporizadorFase: duracionBase,
+      tiempoRestante: tiempoRestante,
+    );
+  }
 
   @override
   GameState build() {
     ref.onDispose(_detenerTemporizador);
+    if (!_escuchandoTimerLobby) {
+      _escuchandoTimerLobby = true;
+      ref.listen<int?>(
+        lobbyInfoProvider.select((state) => state.timerSeconds),
+        (previous, next) {
+          final nuevaDuracion = _normalizarDuracionTemporizador(next);
+          final duracionAnterior = _normalizarDuracionTemporizador(previous);
+
+          if (nuevaDuracion == duracionAnterior) return;
+
+          final estabaEnEspera =
+              state.faseActual.trim().toUpperCase() == 'ESPERA';
+          final estabaSinArrancar = state.tiempoRestante == duracionAnterior;
+
+          state = state.copyWith(duracionTemporizadorFase: nuevaDuracion);
+
+          if (estabaEnEspera || estabaSinArrancar) {
+            state = state.copyWith(tiempoRestante: nuevaDuracion);
+          }
+        },
+      );
+    }
+
+    final timerLobby = _normalizarDuracionTemporizador(
+      ref.read(lobbyInfoProvider).timerSeconds,
+    );
     _iniciarTemporizador();
-    return GameState(tiempoRestante: _duracionTemporizadorFase);
+    return GameState(
+      duracionTemporizadorFase: timerLobby,
+      tiempoRestante: timerLobby,
+    );
   }
 
   void _detenerTemporizador() {
@@ -305,23 +404,25 @@ class GameNotifier extends Notifier<GameState> {
     _detenerTemporizador();
 
     _temporizadorFase = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (state.faseActual.toUpperCase() == 'ESPERA') return;
+      if (state.faseActual.trim().toUpperCase() == 'ESPERA') return;
 
       final tiempoActual = state.tiempoRestante;
-      if (tiempoActual <= 0) {
-        reiniciarTemporizador();
-        return;
-      }
+      if (tiempoActual <= 0) return;
 
-      final siguienteTiempo = tiempoActual - 1;
-      state = state.copyWith(
-        tiempoRestante: siguienteTiempo < 0 ? 0 : siguienteTiempo,
-      );
+      state = state.copyWith(tiempoRestante: tiempoActual - 1);
     });
   }
 
   void reiniciarTemporizador() {
-    state = state.copyWith(tiempoRestante: _duracionTemporizadorFase);
+    final duracion = _normalizarDuracionTemporizador(
+      state.duracionTemporizadorFase,
+    );
+
+    state = state.copyWith(
+      duracionTemporizadorFase: duracion,
+      tiempoRestante: duracion,
+    );
+
     _iniciarTemporizador();
   }
 
@@ -402,7 +503,11 @@ class GameNotifier extends Notifier<GameState> {
     required String nuevoOwner,
   }) {
     final mapaActual = Map<String, TerritoryState>.from(state.mapa);
-    mapaActual[territorioId] = TerritoryState(
+    final territorioActual = mapaActual[territorioId];
+    mapaActual[territorioId] = (territorioActual ?? TerritoryState(
+      ownerId: nuevoOwner,
+      units: units,
+    )).copyWith(
       ownerId: nuevoOwner,
       units: units,
     );
@@ -413,14 +518,17 @@ class GameNotifier extends Notifier<GameState> {
     required String nuevaFase,
     required String jugadorActivo,
     required int tropasRecibidas,
+    String? finFaseUtc,
+    int? duracionTemporizadorFase,
+    bool usarDuracionCompleta = true,
   }) {
     final faseNormalizada = _normalizarFase(nuevaFase);
+    final nuevaFechaLimite = _parseUtcDateTime(finFaseUtc);
     final faseCambiada = faseNormalizada != state.faseActual;
     final turnoCambiado = jugadorActivo != state.turnoDe;
-
-    if (faseCambiada || turnoCambiado) {
-      reiniciarTemporizador();
-    }
+    final duracionBase = _normalizarDuracionTemporizador(
+      duracionTemporizadorFase ?? state.duracionTemporizadorFase,
+    );
 
     final jugadoresActualizados = Map<String, PlayerState>.from(
       state.jugadores,
@@ -448,6 +556,8 @@ class GameNotifier extends Notifier<GameState> {
       faseActual: faseNormalizada,
       turnoDe: jugadorActivo,
       jugadores: jugadoresActualizados,
+      finFaseUtc: nuevaFechaLimite ?? state.finFaseUtc,
+      duracionTemporizadorFase: duracionBase,
       monedasGanadasUltimoTurno: resetResumenGestion
           ? 0
           : state.monedasGanadasUltimoTurno,
@@ -457,6 +567,18 @@ class GameNotifier extends Notifier<GameState> {
       tropasRecibidasTurno: refuerzosRecibidos,
       ultimosRefuerzosRecibidos: refuerzosRecibidos,
     );
+
+    if (faseCambiada || turnoCambiado || nuevaFechaLimite != null) {
+      if (usarDuracionCompleta) {
+        state = state.copyWith(tiempoRestante: duracionBase);
+        _iniciarTemporizador();
+      } else {
+        _sincronizarTemporizadorDesdeDeadline(
+          finFaseUtc: nuevaFechaLimite,
+          duracionTemporizadorFase: duracionBase,
+        );
+      }
+    }
   }
 
   void registrarTrabajoCompletadoDesdeWs({
@@ -529,6 +651,18 @@ class GameNotifier extends Notifier<GameState> {
       });
     }
 
+    final finFaseUtc = _parseUtcDateTime(
+      jsonPartida['fin_fase_utc'] ?? jsonPartida['fin_fase_actual'],
+    );
+    final duracionTemporizadorFase =
+        jsonPartida['config_timer_seconds'] as int? ??
+        jsonPartida['configuracion_timer_seconds'] as int? ??
+        state.duracionTemporizadorFase;
+
+    final tipoEvento = jsonPartida['tipo_evento']?.toString().toUpperCase();
+    final esEventoFaseEnVivo =
+      tipoEvento == 'PARTIDA_INICIADA' || tipoEvento == 'CAMBIO_FASE';
+
     final faseRaw =
         jsonPartida['fase_actual'] ??
         jsonPartida['nueva_fase'] ??
@@ -541,13 +675,6 @@ class GameNotifier extends Notifier<GameState> {
         jsonPartida['jugador_activo'] ??
         state.turnoDe;
     final nuevoTurno = turnoRaw.toString();
-    final faseCambiada = faseNormalizada != state.faseActual;
-    final turnoCambiado = nuevoTurno != state.turnoDe;
-
-    if (faseCambiada || turnoCambiado) {
-      reiniciarTemporizador();
-    }
-
     // CAMBIO_FASE suele venir sin bloque de jugadores. Si trae tropas_recibidas,
     // las sumamos al jugador activo para que el HUD se actualice al instante.
     final tropasRecibidasRaw = jsonPartida['tropas_recibidas'];
@@ -586,9 +713,25 @@ class GameNotifier extends Notifier<GameState> {
       jugadores: Map<String, PlayerState>.from(jugadoresActualizados),
       turnoDe: nuevoTurno,
       faseActual: faseNormalizada,
+      finFaseUtc: finFaseUtc ?? state.finFaseUtc,
+      duracionTemporizadorFase: duracionTemporizadorFase,
       tropasRecibidasTurno: refuerzosRecibidos,
       ultimosRefuerzosRecibidos: refuerzosRecibidos,
     );
+
+    if (esEventoFaseEnVivo) {
+      state = state.copyWith(
+        tiempoRestante: _normalizarDuracionTemporizador(
+          duracionTemporizadorFase,
+        ),
+      );
+      _iniciarTemporizador();
+    } else if (finFaseUtc != null) {
+      _sincronizarTemporizadorDesdeDeadline(
+        finFaseUtc: finFaseUtc,
+        duracionTemporizadorFase: duracionTemporizadorFase,
+      );
+    }
   }
 
   void restarTropasReserva({required String jugadorId, required int tropas}) {
@@ -870,17 +1013,20 @@ class GameNotifier extends Notifier<GameState> {
     final territorioActual = mapaActual[territorioId];
     if (territorioActual == null) return;
 
-    mapaActual[territorioId] = TerritoryState(
-      ownerId: territorioActual.ownerId,
-      units: units,
-    );
+    mapaActual[territorioId] = territorioActual.copyWith(units: units);
 
     state = state.copyWith(mapa: mapaActual);
   }
 
   void resetState() {
     _detenerTemporizador();
-    state = GameState();
+    final timerLobby = _normalizarDuracionTemporizador(
+      ref.read(lobbyInfoProvider).timerSeconds,
+    );
+    state = GameState(
+      duracionTemporizadorFase: timerLobby,
+      tiempoRestante: timerLobby,
+    );
     _iniciarTemporizador();
   }
 }

@@ -223,6 +223,8 @@ class WebSocketNotifier extends Notifier<WebSocketState> {
                       nuevaFase: nuevaFase,
                       jugadorActivo: jugadorActivo,
                       tropasRecibidas: 0,
+                      finFaseUtc: payload['fin_fase_utc']?.toString(),
+                      usarDuracionCompleta: false,
                     );
               }
 
@@ -443,6 +445,7 @@ class WebSocketNotifier extends Notifier<WebSocketState> {
                     nuevaFase: nuevaFase,
                     jugadorActivo: jugadorActivo,
                     tropasRecibidas: tropasRecibidas,
+                    finFaseUtc: payload['fin_fase_utc']?.toString(),
                   );
               return;
             }

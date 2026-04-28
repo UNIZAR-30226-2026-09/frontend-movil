@@ -42,6 +42,7 @@ class _CrearPartidaPanelState extends ConsumerState<CrearPartidaPanel> {
         codigoInvitacion: match.codigoInvitacion,
         maxPlayers: match.configMaxPlayers,
         visibility: match.configVisibility,
+        timerSeconds: match.configTimerSeconds,
         jugadoresEnSala: [
           JugadorPartidaModel(
             usuarioId: usuarioActual ?? '',

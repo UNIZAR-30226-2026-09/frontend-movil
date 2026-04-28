@@ -30,7 +30,12 @@ class PublicMatchModel {
         json['config_visibility'] as String? ?? '';
     final codigoInvitacion =
         json['codigo_invitacion'] as String? ?? '';
-    final configTimerSeconds = json['config_timer_seconds'] as int? ?? 0;
+    final rawTimer = json['config_timer_seconds'];
+    final configTimerSeconds = rawTimer is int
+      ? rawTimer
+      : (rawTimer is num
+          ? rawTimer.toInt()
+          : int.tryParse(rawTimer?.toString() ?? '') ?? 0);
 
     // 'estado' puede venir en minúsculas desde el endpoint de resumen.
     final estado = (json['estado'] as String? ?? '').toUpperCase();

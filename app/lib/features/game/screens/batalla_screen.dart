@@ -175,6 +175,11 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
       if (partida != null &&
           partida.codigoInvitacion.isNotEmpty &&
           mounted) {
+        if (partida.configTimerSeconds > 0) {
+          ref
+              .read(lobbyInfoProvider.notifier)
+              .setTimerSeconds(partida.configTimerSeconds);
+        }
         setState(() => _codigoPartida = partida.codigoInvitacion);
       }
     } catch (_) {

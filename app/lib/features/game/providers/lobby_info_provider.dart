@@ -9,6 +9,7 @@ class LobbyInfoState {
   final String? codigoInvitacion;
   final int? maxPlayers;
   final String? visibility;
+  final int? timerSeconds;
 
   const LobbyInfoState({
     this.partidaId,
@@ -17,6 +18,7 @@ class LobbyInfoState {
     this.codigoInvitacion,
     this.maxPlayers,
     this.visibility,
+    this.timerSeconds,
   });
 
   LobbyInfoState copyWith({
@@ -26,6 +28,7 @@ class LobbyInfoState {
     Object? codigoInvitacion = _noChange,
     int? maxPlayers,
     Object? visibility = _noChange,
+    int? timerSeconds,
   }) {
     return LobbyInfoState(
       partidaId: partidaId ?? this.partidaId,
@@ -37,6 +40,7 @@ class LobbyInfoState {
       maxPlayers: maxPlayers ?? this.maxPlayers,
       visibility:
           visibility == _noChange ? this.visibility : visibility as String?,
+      timerSeconds: timerSeconds ?? this.timerSeconds,
     );
   }
 }
@@ -64,6 +68,7 @@ class LobbyInfoNotifier extends StateNotifier<LobbyInfoState> {
     required String codigoInvitacion,
     required int maxPlayers,
     required String visibility,
+    required int timerSeconds,
     required List<JugadorPartidaModel> jugadoresEnSala,
   }) {
     state = state.copyWith(
@@ -72,8 +77,13 @@ class LobbyInfoNotifier extends StateNotifier<LobbyInfoState> {
       codigoInvitacion: codigoInvitacion,
       maxPlayers: maxPlayers,
       visibility: visibility,
+      timerSeconds: timerSeconds,
       jugadoresEnSala: jugadoresEnSala,
     );
+  }
+
+  void setTimerSeconds(int timerSeconds) {
+    state = state.copyWith(timerSeconds: timerSeconds);
   }
 
   void clear() {

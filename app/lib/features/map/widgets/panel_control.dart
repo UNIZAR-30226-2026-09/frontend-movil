@@ -81,7 +81,13 @@ class PanelControlGuerra extends ConsumerWidget {
     final tiempoRestante = ref.watch(
       gameProvider.select((state) => state.tiempoRestante),
     );
-    final progresoTemporizador = tiempoRestante / 60.0;
+    final duracionTemporizador = ref.watch(
+      gameProvider.select((state) => state.duracionTemporizadorFase),
+    );
+    final progresoTemporizador = (
+      tiempoRestante /
+      (duracionTemporizador > 0 ? duracionTemporizador.toDouble() : 1.0)
+    ).clamp(0.0, 1.0);
 
     // Solo habilitamos el botón si es nuestro turno
     final esMiTurno = turnoDe == usernamePropio;
