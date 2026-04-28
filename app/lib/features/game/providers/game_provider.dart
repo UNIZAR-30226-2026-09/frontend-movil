@@ -25,16 +25,39 @@ final graphServiceProvider = FutureProvider<GraphService>((ref) async {
 class TerritoryState {
   final String ownerId;
   final int units;
+  final String? estadoBloqueo;
 
-  TerritoryState({required this.ownerId, required this.units});
+  TerritoryState({
+    required this.ownerId,
+    required this.units,
+    this.estadoBloqueo,
+  });
+
+  TerritoryState copyWith({
+    String? ownerId,
+    int? units,
+    Object? estadoBloqueo = _sentinel,
+  }) {
+    return TerritoryState(
+      ownerId: ownerId ?? this.ownerId,
+      units: units ?? this.units,
+      estadoBloqueo: estadoBloqueo == _sentinel
+          ? this.estadoBloqueo
+          : estadoBloqueo as String?,
+    );
+  }
 
   factory TerritoryState.fromJson(Map<String, dynamic> json) {
     return TerritoryState(
-      ownerId: json['owner_id'] ?? '',
-      units: json['units'] ?? 0,
+      ownerId: json['owner_id']?.toString() ?? '',
+      units: json['units'] as int? ?? 0,
+      estadoBloqueo: json['estado_bloqueo']?.toString(),
     );
   }
 }
+
+// Sentinel privado para distinguir null explícito de campo no pasado en copyWith.
+const Object _sentinel = Object();
 
 class PlayerState {
   final int tropasReserva;
@@ -361,6 +384,16 @@ class GameNotifier extends Notifier<GameState> {
     );
     jugadoresActualizados[username] = PlayerState(tropasReserva: 0);
     state = state.copyWith(jugadores: jugadoresActualizados);
+  }
+
+  void actualizarEstadoBloqueo(String territorioId, String? nuevoEstado) {
+    final mapaActual = Map<String, TerritoryState>.from(state.mapa);
+    final territorioActual = mapaActual[territorioId];
+    if (territorioActual == null) return;
+    mapaActual[territorioId] = territorioActual.copyWith(
+      estadoBloqueo: nuevoEstado,
+    );
+    state = state.copyWith(mapa: mapaActual);
   }
 
   void actualizarTerritorioConDueno({

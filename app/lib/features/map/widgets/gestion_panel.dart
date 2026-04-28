@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:soberania/features/game/data/tech_tree_data.dart';
 import 'package:soberania/features/game/models/tech_tree_model.dart';
+import 'package:soberania/features/game/providers/game_provider.dart';
 import 'package:soberania/features/game/providers/websocket_provider.dart';
 import '../../../app/theme/app_theme.dart';
 import '../../../shared/api/dio_provider.dart';
@@ -172,6 +173,8 @@ class _GestionPanelState extends ConsumerState<GestionPanel> {
                           data: {'territorio_id': widget.comarcaId},
                         );
                         if (!mounted) return;
+                        ref.read(gameProvider.notifier)
+                            .actualizarEstadoBloqueo(widget.comarcaId, 'trabajando');
                         widget.onClose();
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
@@ -533,6 +536,8 @@ class _GestionPanelState extends ConsumerState<GestionPanel> {
                                 },
                               );
                               if (!mounted) return;
+                              ref.read(gameProvider.notifier)
+                                  .actualizarEstadoBloqueo(widget.comarcaId, 'investigando');
                               widget.onClose();
                               final label = ramas
                                   .firstWhere((r) => r.id == ramaSeleccionada)

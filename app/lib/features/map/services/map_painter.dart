@@ -800,6 +800,7 @@ class MapPainter extends CustomPainter {
     String tropas,
     Color fillColor,
     Color strokeColor,
+    Color textColor,
     double scale,
     double viewerScale,
   ) {
@@ -859,7 +860,7 @@ class MapPainter extends CustomPainter {
     fillPainter.text = TextSpan(
       text: tropas,
       style: TextStyle(
-        color: const Color(0xFFF0F0F5),
+        color: textColor,
         fontSize: 10.8 / (scale * effectiveZoom),
         fontWeight: FontWeight.w900,
       ),
@@ -1118,7 +1119,6 @@ class MapPainter extends CustomPainter {
     }
 
     // PINTADO DE PUENTES
-
     _paintPuentes(canvas, scale);
 
     // 3. PINTADO DE TROPAS
@@ -1132,17 +1132,34 @@ class MapPainter extends CustomPainter {
       final territoryData = gameState.mapa[comarca.id];
       final tropas = territoryData != null ? territoryData.units.toString() : '0';
       final ownerId = territoryData?.ownerId ?? '';
+      final estadoBloqueo = territoryData?.estadoBloqueo;
 
       final center = _getCentroComarca(path);
-      final fichaColor = _getPlayerColor(ownerId);
       final fichaStrokeColor = _getFichaStrokeColor(comarca);
+
+      final Color baseColor = _getPlayerColor(ownerId);
+      Color finalFichaColor = baseColor;
+      Color finalTextColor = const Color(0xFFF0F0F5);
+
+      if (estadoBloqueo == 'investigando') {
+        finalFichaColor = Colors.white;
+        finalTextColor = baseColor == AppTheme.mapLandNeutral
+            ? const Color(0xFF1A1A24)
+            : baseColor;
+      } else if (estadoBloqueo == 'trabajando') {
+        finalFichaColor = AppTheme.borderGoldVivo;
+        finalTextColor = baseColor == AppTheme.mapLandNeutral
+            ? const Color(0xFF1A1A24)
+            : baseColor;
+      }
 
       _paintFichaTropas(
         canvas,
         center,
         tropas,
-        fichaColor,
+        finalFichaColor,
         fichaStrokeColor,
+        finalTextColor,
         scale,
         viewerScale,
       );
