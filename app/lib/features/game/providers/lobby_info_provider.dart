@@ -54,12 +54,18 @@ class LobbyInfoNotifier extends StateNotifier<LobbyInfoState> {
     required int partidaId,
     required String creador,
     required List<JugadorPartidaModel> jugadoresEnSala,
+    required String codigoInvitacion,
   }) {
     state = state.copyWith(
       partidaId: partidaId,
       creador: creador,
       jugadoresEnSala: jugadoresEnSala,
+      codigoInvitacion: codigoInvitacion,
     );
+  }
+
+  void rescatarCodigoInvitacion(String codigo) {
+    state = state.copyWith(codigoInvitacion: codigo);
   }
 
   void setFromCreatedMatch({
@@ -79,6 +85,16 @@ class LobbyInfoNotifier extends StateNotifier<LobbyInfoState> {
       visibility: visibility,
       timerSeconds: timerSeconds,
       jugadoresEnSala: jugadoresEnSala,
+    );
+  }
+
+  void setFromPausedMatch({
+    required int partidaId,
+    required String codigoInvitacion,
+  }) {
+    state = state.copyWith(
+      partidaId: partidaId,
+      codigoInvitacion: codigoInvitacion,
     );
   }
 

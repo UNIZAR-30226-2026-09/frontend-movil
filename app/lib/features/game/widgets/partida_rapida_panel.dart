@@ -39,6 +39,7 @@ class _PartidaRapidaPanelState extends ConsumerState<PartidaRapidaPanel> {
         partidaId: partidaId,
         creador: joinResponse.creador,
         jugadoresEnSala: joinResponse.jugadoresEnSala,
+        codigoInvitacion: codigo,
       );
 
       widget.onClose();

@@ -17,6 +17,13 @@ class MatchmakingService {
 
   // Devuelve la partida activa o pausada del usuario, o null si no tiene ninguna.
   // Devuelve la partida activa o pausada del usuario, o null si no tiene ninguna.
+  Future<List<PublicMatchModel>> getPartidasPausadas() async {
+    final response = await dio.get('/partidas/pausadas');
+    return (response.data as List)
+        .map((j) => PublicMatchModel.fromJson(j as Map<String, dynamic>))
+        .toList();
+  }
+
   Future<PublicMatchModel?> getMiPartidaActiva() async {
     try {
       final response = await dio.get('/partidas/mi-partida');

@@ -180,6 +180,11 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
               .read(lobbyInfoProvider.notifier)
               .setTimerSeconds(partida.configTimerSeconds);
         }
+        // Persistimos el código en el provider para que no se pierda
+        // si el usuario vuelve a la pantalla sin reiniciar el flujo.
+        ref
+            .read(lobbyInfoProvider.notifier)
+            .rescatarCodigoInvitacion(partida.codigoInvitacion);
         setState(() => _codigoPartida = partida.codigoInvitacion);
       }
     } catch (_) {

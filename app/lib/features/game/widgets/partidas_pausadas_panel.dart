@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../app/router/app_routes.dart';
 import '../models/partida_publica_model.dart';
+import '../providers/lobby_info_provider.dart';
 import '../providers/matchmaking_provider.dart';
 
 class PartidasPausadasPanel extends ConsumerStatefulWidget {
@@ -38,12 +39,12 @@ class _PartidasPausadasPanelState
     });
 
     try {
-      final partida = await ref
+      final lista = await ref
           .read(matchmakingServiceProvider)
-          .getMiPartidaActiva();
+          .getPartidasPausadas();
       if (!mounted) return;
       setState(() {
-        _partida = partida;
+        _partida = lista.isNotEmpty ? lista.first : null;
         _cargando = false;
       });
     } catch (e) {
@@ -56,6 +57,10 @@ class _PartidasPausadasPanelState
   }
 
   void _entrar(PublicMatchModel partida) {
+    ref.read(lobbyInfoProvider.notifier).setFromPausedMatch(
+      partidaId: partida.id,
+      codigoInvitacion: partida.codigoInvitacion,
+    );
     widget.onClose();
     context.push(
       AppRoutes.lobbyPath(partida.id),

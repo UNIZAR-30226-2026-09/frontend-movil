@@ -18,26 +18,25 @@ class PublicMatchModel {
   });
 
   factory PublicMatchModel.fromJson(Map<String, dynamic> json) {
-    // /partidas devuelve 'id', pero /partidas/mi-partida devuelve 'partida_id'.
     final id =
         json['id'] as int? ??
         json['partida_id'] as int? ??
+        json['id_partida'] as int? ??
         0;
 
-    // El endpoint de resumen no incluye campos de configuración.
     final configMaxPlayers = json['config_max_players'] as int? ?? 0;
-    final configVisibility =
-        json['config_visibility'] as String? ?? '';
+    final configVisibility = json['config_visibility'] as String? ?? '';
     final codigoInvitacion =
-        json['codigo_invitacion'] as String? ?? '';
+        json['codigo_invitacion'] as String? ??
+        json['codigo'] as String? ??
+        '';
     final rawTimer = json['config_timer_seconds'];
     final configTimerSeconds = rawTimer is int
-      ? rawTimer
-      : (rawTimer is num
-          ? rawTimer.toInt()
-          : int.tryParse(rawTimer?.toString() ?? '') ?? 0);
+        ? rawTimer
+        : (rawTimer is num
+            ? rawTimer.toInt()
+            : int.tryParse(rawTimer?.toString() ?? '') ?? 0);
 
-    // 'estado' puede venir en minúsculas desde el endpoint de resumen.
     final estado = (json['estado'] as String? ?? '').toUpperCase();
 
     final ganador = json['ganador'] as String?;

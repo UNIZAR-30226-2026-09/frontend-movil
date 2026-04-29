@@ -52,6 +52,7 @@ class _IntroducirCodigoPanelState
         partidaId: partidaId,
         creador: joinResponse.creador,
         jugadoresEnSala: joinResponse.jugadoresEnSala,
+        codigoInvitacion: _codigoController.text.trim().toUpperCase(),
       );
 
       widget.onClose();
