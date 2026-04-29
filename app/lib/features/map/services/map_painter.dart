@@ -934,6 +934,72 @@ class MapPainter extends CustomPainter {
     );
   }
 
+  static const Map<String, Offset> _regionLabelOffsets = {
+    'alto_ebro': Offset(-18, -6),
+    'campos_serrania': Offset(-32, 10),
+    'valles_matarrana': Offset(34, 8),
+    'estepas_y_condados': Offset(18, -10),
+    'frontera_pirenaica': Offset(0, -12),
+    'sierras_del_sur': Offset(0, 10),
+  };
+
+  void _paintRegionLabel(
+    Canvas canvas,
+    Offset center,
+    String text,
+    double textScale,
+  ) {
+    final textPainter = TextPainter(
+      textAlign: TextAlign.center,
+      textDirection: TextDirection.ltr,
+      maxLines: 3,
+      ellipsis: '…',
+    );
+
+    textPainter.text = TextSpan(
+      text: text.toUpperCase(),
+      style: TextStyle(
+        color: const Color(0xFFF2F4F8),
+        fontSize: 13.0 / textScale,
+        fontWeight: FontWeight.w900,
+        height: 1.0,
+        shadows: [
+          Shadow(
+            color: Colors.black.withOpacity(0.95),
+            offset: Offset(1.2 / textScale, 1.2 / textScale),
+            blurRadius: 0.5,
+          ),
+          Shadow(
+            color: Colors.black.withOpacity(0.75),
+            offset: Offset(-0.8 / textScale, 0),
+          ),
+          Shadow(
+            color: Colors.black.withOpacity(0.75),
+            offset: Offset(0.8 / textScale, 0),
+          ),
+          Shadow(
+            color: Colors.black.withOpacity(0.75),
+            offset: Offset(0, -0.8 / textScale),
+          ),
+          Shadow(
+            color: Colors.black.withOpacity(0.75),
+            offset: Offset(0, 0.8 / textScale),
+          ),
+        ],
+      ),
+    );
+
+    textPainter.layout(maxWidth: 180.0 / textScale);
+
+    textPainter.paint(
+      canvas,
+      Offset(
+        center.dx - textPainter.width / 2,
+        center.dy - textPainter.height / 2,
+      ),
+    );
+  }
+
   void _paintVistaRegiones(
     Canvas canvas,
     Paint fillPaint,
@@ -951,16 +1017,7 @@ class MapPainter extends CustomPainter {
       ..strokeWidth = 0.8
       ..color = AppTheme.secondary.withValues(alpha: 0.55);
 
-    final textPainter = TextPainter(
-      textAlign: TextAlign.center,
-      textDirection: TextDirection.ltr,
-      maxLines: 2,
-    );
-
-    final fontWorld = 12.0 / (scale * viewerScale);
-    final radius = 6.0 / (scale * viewerScale);
-    final padX = 6.0 / (scale * viewerScale);
-    final padY = 4.0 / (scale * viewerScale);
+    final labels = <({Offset center, String text})>[];
 
     for (final region in regions) {
       final regionPath = _buildRegionUnionPath(region);
@@ -981,36 +1038,12 @@ class MapPainter extends CustomPainter {
         porcentaje = ((controladas * 100) / total).round();
       }
 
-      final textoRegion = '${region.name}\n$controladas/$total - $porcentaje%';
-      textPainter.text = TextSpan(
-        text: textoRegion,
-        style: TextStyle(
-          color: AppTheme.text,
-          fontSize: fontWorld,
-          fontWeight: FontWeight.w800,
-          height: 1.15,
-        ),
-      );
-      textPainter.layout(maxWidth: 180.0 / (scale * viewerScale));
+      final textoRegion = '${region.name}\n$porcentaje% ($controladas/$total)';
+      final baseCenter = regionPath.getBounds().center;
+      final offset = _regionLabelOffsets[region.id] ?? Offset.zero;
+      final center = baseCenter + offset;
 
-      final center = regionPath.getBounds().center;
-      final textOffset = Offset(
-        center.dx - textPainter.width / 2,
-        center.dy - textPainter.height / 2,
-      );
-
-      final textBgRect = Rect.fromLTWH(
-        textOffset.dx - padX,
-        textOffset.dy - padY,
-        textPainter.width + padX * 2,
-        textPainter.height + padY * 2,
-      );
-
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(textBgRect, Radius.circular(radius)),
-        Paint()..color = AppTheme.bg.withValues(alpha: 0.58),
-      );
-      textPainter.paint(canvas, textOffset);
+      labels.add((center: center, text: textoRegion));
     }
 
     // Dejamos los bordes internos de comarca para no perder lectura del terreno.
@@ -1041,7 +1074,13 @@ class MapPainter extends CustomPainter {
       }
 
       canvas.drawPath(path, baseStroke);
+
+      
     }
+
+    for (final label in labels) {
+      _paintRegionLabel(canvas, label.center, label.text, scale * viewerScale);
+    } 
   }
 
   @override
