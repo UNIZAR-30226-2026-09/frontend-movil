@@ -29,7 +29,7 @@ class _UnirsePartidaPanelState extends ConsumerState<UnirsePartidaPanel> {
 
   // ── Vista 2: partida pausada ─────────────────────────────────────────────
   bool _cargandoPausada = false;
-  PublicMatchModel? _partidaPausada;
+  List<PublicMatchModel>? _partidas;
   String? _errorPausada;
   bool _pausadaCargada = false;
 
@@ -60,14 +60,14 @@ class _UnirsePartidaPanelState extends ConsumerState<UnirsePartidaPanel> {
           await ref.read(matchmakingServiceProvider).getPartidasPausadas();
       if (!mounted) return;
       setState(() {
-        _partidaPausada = lista.isNotEmpty ? lista.first : null;
+        _partidas = lista;
         _cargandoPausada = false;
         _pausadaCargada = true;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _errorPausada = 'No se pudo comprobar tu partida pausada.';
+        _errorPausada = 'No se pudo comprobar tus partidas pausadas.';
         _cargandoPausada = false;
         _pausadaCargada = true;
       });
@@ -203,7 +203,7 @@ class _UnirsePartidaPanelState extends ConsumerState<UnirsePartidaPanel> {
                         )
                       : _VistaPausada(
                           cargando: _cargandoPausada,
-                          partida: _partidaPausada,
+                          partidas: _partidas,
                           error: _errorPausada,
                           onReintentar: _cargarPausada,
                           onEntrar: _entrarPausada,
@@ -414,14 +414,14 @@ class _VistaCodigo extends ConsumerWidget {
 class _VistaPausada extends StatelessWidget {
   const _VistaPausada({
     required this.cargando,
-    required this.partida,
+    required this.partidas,
     required this.error,
     required this.onReintentar,
     required this.onEntrar,
   });
 
   final bool cargando;
-  final PublicMatchModel? partida;
+  final List<PublicMatchModel>? partidas;
   final String? error;
   final VoidCallback onReintentar;
   final ValueChanged<PublicMatchModel> onEntrar;
@@ -457,7 +457,7 @@ class _VistaPausada extends StatelessWidget {
       );
     }
 
-    if (partida == null) {
+    if (partidas == null || partidas!.isEmpty) {
       return const Center(
         child: Padding(
           padding: EdgeInsets.all(20),
@@ -470,60 +470,65 @@ class _VistaPausada extends StatelessWidget {
       );
     }
 
-    return Padding(
-      padding: const EdgeInsets.all(14),
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: const Color(0xFF252530),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFFC5A059), width: 1),
-        ),
-        child: Row(
-          children: [
-            const Icon(Icons.pause_circle_outline_rounded, size: 32),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'Código: ${partida!.codigoInvitacion}',
-                    style: const TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Jugadores: ${partida!.configMaxPlayers} máx.',
-                    style: const TextStyle(color: Color(0xFFA0A0B0)),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'Visibilidad: ${partida!.configVisibility}',
-                    style: const TextStyle(color: Color(0xFFA0A0B0)),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFC5A059),
-                foregroundColor: Colors.black,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+    return ListView.separated(
+      padding: const EdgeInsets.all(12),
+      itemCount: partidas!.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 10),
+      itemBuilder: (context, index) {
+        final partida = partidas![index];
+        return Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: const Color(0xFF252530),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFC5A059), width: 1),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.pause_circle_outline_rounded, size: 32),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Código: ${partida.codigoInvitacion}',
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Jugadores: ${partida.configMaxPlayers} máx.',
+                      style: const TextStyle(color: Color(0xFFA0A0B0)),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Visibilidad: ${partida.configVisibility}',
+                      style: const TextStyle(color: Color(0xFFA0A0B0)),
+                    ),
+                  ],
                 ),
               ),
-              onPressed: () => onEntrar(partida!),
-              child: const Text(
-                'Entrar',
-                style: TextStyle(fontWeight: FontWeight.bold),
+              const SizedBox(width: 12),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFC5A059),
+                  foregroundColor: Colors.black,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                onPressed: () => onEntrar(partida),
+                child: const Text(
+                  'Entrar',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
               ),
-            ),
-          ],
-        ),
-      ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
