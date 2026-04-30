@@ -706,7 +706,10 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
                   ),
                 ),
               ),
-              ActionPanel(techNodes: _techNodes),
+              ActionPanel(
+                techNodes: _techNodes,
+                catalogOwnedTechIds: _techCatalogOwnedIds,
+              ),
               AnimatedPositioned(
                 duration: const Duration(milliseconds: 300),
                 curve: Curves.easeInOut,
@@ -720,6 +723,10 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
                     partidaId: widget.partidaId,
                     onClose: _cerrarPanelGestion,
                     techNodes: _techNodes,
+                    catalogUnlockedTechIds: _techCatalogUnlockedIds,
+                    catalogOwnedTechIds: _techCatalogOwnedIds,
+                    authoritativeUnlocks:
+                        _techCatalogHasAuthoritativeAvailability,
                   ),
                 ),
               ),

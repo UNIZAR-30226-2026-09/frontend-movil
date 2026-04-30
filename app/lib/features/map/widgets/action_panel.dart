@@ -13,9 +13,11 @@ class ActionPanel extends ConsumerStatefulWidget {
   const ActionPanel({
     super.key,
     this.techNodes = const <TechNodeModel>[],
+    this.catalogOwnedTechIds = const <String>{},
   });
 
   final List<TechNodeModel> techNodes;
+  final Set<String> catalogOwnedTechIds;
 
   @override
   ConsumerState<ActionPanel> createState() => _ActionPanelState();
@@ -139,7 +141,10 @@ class _ActionPanelState extends ConsumerState<ActionPanel> {
   }
 
   List<SpecialAttackModel> _ownedSpecialAttacks(GameState gameState, String username) {
-    final ownedIds = gameState.jugadores[username]?.tecnologiasCompradas.toSet() ?? const <String>{};
+    final ownedIds = <String>{
+      ...(gameState.jugadores[username]?.tecnologiasCompradas ?? const <String>[]),
+      ...widget.catalogOwnedTechIds,
+    };
     final attacks = <SpecialAttackModel>[];
 
     for (final node in widget.techNodes) {

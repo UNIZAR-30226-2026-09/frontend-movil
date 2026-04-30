@@ -16,12 +16,18 @@ class GestionPanel extends ConsumerStatefulWidget {
     required this.partidaId,
     required this.onClose,
     this.techNodes = const <TechNodeModel>[],
+    this.catalogUnlockedTechIds = const <String>{},
+    this.catalogOwnedTechIds = const <String>{},
+    this.authoritativeUnlocks = false,
   });
 
   final String comarcaId;
   final int partidaId;
   final VoidCallback onClose;
   final List<TechNodeModel> techNodes;
+  final Set<String> catalogUnlockedTechIds;
+  final Set<String> catalogOwnedTechIds;
+  final bool authoritativeUnlocks;
 
   @override
   ConsumerState<GestionPanel> createState() => _GestionPanelState();
@@ -104,17 +110,25 @@ class _GestionPanelState extends ConsumerState<GestionPanel> {
     final panelMaxHeight = MediaQuery.of(context).size.height * 0.74;
     final username = ref.watch(authProvider).user?.username ?? '';
     final playerState = ref.watch(gameProvider).jugadores[username];
-    final ownedTechs = playerState?.tecnologiasCompradas.toSet() ?? const <String>{};
-    final unlockedTechs =
-        playerState?.tecnologiasPredesbloqueadas.toSet() ?? const <String>{};
-    final authoritativeUnlocks = unlockedTechs.isNotEmpty;
+    final ownedTechs = <String>{
+      ...(playerState?.tecnologiasCompradas ?? const <String>[]),
+      ...widget.catalogOwnedTechIds,
+    };
+    final unlockedTechs = <String>{
+      ...(playerState?.tecnologiasPredesbloqueadas ?? const <String>[]),
+      ...widget.catalogUnlockedTechIds,
+      ...widget.catalogOwnedTechIds,
+    };
+    final authoritativeUnlocks =
+        widget.authoritativeUnlocks || unlockedTechs.isNotEmpty;
+    final hasExplicitUnlockedAvailability = unlockedTechs.isNotEmpty;
 
     bool isOwned(TechNodeModel node) => ownedTechs.contains(node.id);
 
     bool isUnlocked(TechNodeModel node) {
       if (isOwned(node)) return true;
       if (unlockedTechs.contains(node.id)) return true;
-      if (authoritativeUnlocks) return false;
+      if (authoritativeUnlocks && hasExplicitUnlockedAvailability) return false;
       return node.prerequisites.every(ownedTechs.contains);
     }
 
@@ -607,7 +621,6 @@ class _GestionPanelState extends ConsumerState<GestionPanel> {
                                 '/partidas/$partidaIdEfectiva/investigar',
                                 data: {
                                   'territorio_id': widget.comarcaId,
-                                  'rama': ramaSeleccionada,
                                   'habilidad_id': habilidadSeleccionada,
                                 },
                               );

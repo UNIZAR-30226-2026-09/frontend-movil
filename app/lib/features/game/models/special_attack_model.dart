@@ -40,7 +40,7 @@ class SpecialAttackModel {
   });
 
   static SpecialAttackModel? fromTechNode(TechNodeModel node) {
-    final rawConfig = _extractConfig(node.metadata);
+    final rawConfig = _extractConfig(node.metadata) ?? _inferConfig(node);
     if (rawConfig == null) return null;
 
     final config = <String, dynamic>{...node.metadata, ...rawConfig};
@@ -105,7 +105,7 @@ class SpecialAttackModel {
             'requires_origin',
             'requiere_origen',
           ]) ??
-          true,
+          targetType == SpecialAttackTargetType.territory,
       requiresTarget:
           _boolFromKeys(config, const <String>[
             'requires_target',
@@ -124,10 +124,7 @@ class SpecialAttackModel {
     if (payloadMapping.containsKey('target')) {
       return payloadMapping['target']!;
     }
-
-    return targetType == SpecialAttackTargetType.player
-        ? 'jugador_objetivo_id'
-        : 'territorio_destino_id';
+    return 'destino';
   }
 
   static Map<String, dynamic>? _extractConfig(Map<String, dynamic> metadata) {
@@ -155,6 +152,85 @@ class SpecialAttackModel {
 
     return null;
   }
+
+  static Map<String, dynamic>? _inferConfig(TechNodeModel node) {
+    final id = node.id.trim().toLowerCase();
+    final inferred = _inferredSpecialAttacks[id];
+    if (inferred == null) return null;
+
+    final range = _intFromKeys(node.metadata, const <String>[
+      'rango',
+      'range',
+      'alcance',
+    ]);
+
+    return <String, dynamic>{
+      'endpoint': '/partidas/{partidaId}/ataque_especial',
+      'method': 'POST',
+      'payload_mapping': const <String, String>{
+        'attack': 'tipo_ataque',
+        'origin': 'origen',
+        'target': 'destino',
+      },
+      ...?range == null ? null : <String, dynamic>{'range': range},
+      ...inferred,
+    };
+  }
+
+  static const Map<String, Map<String, dynamic>> _inferredSpecialAttacks =
+      <String, Map<String, dynamic>>{
+        'gripe_aviar': <String, dynamic>{
+          'target_type': 'territory',
+          'target_side': 'enemy',
+        },
+        'vacuna_universal': <String, dynamic>{
+          'target_type': 'territory',
+          'target_side': 'self',
+          'requires_origin': false,
+        },
+        'fatiga': <String, dynamic>{
+          'target_type': 'territory',
+          'target_side': 'enemy',
+        },
+        'coronavirus': <String, dynamic>{
+          'target_type': 'territory',
+          'target_side': 'enemy',
+        },
+        'inhibidor_senal': <String, dynamic>{
+          'target_type': 'territory',
+          'target_side': 'enemy',
+        },
+        'propaganda_subversiva': <String, dynamic>{
+          'target_type': 'player',
+          'target_side': 'enemy',
+          'requires_origin': false,
+        },
+        'muro_fronterizo': <String, dynamic>{
+          'target_type': 'territory',
+          'target_side': 'enemy',
+        },
+        'sanciones_internacionales': <String, dynamic>{
+          'target_type': 'player',
+          'target_side': 'enemy',
+          'requires_origin': false,
+        },
+        'mortero_tactico': <String, dynamic>{
+          'target_type': 'territory',
+          'target_side': 'enemy',
+        },
+        'misil_crucero': <String, dynamic>{
+          'target_type': 'territory',
+          'target_side': 'enemy',
+        },
+        'cabeza_nuclear': <String, dynamic>{
+          'target_type': 'territory',
+          'target_side': 'enemy',
+        },
+        'bomba_racimo': <String, dynamic>{
+          'target_type': 'territory',
+          'target_side': 'enemy',
+        },
+      };
 
   static Map<String, String> _parsePayloadMapping(Map<String, dynamic> config) {
     final raw = config['payload_mapping'] ?? config['payload'] ?? config['body'];

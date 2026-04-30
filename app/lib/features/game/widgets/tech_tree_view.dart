@@ -101,7 +101,8 @@ class _TechTreeViewState extends State<TechTreeView> {
       return true;
     }
 
-    if (widget.authoritativeUnlocks) {
+    final hasExplicitUnlockedAvailability = widget.unlockedTechIds.isNotEmpty;
+    if (widget.authoritativeUnlocks && hasExplicitUnlockedAvailability) {
       return false;
     }
 
