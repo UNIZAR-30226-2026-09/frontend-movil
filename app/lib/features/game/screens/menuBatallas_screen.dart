@@ -4,8 +4,7 @@ import '../../home/widgets/home_background.dart';
 import '../../home/widgets/home_action_button.dart';
 import '../widgets/partida_rapida_panel.dart';
 import '../widgets/crear_partida_panel.dart';
-import '../widgets/introducir_codigo_panel.dart';
-import '../widgets/partidas_pausadas_panel.dart';
+import '../widgets/unirse_partida_panel.dart';
 
 class MenubatallasScreen extends StatefulWidget {
   const MenubatallasScreen({super.key});
@@ -19,11 +18,10 @@ class _MenubatallasScreenState extends State<MenubatallasScreen> {
   bool _showQuickMatchOverlay = false;
   bool _showCreateMatch = false;
   bool _showCreateMatchOverlay = false;
-  bool _showJoinByCode = false;
-  bool _showJoinByCodeOverlay = false;
-  bool _showPausadas = false;
-  bool _showPausadasOverlay = false;
+  bool _showUnirsePartida = false;
+  bool _showUnirsePartidaOverlay = false;
 
+  // ── Partida rápida ───────────────────────────────────────────────────────
   void _openQuickMatch() {
     setState(() {
       _showQuickMatchOverlay = true;
@@ -32,19 +30,13 @@ class _MenubatallasScreenState extends State<MenubatallasScreen> {
   }
 
   void _closeQuickMatch() {
-    setState(() {
-      _showQuickMatch = false;
-    });
-
+    setState(() => _showQuickMatch = false);
     Future.delayed(const Duration(milliseconds: 180), () {
-      if (mounted) {
-        setState(() {
-          _showQuickMatchOverlay = false;
-        });
-      }
+      if (mounted) setState(() => _showQuickMatchOverlay = false);
     });
   }
 
+  // ── Crear partida ────────────────────────────────────────────────────────
   void _openCreateMatch() {
     setState(() {
       _showCreateMatchOverlay = true;
@@ -53,67 +45,35 @@ class _MenubatallasScreenState extends State<MenubatallasScreen> {
   }
 
   void _closeCreateMatch() {
-    setState(() {
-      _showCreateMatch = false;
-    });
-
+    setState(() => _showCreateMatch = false);
     Future.delayed(const Duration(milliseconds: 180), () {
-      if (mounted) {
-        setState(() {
-          _showCreateMatchOverlay = false;
-        });
-      }
+      if (mounted) setState(() => _showCreateMatchOverlay = false);
     });
   }
 
-  void _openJoinByCode() {
+  // ── Unirse a partida ─────────────────────────────────────────────────────
+  void _openUnirsePartida() {
     setState(() {
-      _showJoinByCodeOverlay = true;
-      _showJoinByCode = true;
+      _showUnirsePartidaOverlay = true;
+      _showUnirsePartida = true;
     });
   }
 
-  void _closeJoinByCode() {
-    setState(() {
-      _showJoinByCode = false;
-    });
-
+  void _closeUnirsePartida() {
+    setState(() => _showUnirsePartida = false);
     Future.delayed(const Duration(milliseconds: 180), () {
-      if (mounted) {
-        setState(() {
-          _showJoinByCodeOverlay = false;
-        });
-      }
+      if (mounted) setState(() => _showUnirsePartidaOverlay = false);
     });
   }
 
-  void _openPausadas() {
-    setState(() {
-      _showPausadasOverlay = true;
-      _showPausadas = true;
-    });
-  }
-
-  void _closePausadas() {
-    setState(() {
-      _showPausadas = false;
-    });
-
-    Future.delayed(const Duration(milliseconds: 180), () {
-      if (mounted) {
-        setState(() {
-          _showPausadasOverlay = false;
-        });
-      }
-    });
-  }
-
+  // ────────────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: HomeBackground(
         child: Stack(
           children: [
+            // ── Botones principales ────────────────────────────────────────
             SafeArea(
               child: Align(
                 alignment: const Alignment(-0.07, 0),
@@ -131,18 +91,15 @@ class _MenubatallasScreenState extends State<MenubatallasScreen> {
                     ),
                     const SizedBox(height: 18),
                     HomeActionButton(
-                      text: 'Introducir código',
-                      onPressed: _openJoinByCode,
-                    ),
-                    const SizedBox(height: 18),
-                    HomeActionButton(
-                      text: 'Partidas pausadas',
-                      onPressed: _openPausadas,
+                      text: 'Unirse a partida',
+                      onPressed: _openUnirsePartida,
                     ),
                   ],
                 ),
               ),
             ),
+
+            // ── Botón atrás ────────────────────────────────────────────────
             SafeArea(
               child: Align(
                 alignment: Alignment.topLeft,
@@ -172,6 +129,8 @@ class _MenubatallasScreenState extends State<MenubatallasScreen> {
                 ),
               ),
             ),
+
+            // ── Overlay Partida rápida ─────────────────────────────────────
             if (_showQuickMatchOverlay)
               Positioned.fill(
                 child: GestureDetector(
@@ -179,12 +138,12 @@ class _MenubatallasScreenState extends State<MenubatallasScreen> {
                   child: AnimatedOpacity(
                     duration: const Duration(milliseconds: 180),
                     opacity: _showQuickMatch ? 1 : 0,
-                    child: Container(
-                      color: Colors.black54,
-                    ),
+                    child: Container(color: Colors.black54),
                   ),
                 ),
               ),
+
+            // ── Overlay Crear partida ──────────────────────────────────────
             if (_showCreateMatchOverlay)
               Positioned.fill(
                 child: GestureDetector(
@@ -192,125 +151,86 @@ class _MenubatallasScreenState extends State<MenubatallasScreen> {
                   child: AnimatedOpacity(
                     duration: const Duration(milliseconds: 180),
                     opacity: _showCreateMatch ? 1 : 0,
-                    child: Container(
-                      color: Colors.black54,
-                    ),
+                    child: Container(color: Colors.black54),
                   ),
                 ),
               ),
-            if (_showJoinByCodeOverlay)
+
+            // ── Overlay Unirse a partida ───────────────────────────────────
+            if (_showUnirsePartidaOverlay)
               Positioned.fill(
                 child: GestureDetector(
-                  onTap: _closeJoinByCode,
+                  onTap: _closeUnirsePartida,
                   child: AnimatedOpacity(
                     duration: const Duration(milliseconds: 180),
-                    opacity: _showJoinByCode ? 1 : 0,
-                    child: Container(
-                      color: Colors.black54,
-                    ),
+                    opacity: _showUnirsePartida ? 1 : 0,
+                    child: Container(color: Colors.black54),
                   ),
                 ),
               ),
-            if (_showPausadasOverlay)
-              Positioned.fill(
-                child: GestureDetector(
-                  onTap: _closePausadas,
-                  child: AnimatedOpacity(
-                    duration: const Duration(milliseconds: 180),
-                    opacity: _showPausadas ? 1 : 0,
-                    child: Container(
-                      color: Colors.black54,
-                    ),
-                  ),
-                ),
-              ),
+
+            // ── Panel Partida rápida ───────────────────────────────────────
             AnimatedSwitcher(
               duration: const Duration(milliseconds: 180),
               switchInCurve: Curves.easeOut,
               switchOutCurve: Curves.easeIn,
-              transitionBuilder: (child, animation) {
-                return FadeTransition(
-                  opacity: animation,
-                  child: ScaleTransition(
-                    scale: Tween<double>(begin: 0.96, end: 1.0).animate(animation),
-                    child: child,
-                  ),
-                );
-              },
+              transitionBuilder: (child, animation) => FadeTransition(
+                opacity: animation,
+                child: ScaleTransition(
+                  scale:
+                      Tween<double>(begin: 0.96, end: 1.0).animate(animation),
+                  child: child,
+                ),
+              ),
               child: _showQuickMatch
                   ? PartidaRapidaPanel(
                       key: const ValueKey('quickMatchOpen'),
                       onClose: _closeQuickMatch,
                     )
-                  : const SizedBox.shrink(
-                      key: ValueKey('quickMatchClosed'),
-                    ),
+                  : const SizedBox.shrink(key: ValueKey('quickMatchClosed')),
             ),
+
+            // ── Panel Crear partida ────────────────────────────────────────
             AnimatedSwitcher(
               duration: const Duration(milliseconds: 180),
               switchInCurve: Curves.easeOut,
               switchOutCurve: Curves.easeIn,
-              transitionBuilder: (child, animation) {
-                return FadeTransition(
-                  opacity: animation,
-                  child: ScaleTransition(
-                    scale: Tween<double>(begin: 0.96, end: 1.0).animate(animation),
-                    child: child,
-                  ),
-                );
-              },
+              transitionBuilder: (child, animation) => FadeTransition(
+                opacity: animation,
+                child: ScaleTransition(
+                  scale:
+                      Tween<double>(begin: 0.96, end: 1.0).animate(animation),
+                  child: child,
+                ),
+              ),
               child: _showCreateMatch
                   ? CrearPartidaPanel(
                       key: const ValueKey('createMatchOpen'),
                       onClose: _closeCreateMatch,
                     )
-                  : const SizedBox.shrink(
-                      key: ValueKey('createMatchClosed'),
-                    ),
+                  : const SizedBox.shrink(key: ValueKey('createMatchClosed')),
             ),
+
+            // ── Panel Unirse a partida ─────────────────────────────────────
             AnimatedSwitcher(
               duration: const Duration(milliseconds: 180),
               switchInCurve: Curves.easeOut,
               switchOutCurve: Curves.easeIn,
-              transitionBuilder: (child, animation) {
-                return FadeTransition(
-                  opacity: animation,
-                  child: ScaleTransition(
-                    scale: Tween<double>(begin: 0.96, end: 1.0).animate(animation),
-                    child: child,
-                  ),
-                );
-              },
-              child: _showJoinByCode
-                  ? IntroducirCodigoPanel(
-                      key: const ValueKey('joinByCodeOpen'),
-                      onClose: _closeJoinByCode,
+              transitionBuilder: (child, animation) => FadeTransition(
+                opacity: animation,
+                child: ScaleTransition(
+                  scale:
+                      Tween<double>(begin: 0.96, end: 1.0).animate(animation),
+                  child: child,
+                ),
+              ),
+              child: _showUnirsePartida
+                  ? UnirsePartidaPanel(
+                      key: const ValueKey('unirsePartidaOpen'),
+                      onClose: _closeUnirsePartida,
                     )
                   : const SizedBox.shrink(
-                      key: ValueKey('joinByCodeClosed'),
-                    ),
-            ),
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 180),
-              switchInCurve: Curves.easeOut,
-              switchOutCurve: Curves.easeIn,
-              transitionBuilder: (child, animation) {
-                return FadeTransition(
-                  opacity: animation,
-                  child: ScaleTransition(
-                    scale: Tween<double>(begin: 0.96, end: 1.0).animate(animation),
-                    child: child,
-                  ),
-                );
-              },
-              child: _showPausadas
-                  ? PartidasPausadasPanel(
-                      key: const ValueKey('pausadasOpen'),
-                      onClose: _closePausadas,
-                    )
-                  : const SizedBox.shrink(
-                      key: ValueKey('pausadasClosed'),
-                    ),
+                      key: ValueKey('unirsePartidaClosed')),
             ),
           ],
         ),
