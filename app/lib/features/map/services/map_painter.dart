@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'dart:ui' as ui;
 import '../config/map_data.dart';
@@ -794,6 +795,132 @@ class MapPainter extends CustomPainter {
     return path.getBounds().center;
   }
 
+  // ---------------------------------------------------------------------------
+  // Matraz de fondo redondo centrado en [center] con radio [r]
+  // ---------------------------------------------------------------------------
+  Path _buildProbetaPath(Offset center, double r) {
+    final double rBulb = r * 0.95;
+    final double neckW = r * 0.22;
+    final double rimW  = r * 0.36;   // semiancho del reborde (labios de la botella)
+    final double rimH  = r * 0.06;   // grosor del reborde horizontal
+    final double cx = center.dx;
+
+    // Tangencia cuello-bulbo
+    final double theta = math.asin((neckW / rBulb).clamp(-1.0, 1.0));
+    final double joinY = center.dy - rBulb * math.cos(theta);
+
+    // El cuello sube hasta el reborde
+    final double rimBot = joinY - (joinY - (center.dy - r * 1.05)) * 0.55;
+    final double rimTop = rimBot - rimH;
+
+    // Tapón: trapecio más estrecho en la base, más ancho arriba
+    final double plugBotW = neckW * 1.10;   // semiancho base tapón
+    final double plugTopW = neckW * 1.50;   // semiancho cima tapón
+    final double plugH    = r * 0.28;        // altura del tapón
+    final double plugBot  = rimTop;          // el tapón se apoya en el reborde
+    final double plugTop  = plugBot - plugH;
+    final double cornerR  = plugH * 0.25;   // radio de esquinas superiores del tapón
+
+    final path = Path();
+
+    // ---- Cuerpo de la botella ----
+    // Lado derecho: cuello sube desde el bulbo hasta el reborde
+    path.moveTo(cx + neckW, joinY);
+    path.lineTo(cx + neckW, rimBot);
+    // Reborde derecho
+    path.lineTo(cx + rimW, rimBot);
+    path.lineTo(cx + rimW, rimTop);
+    path.lineTo(cx - rimW, rimTop);
+    path.lineTo(cx - rimW, rimBot);
+    // Cuello izquierdo baja al bulbo
+    path.lineTo(cx - neckW, rimBot);
+    path.lineTo(cx - neckW, joinY);
+    // Arco del bulbo (largeArc rodea el fondo)
+    path.arcToPoint(
+      Offset(cx + neckW, joinY),
+      radius: Radius.circular(rBulb),
+      clockwise: false,
+      largeArc: true,
+    );
+    path.close();
+
+    // ---- Tapón (trapecio con esquinas superiores redondeadas) ----
+    path.moveTo(cx - plugBotW, plugBot);
+    path.lineTo(cx - plugTopW + cornerR, plugTop + cornerR); // lado izq sube
+    // Esquina superior izquierda redondeada
+    path.arcToPoint(
+      Offset(cx - plugTopW + cornerR, plugTop),
+      radius: Radius.circular(cornerR),
+      clockwise: false,
+    );
+    path.lineTo(cx + plugTopW - cornerR, plugTop);
+    // Esquina superior derecha redondeada
+    path.arcToPoint(
+      Offset(cx + plugTopW, plugTop + cornerR),
+      radius: Radius.circular(cornerR),
+      clockwise: true,
+    );
+    path.lineTo(cx + plugBotW, plugBot);
+    path.close();
+
+    return path;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Engranaje con dientes anchos y chatos centrado en [center] con radio [r]
+  // ---------------------------------------------------------------------------
+  Path _buildEngranajePath(Offset center, double r) {
+    const int dientes = 8;
+    final double rInner = r * 0.88;
+    final double rOuter = r * 1.02;
+    final double sectorAngle = 2 * math.pi / dientes;
+    final double halfSector  = sectorAngle / 2;
+
+    final path = Path();
+
+    for (int i = 0; i < dientes; i++) {
+      final double base      = sectorAngle * i - math.pi / 2;
+      final double valleEnd  = base + halfSector;
+      final double dienteEnd = base + sectorAngle;
+
+      final Offset valleS = Offset(
+        center.dx + rInner * math.cos(base),
+        center.dy + rInner * math.sin(base),
+      );
+      final Offset valleE = Offset(
+        center.dx + rInner * math.cos(valleEnd),
+        center.dy + rInner * math.sin(valleEnd),
+      );
+      final Offset dienteS = Offset(
+        center.dx + rOuter * math.cos(valleEnd),
+        center.dy + rOuter * math.sin(valleEnd),
+      );
+      final Offset dienteE = Offset(
+        center.dx + rOuter * math.cos(dienteEnd),
+        center.dy + rOuter * math.sin(dienteEnd),
+      );
+      final Offset nextS = Offset(
+        center.dx + rInner * math.cos(dienteEnd),
+        center.dy + rInner * math.sin(dienteEnd),
+      );
+
+      if (i == 0) path.moveTo(valleS.dx, valleS.dy);
+
+      // 1. Arco del valle (rInner)
+      path.arcToPoint(valleE, radius: Radius.circular(rInner), clockwise: true);
+      // 2. Subida al diente
+      path.lineTo(dienteS.dx, dienteS.dy);
+      // 3. Arco de la cabeza del diente (rOuter) → ancho y redondeado
+      path.arcToPoint(dienteE, radius: Radius.circular(rOuter), clockwise: true);
+      // 4. Bajada al valle
+      path.lineTo(nextS.dx, nextS.dy);
+    }
+    path.close();
+    return path;
+  }
+
+  // ---------------------------------------------------------------------------
+
   void _paintFichaTropas(
     Canvas canvas,
     Offset center,
@@ -802,8 +929,9 @@ class MapPainter extends CustomPainter {
     Color strokeColor,
     Color textColor,
     double scale,
-    double viewerScale,
-  ) {
+    double viewerScale, {
+    String? estadoBloqueo,
+  }) {
     final zoomComp = 1.0 + ((viewerScale - 1.0) * 0.55);
     final effectiveZoom = zoomComp.clamp(1.0, 2.4);
 
@@ -811,27 +939,53 @@ class MapPainter extends CustomPainter {
     final borderWidth = 1.8 / (scale * effectiveZoom);
     final shadowOffset = 2.0 / (scale * effectiveZoom);
 
-    
-
     final shadowPaint = Paint()
       ..color = Colors.black.withOpacity(0.35)
       ..maskFilter = MaskFilter.blur(BlurStyle.normal, 6.0 / scale);
-    
+
     final fillPaint = Paint()..color = fillColor;
+
+    final double effectiveBorderWidth = estadoBloqueo == 'trabajando'
+        ? borderWidth * 0.65
+        : borderWidth;
 
     final borderPaint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = borderWidth
+      ..strokeWidth = effectiveBorderWidth
+      ..strokeJoin = StrokeJoin.round
+      ..strokeCap = StrokeCap.round
       ..color = strokeColor;
 
-    canvas.drawCircle(
-      center.translate(0, shadowOffset),
-      radioFicha,
-      shadowPaint,
-    );
-  
-    canvas.drawCircle(center, radioFicha, fillPaint);
-    canvas.drawCircle(center, radioFicha, borderPaint);
+    if (estadoBloqueo == 'investigando') {
+      // ── PROBETA ──────────────────────────────────────────────────────────────
+      final shapePath = _buildProbetaPath(center, radioFicha);
+      final shadowPath = _buildProbetaPath(
+        center.translate(0, shadowOffset),
+        radioFicha,
+      );
+      canvas.drawPath(shadowPath, shadowPaint);
+      canvas.drawPath(shapePath, fillPaint);
+      canvas.drawPath(shapePath, borderPaint);
+    } else if (estadoBloqueo == 'trabajando') {
+      // ── ENGRANAJE ────────────────────────────────────────────────────────────
+      final shapePath = _buildEngranajePath(center, radioFicha);
+      final shadowPath = _buildEngranajePath(
+        center.translate(0, shadowOffset),
+        radioFicha,
+      );
+      canvas.drawPath(shadowPath, shadowPaint);
+      canvas.drawPath(shapePath, fillPaint);
+      canvas.drawPath(shapePath, borderPaint);
+    } else {
+      // ── CÍRCULO ESTÁNDAR ─────────────────────────────────────────────────────
+      canvas.drawCircle(
+        center.translate(0, shadowOffset),
+        radioFicha,
+        shadowPaint,
+      );
+      canvas.drawCircle(center, radioFicha, fillPaint);
+      canvas.drawCircle(center, radioFicha, borderPaint);
+    }
 
     final strokePainter = TextPainter(
       textAlign: TextAlign.center,
@@ -1176,21 +1330,8 @@ class MapPainter extends CustomPainter {
       final center = _getCentroComarca(path);
       final fichaStrokeColor = _getFichaStrokeColor(comarca);
 
-      final Color baseColor = _getPlayerColor(ownerId);
-      Color finalFichaColor = baseColor;
-      Color finalTextColor = const Color(0xFFF0F0F5);
-
-      if (estadoBloqueo == 'investigando') {
-        finalFichaColor = Colors.white;
-        finalTextColor = baseColor == AppTheme.mapLandNeutral
-            ? const Color(0xFF1A1A24)
-            : baseColor;
-      } else if (estadoBloqueo == 'trabajando') {
-        finalFichaColor = AppTheme.borderGoldVivo;
-        finalTextColor = baseColor == AppTheme.mapLandNeutral
-            ? const Color(0xFF1A1A24)
-            : baseColor;
-      }
+      final Color finalFichaColor = _getPlayerColor(ownerId);
+      const Color finalTextColor = Color(0xFFF0F0F5);
 
       _paintFichaTropas(
         canvas,
@@ -1201,6 +1342,7 @@ class MapPainter extends CustomPainter {
         finalTextColor,
         scale,
         viewerScale,
+        estadoBloqueo: estadoBloqueo,
       );
     }
 
