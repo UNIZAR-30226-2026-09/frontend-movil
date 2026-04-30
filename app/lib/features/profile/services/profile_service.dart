@@ -9,6 +9,7 @@ class ProfileService {
 
   static const String _updateProfilePath = '/usuarios/me';
   static const String _updateAvatarPath = '/usuarios/me/avatar';
+  static const String _avatarOptionsPath = '/usuarios/opciones';
 
   Future<void> updateProfile({String? email, String? password}) async {
     final data = <String, dynamic>{};
@@ -38,7 +39,7 @@ class ProfileService {
   }
 
   Future<List<AvatarOptionModel>> fetchAvatarOptions() async {
-    final response = await dio.get(_updateAvatarPath);
+    final response = await dio.get(_avatarOptionsPath);
     return _parseAvatarOptions(response.data);
   }
 
@@ -184,9 +185,7 @@ class ProfileService {
         .toList(growable: false);
     final fileName = segments.isEmpty ? withoutQuery : segments.last;
 
-    final dotIndex = fileName.lastIndexOf('.');
-    if (dotIndex <= 0) return fileName;
-    return fileName.substring(0, dotIndex);
+    return fileName;
   }
 
   String extractErrorMessage(Object error) {

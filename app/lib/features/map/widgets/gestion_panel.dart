@@ -5,6 +5,7 @@ import 'package:soberania/features/game/data/tech_tree_data.dart';
 import 'package:soberania/features/game/models/tech_tree_model.dart';
 import 'package:soberania/features/game/providers/game_provider.dart';
 import 'package:soberania/features/game/providers/websocket_provider.dart';
+import 'package:soberania/features/auth/providers/auth_provider.dart';
 import '../../../app/theme/app_theme.dart';
 import '../../../shared/api/dio_provider.dart';
 
@@ -95,6 +96,34 @@ class _GestionPanelState extends ConsumerState<GestionPanel> {
   Widget build(BuildContext context) {
     final partidaIdEfectiva = _partidaIdEfectiva();
     final panelMaxHeight = MediaQuery.of(context).size.height * 0.74;
+    final username = ref.watch(authProvider).user?.username ?? '';
+    final playerState = ref.watch(gameProvider).jugadores[username];
+    final ownedTechs = playerState?.tecnologiasCompradas.toSet() ?? const <String>{};
+    final unlockedTechs =
+        playerState?.tecnologiasPredesbloqueadas.toSet() ?? const <String>{};
+    final authoritativeUnlocks = unlockedTechs.isNotEmpty;
+
+    bool isOwned(TechNodeModel node) => ownedTechs.contains(node.id);
+
+    bool isUnlocked(TechNodeModel node) {
+      if (isOwned(node)) return true;
+      if (unlockedTechs.contains(node.id)) return true;
+      if (authoritativeUnlocks) return false;
+      return node.prerequisites.every(ownedTechs.contains);
+    }
+
+    bool canResearch(TechNodeModel node) => !isOwned(node) && isUnlocked(node);
+
+    final habilidadesActuales = _habilidadesDeRama(ramaSeleccionada);
+    TechNodeModel? selectedNode;
+    for (final node in habilidadesActuales) {
+      if (node.id == habilidadSeleccionada) {
+        selectedNode = node;
+        break;
+      }
+    }
+    final puedeInvestigarSeleccion =
+        selectedNode != null && canResearch(selectedNode);
 
     return Material(
       color: Colors.transparent,
@@ -424,24 +453,30 @@ class _GestionPanelState extends ConsumerState<GestionPanel> {
                         ),
                       ),
                       const SizedBox(height: 10),
-                      ..._habilidadesDeRama(ramaSeleccionada).map((habilidad) {
+                      ...habilidadesActuales.map((habilidad) {
                         final seleccionada = habilidadSeleccionada == habilidad.id;
+                        final bloqueada = !isUnlocked(habilidad) && !isOwned(habilidad);
+                        final investigada = isOwned(habilidad);
                         return Material(
                           color: Colors.transparent,
                           child: InkWell(
                             borderRadius: BorderRadius.circular(12),
-                            onTap: () {
-                              setState(() {
-                                habilidadSeleccionada = habilidad.id;
-                              });
-                            },
+                            onTap: bloqueada
+                                ? null
+                                : () {
+                                    setState(() {
+                                      habilidadSeleccionada = habilidad.id;
+                                    });
+                                  },
                             child: Ink(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 8,
                                 vertical: 12,
                               ),
                               decoration: BoxDecoration(
-                                color: Colors.black.withValues(alpha: 0.12),
+                                color: Colors.black.withValues(
+                                  alpha: bloqueada ? 0.06 : 0.12,
+                                ),
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
                                   color: seleccionada
@@ -457,7 +492,9 @@ class _GestionPanelState extends ConsumerState<GestionPanel> {
                                     height: 38,
                                     alignment: Alignment.center,
                                     decoration: BoxDecoration(
-                                      color: Colors.black.withValues(alpha: 0.18),
+                                      color: Colors.black.withValues(
+                                        alpha: bloqueada ? 0.10 : 0.18,
+                                      ),
                                       borderRadius: BorderRadius.circular(10),
                                       border: Border.all(
                                         color: AppTheme.primary.withValues(alpha: 0.22),
@@ -482,7 +519,9 @@ class _GestionPanelState extends ConsumerState<GestionPanel> {
                                           style: TextStyle(
                                             color: seleccionada
                                                 ? AppTheme.primary
-                                                : AppTheme.text,
+                                                : (bloqueada
+                                                      ? AppTheme.textSecondary
+                                                      : AppTheme.text),
                                             fontWeight: FontWeight.w700,
                                             fontSize: 14,
                                           ),
@@ -490,8 +529,10 @@ class _GestionPanelState extends ConsumerState<GestionPanel> {
                                         const SizedBox(height: 2),
                                         Text(
                                           habilidad.id,
-                                          style: const TextStyle(
-                                            color: AppTheme.textSecondary,
+                                          style: TextStyle(
+                                            color: bloqueada
+                                                ? AppTheme.textSecondary
+                                                : AppTheme.textSecondary,
                                             fontSize: 11,
                                             height: 1.3,
                                           ),
@@ -499,7 +540,19 @@ class _GestionPanelState extends ConsumerState<GestionPanel> {
                                       ],
                                     ),
                                   ),
-                                  if (seleccionada)
+                                  if (investigada)
+                                    const Icon(
+                                      Icons.check_circle_rounded,
+                                      color: Color(0xFF74D67A),
+                                      size: 20,
+                                    )
+                                  else if (bloqueada)
+                                    const Icon(
+                                      Icons.lock_rounded,
+                                      color: AppTheme.textSecondary,
+                                      size: 18,
+                                    )
+                                  else if (seleccionada)
                                     const Icon(
                                       Icons.check_circle_rounded,
                                       color: AppTheme.primary,
@@ -515,7 +568,8 @@ class _GestionPanelState extends ConsumerState<GestionPanel> {
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton.icon(
-                          onPressed: () async {
+                          onPressed: puedeInvestigarSeleccion
+                              ? () async {
                             if (partidaIdEfectiva <= 0) {
                               if (!mounted) return;
                               ScaffoldMessenger.of(context).showSnackBar(
@@ -563,7 +617,8 @@ class _GestionPanelState extends ConsumerState<GestionPanel> {
                                 ),
                               );
                             }
-                          },
+                          }
+                              : null,
                           icon: const Icon(Icons.science_rounded),
                           label: const Text(
                             'Investigar',

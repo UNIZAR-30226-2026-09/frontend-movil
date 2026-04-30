@@ -17,34 +17,6 @@ class EditarPerfilPanel extends ConsumerStatefulWidget {
 }
 
 class _EditarPerfilPanelState extends ConsumerState<EditarPerfilPanel> {
-  static const List<AvatarOptionModel> _fallbackAvatarOptions =
-      <AvatarOptionModel>[
-        AvatarOptionModel(
-          avatarName: '1.png',
-          previewUrl: 'assets/images/fotoPerfil1svg.png',
-        ),
-        AvatarOptionModel(
-          avatarName: '2.png',
-          previewUrl: 'assets/images/fotoPerfil2svg.png',
-        ),
-        AvatarOptionModel(
-          avatarName: '3.png',
-          previewUrl: 'assets/images/fotoPerfil3svg.png',
-        ),
-        AvatarOptionModel(
-          avatarName: '4.png',
-          previewUrl: 'assets/images/fotoPerfil4svg.png',
-        ),
-        AvatarOptionModel(
-          avatarName: '5.png',
-          previewUrl: 'assets/images/fotoPerfil5svg.png',
-        ),
-        AvatarOptionModel(
-          avatarName: '6.png',
-          previewUrl: 'assets/images/fotoPerfil6svg.png',
-        ),
-      ];
-
   final _formKey = GlobalKey<FormState>();
 
   late final TextEditingController _emailController;
@@ -96,35 +68,34 @@ class _EditarPerfilPanelState extends ConsumerState<EditarPerfilPanel> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _avatarOptions = _fallbackAvatarOptions;
+        _avatarOptions = const <AvatarOptionModel>[];
         _loadingAvatarOptions = false;
       });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'No se pudo cargar el catalogo de avatares desde backend.',
+          ),
+        ),
+      );
     }
   }
 
   List<AvatarOptionModel> _buildPickerOptions(
     List<AvatarOptionModel> backendOptions,
   ) {
-    if (backendOptions.isEmpty) {
-      return _fallbackAvatarOptions;
-    }
-
-    final fallbackByName = <String, AvatarOptionModel>{
-      for (final option in _fallbackAvatarOptions)
-        option.avatarName.toLowerCase(): option,
-    };
-
     return backendOptions
         .map((option) {
-          if ((option.previewUrl ?? '').trim().isNotEmpty) {
+          final previewCandidate = (option.previewUrl ?? '').trim();
+          final hasPreview =
+              previewCandidate.isNotEmpty &&
+              (previewCandidate.startsWith('http://') ||
+                  previewCandidate.startsWith('https://') ||
+                  previewCandidate.startsWith('/'));
+          if (hasPreview) {
             return option;
           }
-          final fallback = fallbackByName[option.avatarName.toLowerCase()];
-          if (fallback == null) return option;
-          return AvatarOptionModel(
-            avatarName: option.avatarName,
-            previewUrl: fallback.previewUrl,
-          );
+          return option;
         })
         .toList(growable: false);
   }
@@ -140,9 +111,7 @@ class _EditarPerfilPanelState extends ConsumerState<EditarPerfilPanel> {
         .toList(growable: false);
     final fileName = segments.isEmpty ? withoutQuery : segments.last;
 
-    final dotIndex = fileName.lastIndexOf('.');
-    if (dotIndex <= 0) return fileName;
-    return fileName.substring(0, dotIndex);
+    return fileName;
   }
 
   Future<void> _openAvatarPicker() async {

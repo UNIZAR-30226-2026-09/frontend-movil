@@ -11,6 +11,7 @@ import 'package:soberania/features/game/data/tech_tree_data.dart';
 import 'package:soberania/features/game/models/partida_log_model.dart';
 import 'package:soberania/features/game/services/tech_catalog_service.dart';
 import 'package:soberania/features/game/services/partida_logs_service.dart';
+import 'package:soberania/features/game/widgets/partida_logs_panel.dart';
 import 'package:soberania/features/map/services/map_loader.dart';
 import 'package:soberania/features/map/widgets/action_panel.dart';
 import 'package:soberania/features/map/widgets/interactive_game_map.dart';
@@ -18,6 +19,7 @@ import 'package:soberania/features/game/models/tech_tree_model.dart';
 import 'package:soberania/features/game/widgets/tech_tree_view.dart';
 import '../../../app/theme/app_theme.dart';
 import '../../../shared/api/dio_provider.dart';
+import '../../../shared/utils/color_utils.dart';
 import '../../../app/router/app_routes.dart';
 import '../providers/matchmaking_provider.dart';
 import '../providers/lobby_info_provider.dart';
@@ -134,12 +136,11 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
   void _cerrarPanelGestion() {
     final comarcaId = _comarcaGestionSeleccionada;
     final miUsuario = ref.read(authProvider).user?.username ?? '';
-  
+
     if (comarcaId != null && miUsuario.isNotEmpty) {
-      ref.read(gameProvider.notifier).seleccionarComarca(
-        comarcaId,
-        jugadorLocalId: miUsuario,
-      );
+      ref
+          .read(gameProvider.notifier)
+          .seleccionarComarca(comarcaId, jugadorLocalId: miUsuario);
     }
 
     setState(() {
@@ -160,8 +161,7 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
   // desde el menú de partidas pausadas en lugar del flujo normal.
   Future<void> _resolverCodigoPartida() async {
     // Primero intentamos el provider en memoria (flujo normal).
-    final codigoEnMemoria =
-        ref.read(lobbyInfoProvider).codigoInvitacion;
+    final codigoEnMemoria = ref.read(lobbyInfoProvider).codigoInvitacion;
     if (codigoEnMemoria != null && codigoEnMemoria.isNotEmpty) {
       if (mounted) setState(() => _codigoPartida = codigoEnMemoria);
       return;
@@ -172,9 +172,7 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
       final partida = await ref
           .read(matchmakingServiceProvider)
           .getMiPartidaActiva();
-      if (partida != null &&
-          partida.codigoInvitacion.isNotEmpty &&
-          mounted) {
+      if (partida != null && partida.codigoInvitacion.isNotEmpty && mounted) {
         if (partida.configTimerSeconds > 0) {
           ref
               .read(lobbyInfoProvider.notifier)
@@ -261,7 +259,6 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
           _cerrarPanelGestion();
         });
       }
-      
 
       final esMiTurno = next.turnoDe == miUsuario;
       final antesEraMiTurno = previous?.turnoDe == miUsuario;
@@ -321,9 +318,12 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
       // a todos menos al solicitante, que ya está esperando.
       if (tipo == 'SOLICITUD_PAUSA') {
         final solicitante =
-            (payload['solicitante'] ?? next.jugadorEventoSistema)?.toString() ?? '';
+            (payload['solicitante'] ?? next.jugadorEventoSistema)?.toString() ??
+            '';
 
-        if (miUsuario != null && miUsuario.isNotEmpty && solicitante == miUsuario) {
+        if (miUsuario != null &&
+            miUsuario.isNotEmpty &&
+            solicitante == miUsuario) {
           return;
         }
 
@@ -331,7 +331,8 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
           if (!mounted) return;
           final voto = await _mostrarPopupDecision(
             titulo: 'Pausar partida',
-            mensaje: '${solicitante.isNotEmpty ? solicitante : 'Un jugador'} propone pausar. ¿Pausar partida?',
+            mensaje:
+                '${solicitante.isNotEmpty ? solicitante : 'Un jugador'} propone pausar. ¿Pausar partida?',
           );
           if (!mounted || voto == null) return;
 
@@ -353,7 +354,9 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
           } on DioException catch (e) {
             if (!mounted) return;
             final detalle = e.response?.data is Map<String, dynamic>
-                ? (e.response?.data['detail']?.toString() ?? e.message ?? 'No se pudo registrar tu voto')
+                ? (e.response?.data['detail']?.toString() ??
+                      e.message ??
+                      'No se pudo registrar tu voto')
                 : (e.message ?? 'No se pudo registrar tu voto');
             unawaited(
               _mostrarPopup(titulo: 'Error al votar pausa', mensaje: detalle),
@@ -493,7 +496,6 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
       }),
     );
 
-
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
@@ -564,13 +566,14 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
 
                     final yaEstabaAbierta = _comarcaGestionSeleccionada == c.id;
 
-                    ref.read(gameProvider.notifier).seleccionarComarca(
-                      c.id,
-                      jugadorLocalId: miUsuario,
-                    );
+                    ref
+                        .read(gameProvider.notifier)
+                        .seleccionarComarca(c.id, jugadorLocalId: miUsuario);
 
                     setState(() {
-                      _comarcaGestionSeleccionada = yaEstabaAbierta ? null : c.id;
+                      _comarcaGestionSeleccionada = yaEstabaAbierta
+                          ? null
+                          : c.id;
                     });
 
                     return;
@@ -619,7 +622,8 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
                           unawaited(
                             _mostrarPopup(
                               titulo: 'Error',
-                              mensaje: 'No se encontró el código de la partida.',
+                              mensaje:
+                                  'No se encontró el código de la partida.',
                             ),
                           );
                           return;
@@ -716,29 +720,17 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
     );
   }
 
-  String _formatearFechaLog(DateTime? timestamp) {
-    if (timestamp == null) return '--';
+  Color _colorJugador(String actor) {
+    final trimmed = actor.trim();
+    if (trimmed.isEmpty || trimmed.toLowerCase() == 'sistema') {
+      return AppTheme.textSecondary;
+    }
 
-    String two(int value) => value.toString().padLeft(2, '0');
-
-    return '${two(timestamp.day)}/${two(timestamp.month)} '
-        '${two(timestamp.hour)}:${two(timestamp.minute)}';
-  }
-
-  String _resumenDatosLog(Map<String, dynamic> datos) {
-    if (datos.isEmpty) return 'Sin datos extra';
-
-    final entries = datos.entries
-        .take(3)
-        .map((entry) {
-          final key = entry.key;
-          final value = entry.value;
-          return '$key=$value';
-        })
-        .toList(growable: false);
-
-    final suffix = datos.length > 3 ? '...' : '';
-    return '${entries.join(', ')}$suffix';
+    final state = ref.read(gameProvider);
+    final jugador = state.jugadores[trimmed];
+    final numero = jugador?.numeroJugador;
+    if (numero == null) return AppTheme.text;
+    return ColorUtils.getPlayerColor(numero);
   }
 
   Future<void> _mostrarLogsPartidaModal() async {
@@ -854,71 +846,15 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
                       ),
                     ),
                     const Divider(height: 1, color: AppTheme.borderGold),
-                    if (cargando && logs.isEmpty)
-                      const Expanded(
-                        child: Center(child: CircularProgressIndicator()),
-                      )
-                    else if (error != null)
-                      Expanded(
-                        child: Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(18),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  error!,
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(color: AppTheme.text),
-                                ),
-                                const SizedBox(height: 12),
-                                ElevatedButton.icon(
-                                  onPressed: () => cargar(setModalState),
-                                  icon: const Icon(Icons.refresh),
-                                  label: const Text('Reintentar'),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      )
-                    else if (logs.isEmpty)
-                      const Expanded(
-                        child: Center(
-                          child: Text(
-                            'No hay logs todavía.',
-                            style: TextStyle(color: AppTheme.textSecondary),
-                          ),
-                        ),
-                      )
-                    else
-                      Expanded(
-                        child: ListView.separated(
-                          itemCount: logs.length,
-                          separatorBuilder: (_, __) => const Divider(
-                            height: 1,
-                            color: Color(0x338C6D3F),
-                          ),
-                          itemBuilder: (context, index) {
-                            final log = logs[index];
-
-                            return ListTile(
-                              dense: true,
-                              title: Text(
-                                '${log.tipoEvento}${log.user == null ? '' : ' - ${log.user}'}',
-                                style: const TextStyle(color: AppTheme.text),
-                              ),
-                              subtitle: Text(
-                                'Turno ${log.turnoNumero} | ${log.fase} | ${_formatearFechaLog(log.timestamp)}\n${_resumenDatosLog(log.datos)}',
-                                style: const TextStyle(
-                                  color: AppTheme.textSecondary,
-                                  height: 1.35,
-                                ),
-                              ),
-                            );
-                          },
-                        ),
+                    Expanded(
+                      child: PartidaLogsPanel(
+                        logs: logs,
+                        isLoading: cargando,
+                        error: error,
+                        onRetry: () => cargar(setModalState),
+                        colorResolver: _colorJugador,
                       ),
+                    ),
                   ],
                 ),
               ),
@@ -928,8 +864,6 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
       },
     );
   }
-
-  
 
   Widget _buildBattleDialog({
     required BuildContext context,
@@ -944,10 +878,7 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
         decoration: BoxDecoration(
           color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: AppTheme.primary,
-            width: 1.4,
-          ),
+          border: Border.all(color: AppTheme.primary, width: 1.4),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.42),
@@ -984,9 +915,7 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
         width: 1.1,
       ),
       padding: const EdgeInsets.symmetric(vertical: 13),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     );
   }
 
@@ -1039,14 +968,12 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
                   style: _battlePrimaryButtonStyle(),
                   child: const Text(
                     'Aceptar',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                    ),
+                    style: TextStyle(fontWeight: FontWeight.w800),
                   ),
                 ),
               ),
             ],
-          )
+          ),
         );
       },
     );
@@ -1330,8 +1257,9 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
                     width: double.infinity,
                     child: ElevatedButton(
                       onPressed: () async {
-                        final partidaId =
-                            ref.read(webSocketProvider).currentPartidaId;
+                        final partidaId = ref
+                            .read(webSocketProvider)
+                            .currentPartidaId;
                         if (partidaId == null) return;
 
                         try {
