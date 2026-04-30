@@ -12,6 +12,7 @@ class TechNodeModel {
   final IconData icon;
   final Offset position;
   final List<String> prerequisites;
+  final Map<String, dynamic> metadata;
 
   const TechNodeModel({
     required this.id,
@@ -23,5 +24,6 @@ class TechNodeModel {
     required this.icon,
     required this.position,
     this.prerequisites = const <String>[],
+    this.metadata = const <String, dynamic>{},
   });
 }

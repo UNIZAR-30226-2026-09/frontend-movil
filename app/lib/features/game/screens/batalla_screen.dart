@@ -7,7 +7,6 @@ import 'package:go_router/go_router.dart';
 import 'package:soberania/features/auth/providers/auth_provider.dart';
 import 'package:soberania/features/game/providers/game_provider.dart';
 import 'package:soberania/features/game/providers/websocket_provider.dart';
-import 'package:soberania/features/game/data/tech_tree_data.dart';
 import 'package:soberania/features/game/models/partida_log_model.dart';
 import 'package:soberania/features/game/services/tech_catalog_service.dart';
 import 'package:soberania/features/game/services/partida_logs_service.dart';
@@ -40,6 +39,7 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
   bool _partidaTerminada = false;
   bool _cargandoCatalogoTecnologias = false;
   bool _hayDialogoPopupActivo = false;
+  bool _resolviendoResultadoAtaque = false;
   List<TechNodeModel> _techNodes = const <TechNodeModel>[];
   Size _techCanvasSize = const Size(1200, 790);
   Set<String> _techCatalogUnlockedIds = const <String>{};
@@ -459,27 +459,36 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
           next.ultimoResultadoAtaque != null &&
           next.versionResultadoAtaque > prevVersion;
 
-      if (!hayNuevoResultado) return;
+      if (!hayNuevoResultado || _resolviendoResultadoAtaque) return;
 
       final resultado = next.ultimoResultadoAtaque!;
+      _resolviendoResultadoAtaque = true;
 
       WidgetsBinding.instance.addPostFrameCallback((_) async {
-        if (!mounted) return;
+        if (!mounted) {
+          _resolviendoResultadoAtaque = false;
+          return;
+        }
 
-        // Mostramos el resultado del combate
-        await _mostrarPopup(
-          titulo: 'Ataque en ${_formatName(resultado.destino)}',
-          mensaje:
-              'Has perdido ${resultado.bajasAtacante} tropa(s).\n'
-              'El enemigo perdió ${resultado.bajasDefensor} tropa(s).\n'
-              '${resultado.victoria ? '¡Territorio conquistado!' : 'El territorio resiste.'}',
-          alAceptar: () =>
-              ref.read(gameProvider.notifier).limpiarResultadoAtaque(),
-        );
+        try {
+          await _mostrarPopup(
+            titulo: 'Ataque en ${_formatName(resultado.destino)}',
+            mensaje:
+                'Has perdido ${resultado.bajasAtacante} tropa(s).\n'
+                'El enemigo perdió ${resultado.bajasDefensor} tropa(s).\n'
+                '${resultado.victoria ? '¡Territorio conquistado!' : 'El territorio resiste.'}',
+          );
 
-        // Si fue victoria, el backend bloquea ataques hasta que movamos tropas
-        if (resultado.victoria && mounted) {
-          await _mostrarDialogoMoverConquista(resultado.destino);
+          if (resultado.victoria && mounted) {
+            await _mostrarDialogoMoverConquista(
+              territorioConquistado: resultado.destino,
+              territorioOrigen: resultado.origen,
+              tropasDisponibles: resultado.tropasRestantesOrigen,
+            );
+          }
+        } finally {
+          ref.read(gameProvider.notifier).limpiarResultadoAtaque();
+          _resolviendoResultadoAtaque = false;
         }
       });
     });
@@ -697,7 +706,7 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
                   ),
                 ),
               ),
-              const ActionPanel(),
+              ActionPanel(techNodes: _techNodes),
               AnimatedPositioned(
                 duration: const Duration(milliseconds: 300),
                 curve: Curves.easeInOut,
@@ -710,6 +719,7 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
                     comarcaId: _comarcaGestionSeleccionada ?? '',
                     partidaId: widget.partidaId,
                     onClose: _cerrarPanelGestion,
+                    techNodes: _techNodes,
                   ),
                 ),
               ),
@@ -1163,16 +1173,31 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
     );
   }
 
-  Future<void> _mostrarDialogoMoverConquista(
-    String territorioConquistado,
-  ) async {
-    final origen = ref.read(gameProvider).origenSeleccionado;
-    final tropasOrigen = ref.read(gameProvider).mapa[origen]?.units ?? 1;
+  Future<void> _mostrarDialogoMoverConquista({
+    required String territorioConquistado,
+    required String territorioOrigen,
+    required int tropasDisponibles,
+  }) async {
+    final tropasOrigenActual =
+        ref.read(gameProvider).mapa[territorioOrigen]?.units ??
+        tropasDisponibles;
+    final candidatas = <int>[
+      if (tropasDisponibles > 1) tropasDisponibles - 1,
+      if (tropasOrigenActual > 1) tropasOrigenActual - 1,
+      1,
+    ];
+    final maxMover = candidatas.first;
 
-    // Máximo movible: todas menos 1 que se queda de guarnición en origen.
-    // Si origen tiene 1 tropa el clamp lo fuerza a 1 — el backend lo rechazará
-    // pero al menos el diálogo no peta.
-    final maxMover = (tropasOrigen - 1).clamp(1, tropasOrigen - 1);
+    if (maxMover <= 0) {
+      if (!mounted) return;
+      await _mostrarPopup(
+        titulo: 'Conquista pendiente',
+        mensaje:
+            'No se han podido determinar las tropas disponibles para ocupar ${_formatName(territorioConquistado)}. Sincroniza el estado o reintenta.',
+      );
+      return;
+    }
+
     int tropasAMover = maxMover;
 
     await showDialog<void>(
@@ -1268,6 +1293,8 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
                             '/partidas/$partidaId/mover_conquista',
                             data: {'tropas': tropasAMover},
                           );
+                          await _sincronizarEstadoPartida(partidaId);
+                          ref.read(gameProvider.notifier).limpiarSeleccionCombate();
                           if (!dialogContext.mounted) return;
                           Navigator.of(dialogContext).pop();
                         } on DioException catch (e) {
@@ -1295,16 +1322,6 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
       },
     );
   }
-}
-
-// Datos de cada rama tecnológica — se usan solo en el selector del bottom sheet.
-class _RamaInfo {
-  final String id;
-  final String emoji;
-  final String nombre;
-  final String descripcion;
-
-  const _RamaInfo(this.id, this.emoji, this.nombre, this.descripcion);
 }
 
 class _CatalogErrorView extends StatelessWidget {

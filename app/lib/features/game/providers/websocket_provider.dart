@@ -240,12 +240,22 @@ class WebSocketNotifier extends Notifier<WebSocketState> {
 
             // ── ATAQUE_RESULTADO ──────────────────────────────────────────────────
             if (tipoEvento == 'ATAQUE_RESULTADO') {
-              ref.read(gameProvider.notifier).registrarResultadoAtaque(data);
-
               final origen = data['origen'] as String?;
               final destino = data['destino'] as String?;
               final tropasOrigen = data['tropas_restantes_origen'] as int?;
               final tropasDestino = data['tropas_restantes_defensor'] as int?;
+              final gameState = ref.read(gameProvider);
+              final esAtaquePendienteLocal =
+                  origen != null &&
+                  destino != null &&
+                  gameState.ataquePendienteOrigen == origen &&
+                  gameState.ataquePendienteDestino == destino;
+
+              if (esAtaquePendienteLocal) {
+                ref.read(gameProvider.notifier).registrarResultadoAtaque(data);
+                ref.read(gameProvider.notifier).limpiarAtaquePendiente();
+                ref.read(gameProvider.notifier).cancelarAtaque();
+              }
 
               if (origen != null && tropasOrigen != null) {
                 ref
@@ -264,6 +274,7 @@ class WebSocketNotifier extends Notifier<WebSocketState> {
                       units: tropasDestino,
                     );
               }
+              return;
             }
 
             // ── MOVIMIENTO_CONQUISTA ──────────────────────────────────────────────
@@ -303,6 +314,7 @@ class WebSocketNotifier extends Notifier<WebSocketState> {
                       );
                 }
               }
+              ref.read(gameProvider.notifier).limpiarSeleccionCombate();
               return;
             }
 

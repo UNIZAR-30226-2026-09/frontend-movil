@@ -15,11 +15,13 @@ class GestionPanel extends ConsumerStatefulWidget {
     required this.comarcaId,
     required this.partidaId,
     required this.onClose,
+    this.techNodes = const <TechNodeModel>[],
   });
 
   final String comarcaId;
   final int partidaId;
   final VoidCallback onClose;
+  final List<TechNodeModel> techNodes;
 
   @override
   ConsumerState<GestionPanel> createState() => _GestionPanelState();
@@ -69,17 +71,21 @@ class _GestionPanelState extends ConsumerState<GestionPanel> {
   }
 
   List<TechNodeModel> _habilidadesDeRama(String ramaId) {
+    final source = widget.techNodes.isNotEmpty
+        ? widget.techNodes
+        : TechTreeData.nodes;
+
     switch (ramaId) {
       case 'artilleria':
-        return TechTreeData.nodes
+        return source
             .where((node) => node.branch == TechBranch.artilleria)
             .toList(growable: false);
       case 'logistica':
-        return TechTreeData.nodes
+        return source
             .where((node) => node.branch == TechBranch.operaciones)
             .toList(growable: false);
       case 'biologica':
-        return TechTreeData.nodes
+        return source
             .where((node) => node.branch == TechBranch.biologica)
             .toList(growable: false);
       default:
@@ -115,6 +121,10 @@ class _GestionPanelState extends ConsumerState<GestionPanel> {
     bool canResearch(TechNodeModel node) => !isOwned(node) && isUnlocked(node);
 
     final habilidadesActuales = _habilidadesDeRama(ramaSeleccionada);
+    if (habilidadesActuales.isNotEmpty &&
+        !habilidadesActuales.any((node) => node.id == habilidadSeleccionada)) {
+      habilidadSeleccionada = habilidadesActuales.first.id;
+    }
     TechNodeModel? selectedNode;
     for (final node in habilidadesActuales) {
       if (node.id == habilidadSeleccionada) {
@@ -453,6 +463,18 @@ class _GestionPanelState extends ConsumerState<GestionPanel> {
                         ),
                       ),
                       const SizedBox(height: 10),
+                      if (habilidadesActuales.isEmpty)
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 10),
+                          child: Text(
+                            'El backend no devolvió habilidades para esta rama.',
+                            style: TextStyle(
+                              color: AppTheme.textSecondary,
+                              fontSize: 12,
+                              height: 1.35,
+                            ),
+                          ),
+                        ),
                       ...habilidadesActuales.map((habilidad) {
                         final seleccionada = habilidadSeleccionada == habilidad.id;
                         final bloqueada = !isUnlocked(habilidad) && !isOwned(habilidad);

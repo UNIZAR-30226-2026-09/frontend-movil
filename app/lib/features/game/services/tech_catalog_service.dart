@@ -43,7 +43,7 @@ class TechCatalogService {
     }
 
     final prices = _parsePrices(payload['precios']);
-    return _parseTree(payload['arbol'], prices);
+    return _parseTree(payload, prices);
   }
 
   Future<void> buyTechnology({
@@ -67,6 +67,7 @@ class TechCatalogService {
     final ramas = root['ramas'];
     if (ramas is Map) {
       return <String, dynamic>{
+        ...root,
         'arbol': Map<String, dynamic>.from(ramas),
         'precios': root['precios'],
       };
@@ -76,12 +77,14 @@ class TechCatalogService {
     if (data is Map) {
       final nested = Map<String, dynamic>.from(data);
       if (nested.containsKey('arbol') || nested.containsKey('precios')) {
-        return nested;
+        return <String, dynamic>{...root, ...nested};
       }
 
       final nestedRamas = nested['ramas'];
       if (nestedRamas is Map) {
         return <String, dynamic>{
+          ...root,
+          ...nested,
           'arbol': Map<String, dynamic>.from(nestedRamas),
           'precios': nested['precios'] ?? root['precios'],
         };
@@ -91,6 +94,7 @@ class TechCatalogService {
     final technologies = root['tecnologias'];
     if (technologies is Map) {
       return <String, dynamic>{
+        ...root,
         'arbol': Map<String, dynamic>.from(technologies),
         'precios': root['precios'],
       };
@@ -115,7 +119,11 @@ class TechCatalogService {
     return output;
   }
 
-  TechCatalogViewData _parseTree(dynamic raw, Map<String, int> prices) {
+  TechCatalogViewData _parseTree(
+    Map<String, dynamic> payload,
+    Map<String, int> prices,
+  ) {
+    final raw = payload['arbol'];
     if (raw == null) return const TechCatalogViewData.empty();
 
     final drafts = <_TechNodeDraft>[];
@@ -227,38 +235,55 @@ class TechCatalogService {
     final nodes = _buildVisualNodes(drafts, prices);
     if (nodes.isEmpty) return const TechCatalogViewData.empty();
 
-    final unlockedTechIds = drafts
+    final unlockedTechIds = <String>{
+      ..._parseTechIdSet(
+        payload['unlockedTechIds'] ??
+            payload['unlocked_tech_ids'] ??
+            payload['predesbloqueadas'] ??
+            payload['tecnologias_predesbloqueadas'],
+      ),
+      ...drafts
         .where((draft) => draft.preUnlocked == true)
         .map((draft) => draft.id)
-        .toSet();
-    final ownedTechIds = drafts
+        .toSet(),
+    };
+    final ownedTechIds = <String>{
+      ..._parseTechIdSet(
+        payload['ownedTechIds'] ??
+            payload['owned_tech_ids'] ??
+            payload['compradas'] ??
+            payload['tecnologias_compradas'],
+      ),
+      ...drafts
         .where((draft) => draft.owned == true)
         .map((draft) => draft.id)
-        .toSet();
-    final hasAuthoritativeAvailability = drafts.any(
-      (draft) => draft.preUnlocked != null || draft.owned != null,
-    );
+        .toSet(),
+    };
+    final hasAuthoritativeAvailability =
+        _toBool(
+          payload['hasAuthoritativeAvailability'] ??
+              payload['authoritative_availability'] ??
+              payload['authoritative_unlocks'],
+        ) ??
+        drafts.any((draft) => draft.preUnlocked != null || draft.owned != null);
 
     final branchIds = nodes.map((node) => node.branch).toSet().length;
     final maxTier = nodes
         .map((node) => node.tier)
         .fold<int>(1, (a, b) => a > b ? a : b);
 
-    const startX = 120.0;
-    const branchSpacing = 400.0;
-    const startY = 190.0;
-    const tierSpacing = 230.0;
-
-    final width = (startX + ((branchIds - 1) * branchSpacing) + 300)
-        .clamp(1100, 2400)
-        .toDouble();
-    final height = (startY + ((maxTier - 1) * tierSpacing) + 250)
-        .clamp(760, 1800)
-        .toDouble();
+    final canvasSize = _parseCanvasSize(
+      payload['canvas'] ??
+          payload['lienzo'] ??
+          payload['canvas_size'] ??
+          payload['tamano_canvas'],
+      fallbackBranchCount: branchIds,
+      fallbackMaxTier: maxTier,
+    );
 
     return TechCatalogViewData(
       nodes: nodes,
-      canvasSize: Size(width, height),
+      canvasSize: canvasSize,
       unlockedTechIds: unlockedTechIds,
       ownedTechIds: ownedTechIds,
       hasAuthoritativeAvailability: hasAuthoritativeAvailability,
@@ -331,6 +356,7 @@ class TechCatalogService {
             owned: _toBool(
               map['comprada'] ?? map['owned'] ?? map['investigada'],
             ),
+            metadata: _extractMetadata(map),
           ),
         );
         continue;
@@ -350,6 +376,7 @@ class TechCatalogService {
           prerequisites: const <String>[],
           preUnlocked: null,
           owned: null,
+          metadata: const <String, dynamic>{},
         ),
       );
     }
@@ -471,6 +498,7 @@ class TechCatalogService {
               icon: _iconForTech(draft.id, branch),
               position: Offset(rowStartX + (i * nodeSpacing), y),
               prerequisites: draft.prerequisites,
+              metadata: draft.metadata,
             ),
           );
         }
@@ -546,10 +574,117 @@ class TechCatalogService {
     return normalized.replaceAll(RegExp(r'_+'), '_');
   }
 
+  Set<String> _parseTechIdSet(dynamic raw) {
+    if (raw == null) return const <String>{};
+    if (raw is List) {
+      return raw
+          .map((item) => _normalizeTechId(item.toString()))
+          .where((id) => id.isNotEmpty)
+          .toSet();
+    }
+
+    if (raw is Map) {
+      final out = <String>{};
+      for (final entry in raw.entries) {
+        final enabled = _toBool(entry.value) ?? false;
+        if (!enabled) continue;
+
+        final id = _normalizeTechId(entry.key.toString());
+        if (id.isNotEmpty) out.add(id);
+      }
+      return out;
+    }
+
+    final id = _normalizeTechId(raw.toString());
+    if (id.isEmpty) return const <String>{};
+    return <String>{id};
+  }
+
+  Size _parseCanvasSize(
+    dynamic raw, {
+    required int fallbackBranchCount,
+    required int fallbackMaxTier,
+  }) {
+    double? width;
+    double? height;
+
+    if (raw is Map) {
+      width = _toDouble(raw['width'] ?? raw['ancho'] ?? raw['w']);
+      height = _toDouble(raw['height'] ?? raw['alto'] ?? raw['h']);
+    } else if (raw is List && raw.length >= 2) {
+      width = _toDouble(raw[0]);
+      height = _toDouble(raw[1]);
+    }
+
+    if (width != null && height != null) {
+      return Size(width, height);
+    }
+
+    const startX = 120.0;
+    const branchSpacing = 400.0;
+    const startY = 190.0;
+    const tierSpacing = 230.0;
+    final fallbackWidth = (startX + ((fallbackBranchCount - 1) * branchSpacing) + 300)
+        .clamp(1100, 2400)
+        .toDouble();
+    final fallbackHeight = (startY + ((fallbackMaxTier - 1) * tierSpacing) + 250)
+        .clamp(760, 1800)
+        .toDouble();
+    return Size(fallbackWidth, fallbackHeight);
+  }
+
+  Map<String, dynamic> _extractMetadata(Map<String, dynamic> raw) {
+    const knownKeys = <String>{
+      'id',
+      'tecnologia_id',
+      'clave',
+      'key',
+      'rama',
+      'branch',
+      'familia',
+      'tier',
+      'nivel',
+      'level',
+      'nombre',
+      'name',
+      'titulo',
+      'descripcion',
+      'description',
+      'detalle',
+      'coste',
+      'costo',
+      'cost',
+      'precio',
+      'requisitos',
+      'prerequisitos',
+      'prerequisito',
+      'requires',
+      'predesbloqueada',
+      'preunlocked',
+      'unlocked',
+      'comprada',
+      'owned',
+      'investigada',
+    };
+
+    final metadata = <String, dynamic>{};
+    for (final entry in raw.entries) {
+      if (knownKeys.contains(entry.key)) continue;
+      metadata[entry.key.toString()] = entry.value;
+    }
+    return metadata;
+  }
+
   int? _toInt(dynamic value) {
     if (value is int) return value;
     if (value is num) return value.toInt();
     return int.tryParse(value?.toString() ?? '');
+  }
+
+  double? _toDouble(dynamic value) {
+    if (value is double) return value;
+    if (value is num) return value.toDouble();
+    return double.tryParse(value?.toString() ?? '');
   }
 
   bool? _toBool(dynamic value) {
@@ -580,6 +715,7 @@ class _TechNodeDraft {
   final List<String> prerequisites;
   final bool? preUnlocked;
   final bool? owned;
+  final Map<String, dynamic> metadata;
 
   const _TechNodeDraft({
     required this.id,
@@ -591,6 +727,7 @@ class _TechNodeDraft {
     required this.prerequisites,
     required this.preUnlocked,
     required this.owned,
+    required this.metadata,
   });
 
   _TechNodeDraft copyWith({
@@ -603,6 +740,7 @@ class _TechNodeDraft {
     List<String>? prerequisites,
     bool? preUnlocked,
     bool? owned,
+    Map<String, dynamic>? metadata,
   }) {
     return _TechNodeDraft(
       id: id ?? this.id,
@@ -614,6 +752,7 @@ class _TechNodeDraft {
       prerequisites: prerequisites ?? this.prerequisites,
       preUnlocked: preUnlocked ?? this.preUnlocked,
       owned: owned ?? this.owned,
+      metadata: metadata ?? this.metadata,
     );
   }
 }

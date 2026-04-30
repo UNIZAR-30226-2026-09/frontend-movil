@@ -208,6 +208,8 @@ class AttackResultState {
 class GameState {
   final String? origenSeleccionado;
   final String? destinoSeleccionado;
+  final String? ataquePendienteOrigen;
+  final String? ataquePendienteDestino;
   final bool esperandoDestino;
   final bool vistaRegiones;
   final Set<String> comarcasResaltadas;
@@ -229,6 +231,8 @@ class GameState {
   GameState({
     this.origenSeleccionado,
     this.destinoSeleccionado,
+    this.ataquePendienteOrigen,
+    this.ataquePendienteDestino,
     this.esperandoDestino = false,
     this.vistaRegiones = false,
     this.comarcasResaltadas = const {},
@@ -250,6 +254,8 @@ class GameState {
   GameState copyWith({
     String? origenSeleccionado,
     String? destinoSeleccionado,
+    String? ataquePendienteOrigen,
+    String? ataquePendienteDestino,
     bool? esperandoDestino,
     bool? vistaRegiones,
     Set<String>? comarcasResaltadas,
@@ -268,6 +274,7 @@ class GameState {
     int? tiempoRestante,
     bool clearOrigen = false,
     bool clearDestino = false,
+    bool clearAtaquePendiente = false,
     bool clearResultadoAtaque = false,
   }) {
     return GameState(
@@ -277,6 +284,12 @@ class GameState {
       destinoSeleccionado: clearDestino
           ? null
           : (destinoSeleccionado ?? this.destinoSeleccionado),
+      ataquePendienteOrigen: clearAtaquePendiente
+          ? null
+          : (ataquePendienteOrigen ?? this.ataquePendienteOrigen),
+      ataquePendienteDestino: clearAtaquePendiente
+          ? null
+          : (ataquePendienteDestino ?? this.ataquePendienteDestino),
       esperandoDestino: esperandoDestino ?? this.esperandoDestino,
       vistaRegiones: vistaRegiones ?? this.vistaRegiones,
       comarcasResaltadas: comarcasResaltadas ?? this.comarcasResaltadas,
@@ -869,6 +882,9 @@ class GameNotifier extends Notifier<GameState> {
       case 'ATAQUE_CONVENCIONAL':
         return tropas > 1 && _tieneAdyacenteEnemigo(comarcaId);
 
+      case 'ATAQUE_ESPECIAL':
+        return tropas > 0;
+
       case 'FORTIFICACION':
         return tropas > 1 && _tieneAdyacenteAliado(comarcaId);
 
@@ -987,6 +1003,29 @@ class GameNotifier extends Notifier<GameState> {
       esperandoDestino: false,
       comarcasResaltadas: const {},
     );
+  }
+
+  void limpiarSeleccionCombate() {
+    state = state.copyWith(
+      clearOrigen: true,
+      clearDestino: true,
+      esperandoDestino: false,
+      comarcasResaltadas: const {},
+    );
+  }
+
+  void registrarAtaquePendiente({
+    required String origen,
+    required String destino,
+  }) {
+    state = state.copyWith(
+      ataquePendienteOrigen: origen,
+      ataquePendienteDestino: destino,
+    );
+  }
+
+  void limpiarAtaquePendiente() {
+    state = state.copyWith(clearAtaquePendiente: true);
   }
 
   void registrarResultadoAtaque(Map<String, dynamic> payload) {
