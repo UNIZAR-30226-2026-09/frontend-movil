@@ -1138,7 +1138,7 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
           child: SafeArea(
             child: Center(
               child: SizedBox(
-                width: media.size.width - 8,
+                width: media.size.width,
                 height: availableHeight * 0.9,
                 child: Container(
                   decoration: BoxDecoration(

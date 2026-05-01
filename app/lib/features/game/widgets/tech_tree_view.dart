@@ -14,8 +14,8 @@ class TechTreeView extends ConsumerStatefulWidget {
   final String? localUsername;
   final void Function(String techId, int cost)? onResearchPressed;
 
-  static const double _nodeWidth = 150;
-  static const double _nodeHeight = 124;
+  static const double _nodeWidth = 180;
+  static const double _nodeHeight = 155;
 
   const TechTreeView({
     super.key,
@@ -190,7 +190,7 @@ class _TechTreeViewState extends ConsumerState<TechTreeView> {
                 panEnabled: _panEnabled,
                 minScale: _baseScale,
                 maxScale: 1.85,
-                boundaryMargin: const EdgeInsets.all(20),
+                boundaryMargin: const EdgeInsets.all(40),
                 onInteractionEnd: (_) => _resetIfNearBaseScale(),
                 child: SizedBox(
                   width: constraints.maxWidth,
@@ -348,8 +348,8 @@ class _TechNodeCard extends StatelessWidget {
           children: [
             AnimatedContainer(
               duration: const Duration(milliseconds: 150),
-              width: 72,
-              height: 72,
+              width: 90,
+              height: 90,
               decoration: BoxDecoration(
                 color: iconBgColor,
                 border: Border.all(
@@ -369,7 +369,7 @@ class _TechNodeCard extends StatelessWidget {
               child: Icon(
                 node.icon,
                 color: Colors.white,
-                size: 32,
+                size: 40,
               ),
             ),
             const SizedBox(height: 6),
@@ -394,7 +394,7 @@ class _TechNodeCard extends StatelessWidget {
                 style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w700,
-                  fontSize: 14.5,
+                  fontSize: 17.0,
                   height: 1.15,
                 ),
               ),
