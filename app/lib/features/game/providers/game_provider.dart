@@ -79,6 +79,9 @@ class PlayerState {
   final int monedas;
   final List<String> tecnologiasCompradas;
   final List<String> tecnologiasPredesbloqueadas;
+  /// ID de la tecnología que el jugador está investigando actualmente.
+  /// null si no hay ninguna en curso.
+  final String? habilidadInvestigando;
 
   PlayerState({
     required this.tropasReserva,
@@ -86,6 +89,7 @@ class PlayerState {
     this.monedas = 0,
     this.tecnologiasCompradas = const <String>[],
     this.tecnologiasPredesbloqueadas = const <String>[],
+    this.habilidadInvestigando,
   });
 
   PlayerState copyWith({
@@ -94,6 +98,7 @@ class PlayerState {
     int? monedas,
     List<String>? tecnologiasCompradas,
     List<String>? tecnologiasPredesbloqueadas,
+    Object? habilidadInvestigando = _sentinel,
   }) {
     return PlayerState(
       tropasReserva: tropasReserva ?? this.tropasReserva,
@@ -102,6 +107,9 @@ class PlayerState {
       tecnologiasCompradas: tecnologiasCompradas ?? this.tecnologiasCompradas,
       tecnologiasPredesbloqueadas:
           tecnologiasPredesbloqueadas ?? this.tecnologiasPredesbloqueadas,
+      habilidadInvestigando: habilidadInvestigando == _sentinel
+          ? this.habilidadInvestigando
+          : habilidadInvestigando as String?,
     );
   }
 
@@ -149,6 +157,11 @@ class PlayerState {
   }
 
   factory PlayerState.fromJson(Map<String, dynamic> json) {
+    final rawInvestigando =
+        json['habilidad_investigando'] ?? json['investigando'];
+    final habilidadInvestigando = rawInvestigando != null
+        ? _normalizeTechId(rawInvestigando.toString())
+        : null;
     return PlayerState(
       tropasReserva: _parseIntSafe(json['tropas_reserva']),
       numeroJugador: _parseIntSafe(json['numero_jugador'], fallback: 1),
@@ -166,6 +179,10 @@ class PlayerState {
             json['techs_predesbloqueadas'] ??
             json['ataques_especiales_predesbloqueados'],
       ),
+      habilidadInvestigando:
+          (habilidadInvestigando != null && habilidadInvestigando.isNotEmpty)
+          ? habilidadInvestigando
+          : null,
     );
   }
 }
@@ -469,6 +486,10 @@ class GameNotifier extends Notifier<GameState> {
       'techs_predesbloqueadas',
       'ataques_especiales_predesbloqueados',
     ]);
+    final traeInvestigando = _hasAnyKey(
+      valueMap,
+      const <String>['habilidad_investigando', 'investigando'],
+    );
 
     // En eventos parciales mantenemos lo anterior cuando el campo no llega.
     return base.copyWith(
@@ -487,6 +508,9 @@ class GameNotifier extends Notifier<GameState> {
       tecnologiasPredesbloqueadas: traeTechPredesbloqueadas
           ? parsed.tecnologiasPredesbloqueadas
           : base.tecnologiasPredesbloqueadas,
+      habilidadInvestigando: traeInvestigando
+          ? parsed.habilidadInvestigando
+          : base.habilidadInvestigando,
     );
   }
 
@@ -652,6 +676,11 @@ class GameNotifier extends Notifier<GameState> {
     final jugadoresJsonRaw = jsonPartida['jugadores'];
     if (jugadoresJsonRaw is Map) {
       final jugadoresJson = Map<String, dynamic>.from(jugadoresJsonRaw);
+      // ─── DEBUG ───────────────────────────────────────────────────────────────
+      jugadoresJson.forEach((key, value) {
+        print('[DEBUG JSON JUGADOR] id=$key → $value');
+      });
+      // ─────────────────────────────────────────────────────────────────────────
       jugadoresActualizados = Map<String, PlayerState>.from(state.jugadores);
       jugadoresJson.forEach((key, value) {
         final valueMap = value is Map

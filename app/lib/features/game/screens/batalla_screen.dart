@@ -42,9 +42,6 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
   bool _resolviendoResultadoAtaque = false;
   List<TechNodeModel> _techNodes = const <TechNodeModel>[];
   Size _techCanvasSize = const Size(1200, 790);
-  Set<String> _techCatalogUnlockedIds = const <String>{};
-  Set<String> _techCatalogOwnedIds = const <String>{};
-  bool _techCatalogHasAuthoritativeAvailability = false;
   String? _techCatalogError;
   // Código de invitación de la partida actual. Se rellena en initState
   // llamando al servidor para cubrir el caso en que el jugador
@@ -103,9 +100,30 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
       await _sincronizarEstadoPartida(partidaId);
 
       if (!mounted) return;
+      final nombreTech = _formatName(habilidadId);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Tecnología comprada: $habilidadId ($cost monedas).'),
+          backgroundColor: const Color(0xFF1E1A12),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+            side: const BorderSide(color: AppTheme.borderGoldVivo, width: 1),
+          ),
+          content: Row(
+            children: [
+              const Icon(Icons.science_rounded, color: AppTheme.borderGoldVivo, size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  '¡Investigación completada! Has adquirido $nombreTech.',
+                  style: const TextStyle(
+                    color: AppTheme.borderGoldVivo,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       );
     } on DioException catch (e) {
@@ -116,9 +134,28 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
                 'No se pudo comprar la tecnología')
           : (e.message ?? 'No se pudo comprar la tecnología');
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(detalle)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: const Color(0xFF1E1212),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+            side: const BorderSide(color: Color(0xFFBF5050), width: 1),
+          ),
+          content: Row(
+            children: [
+              const Icon(Icons.error_outline_rounded, color: Color(0xFFBF5050), size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  detalle,
+                  style: const TextStyle(color: Color(0xFFE89090), fontWeight: FontWeight.w500),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
     }
   }
 
@@ -214,10 +251,6 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
       setState(() {
         _techNodes = catalog.nodes;
         _techCanvasSize = catalog.canvasSize;
-        _techCatalogUnlockedIds = catalog.unlockedTechIds;
-        _techCatalogOwnedIds = catalog.ownedTechIds;
-        _techCatalogHasAuthoritativeAvailability =
-            catalog.hasAuthoritativeAvailability;
         _techCatalogError = catalog.nodes.isEmpty
             ? 'No llegaron tecnologias desde backend. Revisa /partidas/{partida_id}/tecnologias y el payload (ramas/arbol).'
             : null;
@@ -708,7 +741,6 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
               ),
               ActionPanel(
                 techNodes: _techNodes,
-                catalogOwnedTechIds: _techCatalogOwnedIds,
               ),
               AnimatedPositioned(
                 duration: const Duration(milliseconds: 300),
@@ -723,10 +755,6 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
                     partidaId: widget.partidaId,
                     onClose: _cerrarPanelGestion,
                     techNodes: _techNodes,
-                    catalogUnlockedTechIds: _techCatalogUnlockedIds,
-                    catalogOwnedTechIds: _techCatalogOwnedIds,
-                    authoritativeUnlocks:
-                        _techCatalogHasAuthoritativeAvailability,
                   ),
                 ),
               ),
@@ -1087,19 +1115,13 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
     final gameState = ref.read(gameProvider);
     final miUsuario = ref.read(authProvider).user?.username ?? '';
     final miEstadoJugador = gameState.jugadores[miUsuario];
-    final tecnologiasCompradas =
-        miEstadoJugador?.tecnologiasCompradas ?? const <String>[];
-    final tecnologiasPredesbloqueadas =
-        miEstadoJugador?.tecnologiasPredesbloqueadas ?? const <String>[];
     final tecnologiasCompradasSet = <String>{
-      ...tecnologiasCompradas,
-      ..._techCatalogOwnedIds,
+      ...miEstadoJugador?.tecnologiasCompradas ?? const <String>[],
     };
     final tecnologiasPredesbloqueadasSet = <String>{
-      ...tecnologiasPredesbloqueadas,
-      ..._techCatalogUnlockedIds,
-      ..._techCatalogOwnedIds,
+      ...miEstadoJugador?.tecnologiasPredesbloqueadas ?? const <String>[],
     };
+    final investigandoId = miEstadoJugador?.habilidadInvestigando;
     final catalogError = _techCatalogError;
 
     await showModalBottomSheet<void>(
@@ -1152,8 +1174,8 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
                                   ownedTechIds: tecnologiasCompradasSet,
                                   unlockedTechIds:
                                       tecnologiasPredesbloqueadasSet,
-                                  authoritativeUnlocks:
-                                      _techCatalogHasAuthoritativeAvailability,
+                                  investigandoId: investigandoId,
+                                  localUsername: miUsuario,
                                   onResearchPressed: _onResearchPressed,
                                 ),
                         ),

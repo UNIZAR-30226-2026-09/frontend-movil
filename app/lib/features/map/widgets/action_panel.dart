@@ -13,11 +13,9 @@ class ActionPanel extends ConsumerStatefulWidget {
   const ActionPanel({
     super.key,
     this.techNodes = const <TechNodeModel>[],
-    this.catalogOwnedTechIds = const <String>{},
   });
 
   final List<TechNodeModel> techNodes;
-  final Set<String> catalogOwnedTechIds;
 
   @override
   ConsumerState<ActionPanel> createState() => _ActionPanelState();
@@ -86,27 +84,34 @@ class _ActionPanelState extends ConsumerState<ActionPanel> {
     required Widget child,
     double maxWidth = 380,
   }) {
+    final screenHeight = MediaQuery.of(context).size.height;
     return Dialog(
       backgroundColor: Colors.transparent,
-      child: Container(
-        constraints: BoxConstraints(maxWidth: maxWidth),
-        padding: const EdgeInsets.all(22),
-        decoration: BoxDecoration(
-          color: Theme.of(context).cardColor,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: AppTheme.primary,
-            width: 1.4,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.42),
-              blurRadius: 20,
-              offset: const Offset(0, 8),
-            ),
-          ],
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: maxWidth,
+          maxHeight: screenHeight * 0.82,
         ),
-        child: child,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 16),
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: AppTheme.primary,
+              width: 1.4,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.42),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: child,
+        ),
       ),
     );
   }
@@ -143,7 +148,6 @@ class _ActionPanelState extends ConsumerState<ActionPanel> {
   List<SpecialAttackModel> _ownedSpecialAttacks(GameState gameState, String username) {
     final ownedIds = <String>{
       ...(gameState.jugadores[username]?.tecnologiasCompradas ?? const <String>[]),
-      ...widget.catalogOwnedTechIds,
     };
     final attacks = <SpecialAttackModel>[];
 
@@ -826,145 +830,154 @@ class _ActionPanelState extends ConsumerState<ActionPanel> {
             return _buildGameDialog(
               context: context,
               maxWidth: 420,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Ataque especial desde ${_formatName(origen)}',
-                    style: const TextStyle(
-                      color: AppTheme.primary,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
+              child: Flexible(
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                    Text(
+                      'Ataque especial desde ${_formatName(origen)}',
+                      style: const TextStyle(
+                        color: AppTheme.primary,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<SpecialAttackModel>(
-                    value: selectedAttack,
-                    decoration: const InputDecoration(
-                      labelText: 'Tecnología',
-                      border: OutlineInputBorder(),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<SpecialAttackModel>(
+                      value: selectedAttack,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Tecnología',
+                        border: OutlineInputBorder(),
+                      ),
+                      dropdownColor: Theme.of(context).cardColor,
+                      items: attacks
+                          .map(
+                            (attack) => DropdownMenuItem<SpecialAttackModel>(
+                              value: attack,
+                              child: Text(
+                                attack.name,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          )
+                          .toList(growable: false),
+                      onChanged: (value) {
+                        if (value == null) return;
+                        setDialogState(() {
+                          selectedAttack = value;
+                          selectedTargetId = null;
+                        });
+                      },
                     ),
-                    dropdownColor: Theme.of(context).cardColor,
-                    items: attacks
-                        .map(
-                          (attack) => DropdownMenuItem<SpecialAttackModel>(
-                            value: attack,
-                            child: Text(attack.name),
+                    const SizedBox(height: 10),
+                    Text(
+                      selectedAttack.description,
+                      style: const TextStyle(
+                        color: AppTheme.text,
+                        fontSize: 13,
+                        height: 1.35,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      _specialAttackHint(selectedAttack),
+                      style: const TextStyle(
+                        color: AppTheme.textSecondary,
+                        fontSize: 12,
+                        height: 1.35,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    if (selectedAttack.requiresTarget)
+                      if (targets.isEmpty)
+                        const Text(
+                          'No hay objetivos válidos con la información actual. Si el backend permite más casos, ajusta el metadato del catálogo.',
+                          style: TextStyle(
+                            color: AppTheme.textSecondary,
+                            fontSize: 12,
+                            height: 1.35,
                           ),
                         )
-                        .toList(growable: false),
-                    onChanged: (value) {
-                      if (value == null) return;
-                      setDialogState(() {
-                        selectedAttack = value;
-                        selectedTargetId = null;
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    selectedAttack.description,
-                    style: const TextStyle(
-                      color: AppTheme.text,
-                      fontSize: 13,
-                      height: 1.35,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    _specialAttackHint(selectedAttack),
-                    style: const TextStyle(
-                      color: AppTheme.textSecondary,
-                      fontSize: 12,
-                      height: 1.35,
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  if (selectedAttack.requiresTarget)
-                    if (targets.isEmpty)
-                      const Text(
-                        'No hay objetivos válidos con la información actual. Si el backend permite más casos, ajusta el metadato del catálogo.',
-                        style: TextStyle(
-                          color: AppTheme.textSecondary,
-                          fontSize: 12,
-                          height: 1.35,
-                        ),
-                      )
-                    else
-                      DropdownButtonFormField<String>(
-                        value: selectedTargetId,
-                        decoration: InputDecoration(
-                          labelText: selectedAttack.targetType == SpecialAttackTargetType.player
-                              ? 'Jugador objetivo'
-                              : 'Territorio objetivo',
-                          border: const OutlineInputBorder(),
-                        ),
-                        dropdownColor: Theme.of(context).cardColor,
-                        items: targets
-                            .map(
-                              (target) => DropdownMenuItem<String>(
-                                value: target.id,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(target.label, overflow: TextOverflow.ellipsis),
-                                    Text(
-                                      target.subtitle,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        color: AppTheme.textSecondary,
-                                        fontSize: 11,
+                      else
+                        DropdownButtonFormField<String>(
+                          value: selectedTargetId,
+                          isExpanded: true,
+                          decoration: InputDecoration(
+                            labelText: selectedAttack.targetType == SpecialAttackTargetType.player
+                                ? 'Jugador objetivo'
+                                : 'Territorio objetivo',
+                            border: const OutlineInputBorder(),
+                          ),
+                          dropdownColor: Theme.of(context).cardColor,
+                          items: targets
+                              .map(
+                                (target) => DropdownMenuItem<String>(
+                                  value: target.id,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(target.label, overflow: TextOverflow.ellipsis),
+                                      Text(
+                                        target.subtitle,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          color: AppTheme.textSecondary,
+                                          fontSize: 11,
+                                        ),
                                       ),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
-                              ),
-                            )
-                            .toList(growable: false),
-                        onChanged: (value) {
-                          setDialogState(() {
-                            selectedTargetId = value;
-                          });
-                        },
-                      ),
-                  const SizedBox(height: 18),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () => Navigator.of(dialogContext).pop(),
-                          style: _dialogSecondaryButtonStyle(),
-                          child: const Text(
-                            'Cancelar',
-                            style: TextStyle(fontWeight: FontWeight.w700),
+                              )
+                              .toList(growable: false),
+                          onChanged: (value) {
+                            setDialogState(() {
+                              selectedTargetId = value;
+                            });
+                          },
+                        ),
+                    const SizedBox(height: 18),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.of(dialogContext).pop(),
+                            style: _dialogSecondaryButtonStyle(),
+                            child: const Text(
+                              'Cancelar',
+                              style: TextStyle(fontWeight: FontWeight.w700),
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: puedeLanzarse
-                              ? () => _enviarAtaqueEspecial(
-                                    context: context,
-                                    dialogContext: dialogContext,
-                                    ref: ref,
-                                    origin: origen,
-                                    attack: selectedAttack,
-                                    targetId: selectedTargetId,
-                                  )
-                              : null,
-                          style: _dialogPrimaryButtonStyle(),
-                          child: const Text(
-                            'Lanzar',
-                            style: TextStyle(fontWeight: FontWeight.w800),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: puedeLanzarse
+                                ? () => _enviarAtaqueEspecial(
+                                      context: context,
+                                      dialogContext: dialogContext,
+                                      ref: ref,
+                                      origin: origen,
+                                      attack: selectedAttack,
+                                      targetId: selectedTargetId,
+                                    )
+                                : null,
+                            style: _dialogPrimaryButtonStyle(),
+                            child: const Text(
+                              'Lanzar',
+                              style: TextStyle(fontWeight: FontWeight.w800),
+                            ),
                           ),
                         ),
-                      ),
+                      ],
+                    ),
                     ],
                   ),
-                ],
+                ),
               ),
             );
           },
@@ -1386,7 +1399,29 @@ class _ActionPanelState extends ConsumerState<ActionPanel> {
       if (!dialogContext.mounted) return;
       Navigator.of(dialogContext).pop();
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${attack.name} enviado al backend.')),
+        SnackBar(
+          backgroundColor: const Color(0xFF12161E),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+            side: const BorderSide(color: AppTheme.primary, width: 1),
+          ),
+          content: Row(
+            children: [
+              const Icon(Icons.bolt_rounded, color: AppTheme.primary, size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  '¡${attack.name} lanzado con éxito sobre el objetivo!',
+                  style: const TextStyle(
+                    color: AppTheme.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       );
     } on DioException catch (e) {
       final detalle = _parseErrorDetail(
@@ -1397,7 +1432,29 @@ class _ActionPanelState extends ConsumerState<ActionPanel> {
 
       if (!dialogContext.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error ${e.response?.statusCode}: $detalle')),
+        SnackBar(
+          backgroundColor: const Color(0xFF1E1212),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+            side: const BorderSide(color: Color(0xFFBF5050), width: 1),
+          ),
+          content: Row(
+            children: [
+              const Icon(Icons.error_outline_rounded, color: Color(0xFFBF5050), size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  detalle,
+                  style: const TextStyle(
+                    color: Color(0xFFE89090),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       );
     }
   }

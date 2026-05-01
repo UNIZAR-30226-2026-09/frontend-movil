@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/theme/app_theme.dart';
 import '../models/tech_tree_model.dart';
+import '../providers/game_provider.dart';
 
-class TechTreeView extends StatefulWidget {
+class TechTreeView extends ConsumerStatefulWidget {
   final List<TechNodeModel> nodes;
   final Size canvasSize;
   final Set<String> ownedTechIds;
   final Set<String> unlockedTechIds;
-  final bool authoritativeUnlocks;
+  final String? investigandoId;
+  final String? localUsername;
   final void Function(String techId, int cost)? onResearchPressed;
 
   static const double _nodeWidth = 150;
@@ -20,15 +23,16 @@ class TechTreeView extends StatefulWidget {
     required this.canvasSize,
     this.ownedTechIds = const <String>{},
     this.unlockedTechIds = const <String>{},
-    this.authoritativeUnlocks = false,
+    this.investigandoId,
+    this.localUsername,
     this.onResearchPressed,
   });
 
   @override
-  State<TechTreeView> createState() => _TechTreeViewState();
+  ConsumerState<TechTreeView> createState() => _TechTreeViewState();
 }
 
-class _TechTreeViewState extends State<TechTreeView> {
+class _TechTreeViewState extends ConsumerState<TechTreeView> {
   static const double _baseScale = 1.0;
   static const double _panEnableScaleThreshold = 1.02;
 
@@ -90,49 +94,74 @@ class _TechTreeViewState extends State<TechTreeView> {
     return null;
   }
 
-  bool _isOwned(TechNodeModel node) {
-    return widget.ownedTechIds.contains(node.id);
+  // ---------------------------------------------------------------------------
+  // Cascada de estados (orden de prioridad):
+  //   1. INVESTIGANDO  – el jugador está investigando ese nodo ahora mismo.
+  //   2. COMPRADA      – el nodo está en tecnologias_compradas.
+  //   3. PREDESBLOQUEADA – el nodo está en tecnologias_predesbloqueadas.
+  //   4. INVESTIGABLE  – sin prerrequisito, O el padre está predesbloqueado/comprado.
+  //   5. BLOQUEADA     – cualquier otro caso.
+  // ---------------------------------------------------------------------------
+
+  bool _isInvestigating(TechNodeModel node) {
+    final id = widget.investigandoId;
+    return id != null && id.isNotEmpty && id == node.id;
   }
 
+  /// Retorna el conjunto de IDs comprados fusionando los props con el estado reactivo.
+  Set<String> get _effectiveOwnedIds {
+    final gameState = ref.watch(gameProvider);
+    final username = widget.localUsername ?? '';
+    final liveOwned = <String>{
+      ...(gameState.jugadores[username]?.tecnologiasCompradas ?? const <String>[]),
+    };
+    return {...widget.ownedTechIds, ...liveOwned};
+  }
+
+  bool _isOwned(TechNodeModel node) {
+    return _effectiveOwnedIds.contains(node.id);
+  }
+
+  /// Un nodo está "desbloqueado" (disponible para investigar) si:
+  ///   - No tiene prerrequisitos (nodo raíz), o
+  ///   - Al menos uno de sus prerrequisitos está en predesbloqueadas o compradas.
   bool _isUnlocked(TechNodeModel node) {
     if (_isOwned(node)) return true;
-
-    if (widget.unlockedTechIds.contains(node.id)) {
-      return true;
-    }
-
-    final hasExplicitUnlockedAvailability = widget.unlockedTechIds.isNotEmpty;
-    if (widget.authoritativeUnlocks && hasExplicitUnlockedAvailability) {
-      return false;
-    }
-
-    return node.prerequisites.every(widget.ownedTechIds.contains);
+    if (widget.unlockedTechIds.contains(node.id)) return true;
+    // Nodo raíz: investigable directamente.
+    if (node.prerequisites.isEmpty) return true;
+    // Al menos un padre investigado (predesbloqueado o comprado).
+    return node.prerequisites.any(
+      (pid) =>
+          widget.unlockedTechIds.contains(pid) ||
+          _effectiveOwnedIds.contains(pid),
+    );
   }
 
   bool _canResearch(TechNodeModel node) {
-    return !_isOwned(node) && _isUnlocked(node);
+    return !_isOwned(node) && !_isInvestigating(node) && _isUnlocked(node);
   }
 
   String _statusLabel(TechNodeModel node) {
+    if (_isInvestigating(node)) return 'Investigando…';
     if (_isOwned(node)) return 'Investigada';
+    if (widget.unlockedTechIds.contains(node.id)) return 'Predesbloqueada';
     if (!_isUnlocked(node)) return 'Bloqueada';
     return 'Disponible';
   }
 
   Color _statusColor(TechNodeModel node) {
+    if (_isInvestigating(node)) return const Color(0xFF6AB7E8);
     if (_isOwned(node)) return const Color(0xFF74D67A);
+    if (widget.unlockedTechIds.contains(node.id)) return const Color(0xFFE6C36A);
     if (!_isUnlocked(node)) return AppTheme.textSecondary;
     return const Color(0xFFE6C36A);
   }
 
   String _researchButtonLabel(TechNodeModel node) {
+    if (_isInvestigating(node)) return 'Investigando…';
     if (_isOwned(node)) return 'Ya investigada';
-    if (!_isUnlocked(node)) {
-      return widget.authoritativeUnlocks
-          ? 'No predesbloqueada'
-          : 'Bloqueada por prerequisitos';
-    }
-
+    if (!_isUnlocked(node)) return 'Bloqueada por prerrequisitos';
     return 'Investigar';
   }
 
@@ -202,6 +231,7 @@ class _TechTreeViewState extends State<TechTreeView> {
                                   isSelected: node.id == _selectedNodeId,
                                   isOwned: _isOwned(node),
                                   isUnlocked: _isUnlocked(node),
+                                  isPreUnlocked: widget.unlockedTechIds.contains(node.id),
                                   onTap: () => _toggleSelection(node.id),
                                 ),
                               ),
@@ -252,6 +282,7 @@ class _TechNodeCard extends StatelessWidget {
   final bool isSelected;
   final bool isOwned;
   final bool isUnlocked;
+  final bool isPreUnlocked;
   final VoidCallback onTap;
 
   const _TechNodeCard({
@@ -262,6 +293,7 @@ class _TechNodeCard extends StatelessWidget {
     required this.isSelected,
     required this.isOwned,
     required this.isUnlocked,
+    this.isPreUnlocked = false,
     required this.onTap,
   });
 
@@ -284,6 +316,28 @@ class _TechNodeCard extends StatelessWidget {
         ? AppTheme.textSecondary.withValues(alpha: 0.6)
         : (isOwned ? const Color(0xFF74D67A) : accent);
 
+    // Color de fondo del contenedor del icono según estado:
+    // Verde neón  → comprada/investigada.
+    // Naranja vivo → predesbloqueada (investigada pero pendiente de pago).
+    // Gris/neutro  → bloqueada o solo investigable.
+    final Color iconBgColor;
+    final Color iconColor;
+    if (isOwned) {
+      iconBgColor = const Color(0xFF00E676).withValues(alpha: 0.55); // verde neón
+      iconColor = const Color(0xFF003319);
+    } else if (isPreUnlocked) {
+      iconBgColor = const Color(0xFFFF9100).withValues(alpha: 0.60); // naranja vivo
+      iconColor = const Color(0xFF2D1800);
+    } else {
+      iconBgColor = AppTheme.text.withValues(
+        alpha: locked ? 0.015 : (isSelected ? 0.09 : 0.03),
+      );
+      iconColor = locked ? AppTheme.textSecondary : AppTheme.text;
+    }
+
+    // Color del texto: siempre blanco para máximo contraste sobre cualquier fondo.
+    const Color nameColor = Colors.white;
+
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
@@ -297,9 +351,7 @@ class _TechNodeCard extends StatelessWidget {
               width: 72,
               height: 72,
               decoration: BoxDecoration(
-                color: AppTheme.text.withValues(
-                  alpha: locked ? 0.015 : (isSelected ? 0.09 : 0.03),
-                ),
+                color: iconBgColor,
                 border: Border.all(
                   color: isSelected ? effectiveAccent : AppTheme.textSecondary,
                   width: isSelected ? 2.1 : 1.4,
@@ -316,9 +368,7 @@ class _TechNodeCard extends StatelessWidget {
               ),
               child: Icon(
                 node.icon,
-                color: isSelected
-                    ? effectiveAccent
-                    : (locked ? AppTheme.textSecondary : AppTheme.text),
+                color: Colors.white,
                 size: 32,
               ),
             ),
@@ -341,11 +391,11 @@ class _TechNodeCard extends StatelessWidget {
                 maxLines: 2,
                 textAlign: TextAlign.center,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: effectiveAccent,
+                style: const TextStyle(
+                  color: Colors.white,
                   fontWeight: FontWeight.w700,
-                  fontSize: 9.8,
-                  height: 1.1,
+                  fontSize: 14.5,
+                  height: 1.15,
                 ),
               ),
             ),
@@ -425,10 +475,10 @@ class _TechNodeTooltip extends StatelessWidget {
                     child: Text(
                       displayName,
                       style: TextStyle(
-                        color: accent,
+                        color: Colors.white,
                         fontWeight: FontWeight.w800,
-                        fontSize: 12.6,
-                        height: 1.1,
+                        fontSize: 16.0,
+                        height: 1.15,
                       ),
                     ),
                   ),
@@ -460,12 +510,12 @@ class _TechNodeTooltip extends StatelessWidget {
               const SizedBox(height: 7),
               Text(
                 description,
-                maxLines: 4,
+                maxLines: 5,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  color: AppTheme.text,
-                  fontSize: 11.2,
-                  height: 1.25,
+                  color: Colors.white,
+                  fontSize: 14.0,
+                  height: 1.4,
                 ),
               ),
               const SizedBox(height: 10),

@@ -6,24 +6,15 @@ import '../models/tech_tree_model.dart';
 class TechCatalogViewData {
   final List<TechNodeModel> nodes;
   final Size canvasSize;
-  final Set<String> unlockedTechIds;
-  final Set<String> ownedTechIds;
-  final bool hasAuthoritativeAvailability;
 
   const TechCatalogViewData({
     required this.nodes,
     required this.canvasSize,
-    this.unlockedTechIds = const <String>{},
-    this.ownedTechIds = const <String>{},
-    this.hasAuthoritativeAvailability = false,
   });
 
   const TechCatalogViewData.empty()
     : nodes = const <TechNodeModel>[],
-      canvasSize = const Size(1200, 790),
-      unlockedTechIds = const <String>{},
-      ownedTechIds = const <String>{},
-      hasAuthoritativeAvailability = false;
+      canvasSize = const Size(1200, 790);
 }
 
 class TechCatalogService {
@@ -33,6 +24,9 @@ class TechCatalogService {
 
   Future<TechCatalogViewData> fetchCatalog({required int partidaId}) async {
     final response = await dio.get('/partidas/$partidaId/tecnologias');
+    // ─── DEBUG ───────────────────────────────────────────────────────────────
+    print('[DEBUG JSON CATALOGO] response.data → ${response.data}');
+    // ─────────────────────────────────────────────────────────────────────────
     final payload = _extractCatalogPayload(response.data);
     if (payload == null) {
       if (response.data is Map) {
@@ -235,38 +229,6 @@ class TechCatalogService {
     final nodes = _buildVisualNodes(drafts, prices);
     if (nodes.isEmpty) return const TechCatalogViewData.empty();
 
-    final unlockedTechIds = <String>{
-      ..._parseTechIdSet(
-        payload['unlockedTechIds'] ??
-            payload['unlocked_tech_ids'] ??
-            payload['predesbloqueadas'] ??
-            payload['tecnologias_predesbloqueadas'],
-      ),
-      ...drafts
-        .where((draft) => draft.preUnlocked == true)
-        .map((draft) => draft.id)
-        .toSet(),
-    };
-    final ownedTechIds = <String>{
-      ..._parseTechIdSet(
-        payload['ownedTechIds'] ??
-            payload['owned_tech_ids'] ??
-            payload['compradas'] ??
-            payload['tecnologias_compradas'],
-      ),
-      ...drafts
-        .where((draft) => draft.owned == true)
-        .map((draft) => draft.id)
-        .toSet(),
-    };
-    final hasAuthoritativeAvailability =
-        _toBool(
-          payload['hasAuthoritativeAvailability'] ??
-              payload['authoritative_availability'] ??
-              payload['authoritative_unlocks'],
-        ) ??
-        drafts.any((draft) => draft.preUnlocked != null || draft.owned != null);
-
     final branchIds = nodes.map((node) => node.branch).toSet().length;
     final maxTier = nodes
         .map((node) => node.tier)
@@ -284,9 +246,6 @@ class TechCatalogService {
     return TechCatalogViewData(
       nodes: nodes,
       canvasSize: canvasSize,
-      unlockedTechIds: unlockedTechIds,
-      ownedTechIds: ownedTechIds,
-      hasAuthoritativeAvailability: hasAuthoritativeAvailability,
     );
   }
 

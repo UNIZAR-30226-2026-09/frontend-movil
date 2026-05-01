@@ -16,18 +16,12 @@ class GestionPanel extends ConsumerStatefulWidget {
     required this.partidaId,
     required this.onClose,
     this.techNodes = const <TechNodeModel>[],
-    this.catalogUnlockedTechIds = const <String>{},
-    this.catalogOwnedTechIds = const <String>{},
-    this.authoritativeUnlocks = false,
   });
 
   final String comarcaId;
   final int partidaId;
   final VoidCallback onClose;
   final List<TechNodeModel> techNodes;
-  final Set<String> catalogUnlockedTechIds;
-  final Set<String> catalogOwnedTechIds;
-  final bool authoritativeUnlocks;
 
   @override
   ConsumerState<GestionPanel> createState() => _GestionPanelState();
@@ -112,27 +106,33 @@ class _GestionPanelState extends ConsumerState<GestionPanel> {
     final playerState = ref.watch(gameProvider).jugadores[username];
     final ownedTechs = <String>{
       ...(playerState?.tecnologiasCompradas ?? const <String>[]),
-      ...widget.catalogOwnedTechIds,
     };
-    final unlockedTechs = <String>{
+    final predesbloqueadas = <String>{
       ...(playerState?.tecnologiasPredesbloqueadas ?? const <String>[]),
-      ...widget.catalogUnlockedTechIds,
-      ...widget.catalogOwnedTechIds,
     };
-    final authoritativeUnlocks =
-        widget.authoritativeUnlocks || unlockedTechs.isNotEmpty;
-    final hasExplicitUnlockedAvailability = unlockedTechs.isNotEmpty;
+    final investigandoId = playerState?.habilidadInvestigando;
 
     bool isOwned(TechNodeModel node) => ownedTechs.contains(node.id);
 
+    bool isInvestigating(TechNodeModel node) =>
+        investigandoId != null &&
+        investigandoId.isNotEmpty &&
+        investigandoId == node.id;
+
+    /// Cascada de 5 reglas (igual que TechTreeView):
+    /// Raíz sin prerrequisito ⇒ investigable.
+    /// Padre predesbloqueado o comprado ⇒ investigable.
     bool isUnlocked(TechNodeModel node) {
       if (isOwned(node)) return true;
-      if (unlockedTechs.contains(node.id)) return true;
-      if (authoritativeUnlocks && hasExplicitUnlockedAvailability) return false;
-      return node.prerequisites.every(ownedTechs.contains);
+      if (predesbloqueadas.contains(node.id)) return true;
+      if (node.prerequisites.isEmpty) return true;
+      return node.prerequisites.any(
+        (pid) => predesbloqueadas.contains(pid) || ownedTechs.contains(pid),
+      );
     }
 
-    bool canResearch(TechNodeModel node) => !isOwned(node) && isUnlocked(node);
+    bool canResearch(TechNodeModel node) =>
+        !isOwned(node) && !isInvestigating(node) && isUnlocked(node);
 
     final habilidadesActuales = _habilidadesDeRama(ramaSeleccionada);
     if (habilidadesActuales.isNotEmpty &&
@@ -617,6 +617,9 @@ class _GestionPanelState extends ConsumerState<GestionPanel> {
                               return;
                             }
                             try {
+                              // ─── DEBUG ──────────────────────────────────────
+                              print('[DEBUG PAYLOAD INVESTIGAR] territorio_id: ${widget.comarcaId}, habilidad_id: $habilidadSeleccionada');
+                              // ────────────────────────────────────────────────
                               await ref.read(dioProvider).post(
                                 '/partidas/$partidaIdEfectiva/investigar',
                                 data: {
@@ -624,6 +627,9 @@ class _GestionPanelState extends ConsumerState<GestionPanel> {
                                   'habilidad_id': habilidadSeleccionada,
                                 },
                               );
+                              // ─── DEBUG ──────────────────────────────────────
+                              print('[DEBUG INVESTIGACION ACEPTADA] territorio=${widget.comarcaId}, habilidad=$habilidadSeleccionada');
+                              // ────────────────────────────────────────────────
                               if (!mounted) return;
                               ref.read(gameProvider.notifier)
                                   .actualizarEstadoBloqueo(widget.comarcaId, 'investigando');
