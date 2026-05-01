@@ -116,6 +116,15 @@ class _ActionPanelState extends ConsumerState<ActionPanel> {
     );
   }
 
+  InputDecoration _dialogDropdownDecoration(String label) {
+    return InputDecoration(
+      labelText: label,
+      border: const OutlineInputBorder(),
+      isDense: true,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+    );
+  }
+
   ButtonStyle _dialogPrimaryButtonStyle() {
     return ElevatedButton.styleFrom(
       backgroundColor: const Color(0xFF3A2A16),
@@ -411,16 +420,19 @@ class _ActionPanelState extends ConsumerState<ActionPanel> {
     final owner = territoryData?.ownerId ?? 'Neutral';
     final units = territoryData?.units ?? 0;
 
+    final screenHeight = MediaQuery.of(context).size.height;
+
     return AnimatedPositioned(
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeInOut,
-      right: isVisible ? 12 : -290,
-      top: MediaQuery.of(context).size.height * 0.14,
-      width: 270,
+      right: isVisible ? 12 : -320,
+      top: screenHeight * 0.10,
+      width: 300,
       child: Material(
         color: Colors.transparent,
         child: Container(
-          padding: const EdgeInsets.all(18),
+          constraints: BoxConstraints(maxHeight: screenHeight * 0.76),
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: Theme.of(context).cardColor,
             borderRadius: BorderRadius.circular(20),
@@ -593,15 +605,15 @@ class _ActionPanelState extends ConsumerState<ActionPanel> {
                         const SizedBox(height: 12),
                         SizedBox(
                           width: double.infinity,
-                          child: OutlinedButton.icon(
-                            onPressed: () => ref.read(gameProvider.notifier).cancelarAtaque(),
+                  child: OutlinedButton.icon(
+                    onPressed: () => ref.read(gameProvider.notifier).cancelarAtaque(),
                             icon: const Icon(Icons.close_rounded, size: 18),
                             label: const Text(
                               'Cancelar selección',
                               style: TextStyle(fontWeight: FontWeight.w700),
                             ),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: AppTheme.primary,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.primary,
                               side: BorderSide(
                                 color: AppTheme.primary.withValues(alpha: 0.55),
                                 width: 1.1,
@@ -649,6 +661,8 @@ class _ActionPanelState extends ConsumerState<ActionPanel> {
                         icon: const Icon(Icons.auto_awesome_rounded, size: 20),
                         label: const Text(
                           'Ataque especial',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(fontWeight: FontWeight.w700),
                         ),
                       ),
@@ -682,6 +696,8 @@ class _ActionPanelState extends ConsumerState<ActionPanel> {
                         icon: const Icon(Icons.add_box_rounded, size: 20),
                         label: const Text(
                           'Reforzar',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(fontWeight: FontWeight.w700),
                         ),
                       ),
@@ -696,6 +712,8 @@ class _ActionPanelState extends ConsumerState<ActionPanel> {
                         icon: const Icon(Icons.fort_rounded, size: 20),
                         label: const Text(
                           'Mover',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(fontWeight: FontWeight.w700),
                         ),
                       ),
@@ -827,17 +845,23 @@ class _ActionPanelState extends ConsumerState<ActionPanel> {
             final puedeLanzarse =
                 !selectedAttack.requiresTarget || selectedTargetId != null;
 
+            final selectedTarget = targets.cast<_SpecialAttackTargetOption?>().firstWhere(
+                  (target) => target?.id == selectedTargetId,
+                  orElse: () => null,
+                );
+
             return _buildGameDialog(
               context: context,
               maxWidth: 420,
-              child: Flexible(
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Text(
                       'Ataque especial desde ${_formatName(origen)}',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: AppTheme.primary,
                         fontSize: 20,
@@ -848,10 +872,7 @@ class _ActionPanelState extends ConsumerState<ActionPanel> {
                     DropdownButtonFormField<SpecialAttackModel>(
                       value: selectedAttack,
                       isExpanded: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Tecnología',
-                        border: OutlineInputBorder(),
-                      ),
+                      decoration: _dialogDropdownDecoration('Tecnología'),
                       dropdownColor: Theme.of(context).cardColor,
                       items: attacks
                           .map(
@@ -905,31 +926,19 @@ class _ActionPanelState extends ConsumerState<ActionPanel> {
                         DropdownButtonFormField<String>(
                           value: selectedTargetId,
                           isExpanded: true,
-                          decoration: InputDecoration(
-                            labelText: selectedAttack.targetType == SpecialAttackTargetType.player
+                          decoration: _dialogDropdownDecoration(
+                            selectedAttack.targetType == SpecialAttackTargetType.player
                                 ? 'Jugador objetivo'
                                 : 'Territorio objetivo',
-                            border: const OutlineInputBorder(),
                           ),
                           dropdownColor: Theme.of(context).cardColor,
                           items: targets
                               .map(
                                 (target) => DropdownMenuItem<String>(
                                   value: target.id,
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(target.label, overflow: TextOverflow.ellipsis),
-                                      Text(
-                                        target.subtitle,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          color: AppTheme.textSecondary,
-                                          fontSize: 11,
-                                        ),
-                                      ),
-                                    ],
+                                  child: Text(
+                                    target.label,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                               )
@@ -940,6 +949,18 @@ class _ActionPanelState extends ConsumerState<ActionPanel> {
                             });
                           },
                         ),
+                    if (selectedTarget != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        selectedTarget.subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: AppTheme.textSecondary,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 18),
                     Row(
                       children: [
@@ -975,8 +996,7 @@ class _ActionPanelState extends ConsumerState<ActionPanel> {
                         ),
                       ],
                     ),
-                    ],
-                  ),
+                  ],
                 ),
               ),
             );

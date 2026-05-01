@@ -915,24 +915,31 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
     required Widget child,
     double maxWidth = 360,
   }) {
+    final screenHeight = MediaQuery.of(context).size.height;
     return Dialog(
       backgroundColor: Colors.transparent,
-      child: Container(
-        constraints: BoxConstraints(maxWidth: maxWidth),
-        padding: const EdgeInsets.all(22),
-        decoration: BoxDecoration(
-          color: Theme.of(context).cardColor,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: AppTheme.primary, width: 1.4),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.42),
-              blurRadius: 20,
-              offset: const Offset(0, 8),
-            ),
-          ],
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: maxWidth,
+          maxHeight: screenHeight * 0.82,
         ),
-        child: child,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 16),
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: AppTheme.primary, width: 1.4),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.42),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: child,
+        ),
       ),
     );
   }
@@ -1238,112 +1245,116 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
             return _buildBattleDialog(
               context: context,
               maxWidth: 380,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '¡${_formatName(territorioConquistado)} conquistado!',
-                    style: const TextStyle(
-                      color: AppTheme.primary,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  const Text(
-                    'Mueve tropas al nuevo territorio para consolidar la conquista.',
-                    style: TextStyle(
-                      color: AppTheme.textSecondary,
-                      fontSize: 13,
-                      height: 1.4,
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  Center(
-                    child: Text(
-                      '$tropasAMover',
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '¡${_formatName(territorioConquistado)} conquistado!',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: AppTheme.primary,
-                        fontSize: 34,
-                        fontWeight: FontWeight.w900,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.remove_circle_outline, size: 34),
-                        color: AppTheme.primary,
-                        onPressed: tropasAMover > 1
-                            ? () => setDialogState(() => tropasAMover--)
-                            : null,
+                    const SizedBox(height: 10),
+                    const Text(
+                      'Mueve tropas al nuevo territorio para consolidar la conquista.',
+                      style: TextStyle(
+                        color: AppTheme.textSecondary,
+                        fontSize: 13,
+                        height: 1.4,
                       ),
-                      Expanded(
-                        child: Slider(
-                          value: tropasAMover.toDouble(),
-                          min: 1,
-                          max: maxMover.toDouble(),
-                          onChanged: (v) =>
-                              setDialogState(() => tropasAMover = v.toInt()),
+                    ),
+                    const SizedBox(height: 18),
+                    Center(
+                      child: Text(
+                        '$tropasAMover',
+                        style: const TextStyle(
+                          color: AppTheme.primary,
+                          fontSize: 34,
+                          fontWeight: FontWeight.w900,
                         ),
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.add_circle_outline, size: 34),
-                        color: AppTheme.primary,
-                        onPressed: tropasAMover < maxMover
-                            ? () => setDialogState(() => tropasAMover++)
-                            : null,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Disponibles para mover: $maxMover',
-                    style: const TextStyle(
-                      color: AppTheme.textSecondary,
-                      fontSize: 13,
                     ),
-                  ),
-                  const SizedBox(height: 18),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () async {
-                        final partidaId = ref
-                            .read(webSocketProvider)
-                            .currentPartidaId;
-                        if (partidaId == null) return;
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.remove_circle_outline, size: 34),
+                          color: AppTheme.primary,
+                          onPressed: tropasAMover > 1
+                              ? () => setDialogState(() => tropasAMover--)
+                              : null,
+                        ),
+                        Expanded(
+                          child: Slider(
+                            value: tropasAMover.toDouble(),
+                            min: 1,
+                            max: maxMover.toDouble(),
+                            onChanged: (v) =>
+                                setDialogState(() => tropasAMover = v.toInt()),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.add_circle_outline, size: 34),
+                          color: AppTheme.primary,
+                          onPressed: tropasAMover < maxMover
+                              ? () => setDialogState(() => tropasAMover++)
+                              : null,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Disponibles para mover: $maxMover',
+                      style: const TextStyle(
+                        color: AppTheme.textSecondary,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          final partidaId = ref
+                              .read(webSocketProvider)
+                              .currentPartidaId;
+                          if (partidaId == null) return;
 
-                        try {
-                          final dio = ref.read(dioProvider);
-                          await dio.post(
-                            '/partidas/$partidaId/mover_conquista',
-                            data: {'tropas': tropasAMover},
-                          );
-                          await _sincronizarEstadoPartida(partidaId);
-                          ref.read(gameProvider.notifier).limpiarSeleccionCombate();
-                          if (!dialogContext.mounted) return;
-                          Navigator.of(dialogContext).pop();
-                        } on DioException catch (e) {
-                          final detalle =
-                              e.response?.data?.toString() ?? e.message;
-                          debugPrint('🔴 ERROR mover_conquista: $detalle');
-                          if (!mounted || !dialogContext.mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Error: $detalle')),
-                          );
-                        }
-                      },
-                      style: _battlePrimaryButtonStyle(),
-                      child: const Text(
-                        'Mover tropas',
-                        style: TextStyle(fontWeight: FontWeight.w800),
+                          try {
+                            final dio = ref.read(dioProvider);
+                            await dio.post(
+                              '/partidas/$partidaId/mover_conquista',
+                              data: {'tropas': tropasAMover},
+                            );
+                            await _sincronizarEstadoPartida(partidaId);
+                            ref.read(gameProvider.notifier).limpiarSeleccionCombate();
+                            if (!dialogContext.mounted) return;
+                            Navigator.of(dialogContext).pop();
+                          } on DioException catch (e) {
+                            final detalle =
+                                e.response?.data?.toString() ?? e.message;
+                            debugPrint('🔴 ERROR mover_conquista: $detalle');
+                            if (!mounted || !dialogContext.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Error: $detalle')),
+                            );
+                          }
+                        },
+                        style: _battlePrimaryButtonStyle(),
+                        child: const Text(
+                          'Mover tropas',
+                          style: TextStyle(fontWeight: FontWeight.w800),
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             );
           },
