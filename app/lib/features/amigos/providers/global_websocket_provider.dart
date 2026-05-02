@@ -71,7 +71,7 @@ class GlobalWebSocketNotifier extends Notifier<GlobalWebSocketState> {
     _disconnect();
 
     final baseUrl =
-      dotenv.env['API_BASE_URL'] ?? 'http://192.168.1.49:8000/api/v1';
+      dotenv.env['API_BASE_URL'] ?? 'https://soberania.dev/api/v1';
     final wsUrl = baseUrl.replaceFirst('http', 'ws');
     final url = '$wsUrl/global/$username';
     final uri = Uri.parse(url);

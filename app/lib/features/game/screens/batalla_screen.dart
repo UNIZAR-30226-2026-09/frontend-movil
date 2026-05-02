@@ -542,14 +542,6 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
       authProvider.select((auth) => auth.user?.username ?? ''),
     );
     final estadoHud = ref.watch(gameProvider);
-    // Sacamos las monedas del jugador local para pintarlas en la barra superior.
-    final monedasHud = ref.watch(
-      gameProvider.select((state) {
-        if (miUsuarioHud.isEmpty) return 0;
-        final miEstadoJugador = state.jugadores[miUsuarioHud];
-        return miEstadoJugador?.monedas ?? 0;
-      }),
-    );
 
     return Scaffold(
       extendBodyBehindAppBar: true,
@@ -558,35 +550,6 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
         elevation: 0,
         scrolledUnderElevation: 0,
         automaticallyImplyLeading: false,
-        actions: [
-          IconButton(
-            tooltip: 'Logs de partida',
-            onPressed: _mostrarLogsPartidaModal,
-            icon: const Icon(Icons.feed_outlined, color: AppTheme.text),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(right: 14),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.monetization_on,
-                  color: AppTheme.borderGoldVivo,
-                  size: 22,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  '$monedasHud',
-                  style: const TextStyle(
-                    color: AppTheme.borderGoldVivo,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
       resizeToAvoidBottomInset: false,
       body: FutureBuilder<GameMap>(
@@ -644,6 +607,18 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
                 },
                 minScale: 1.0,
                 maxScale: 5.0,
+              ),
+              Positioned(
+                top: MediaQuery.of(context).padding.top + 4,
+                right: 60,
+                child: IconButton(
+                  tooltip: 'Logs de partida',
+                  onPressed: _mostrarLogsPartidaModal,
+                  icon: const Icon(
+                    Icons.feed_outlined,
+                    color: AppTheme.text,
+                  ),
+                ),
               ),
               Positioned(
                 left: 10,
@@ -1494,14 +1469,21 @@ class _PlayerInfoPanel extends StatelessWidget {
                 for (final jugador in jugadores)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 8),
-                    child: _PlayerInfoTile(
-                      username: jugador.key,
-                      numeroJugador: jugador.value.numeroJugador,
-                      esTurnoActual: gameState.turnoDe == jugador.key,
-                      esJugadorLocal: jugador.key == jugadorLocalId,
-                      castillos: _contarComarcasDeJugador(jugador.key),
-                      tropas: _sumarTropasDeJugador(jugador.key),
-                      monedas: jugador.value.monedas,
+                    child: Transform.scale(
+                      scale: gameState.turnoDe == jugador.key ? 1.08 : 1.0,
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 250),
+                        curve: Curves.easeInOut,
+                        child: _PlayerInfoTile(
+                          username: jugador.key,
+                          numeroJugador: jugador.value.numeroJugador,
+                          esTurnoActual: gameState.turnoDe == jugador.key,
+                          esJugadorLocal: jugador.key == jugadorLocalId,
+                          castillos: _contarComarcasDeJugador(jugador.key),
+                          tropas: _sumarTropasDeJugador(jugador.key),
+                          monedas: jugador.value.monedas,
+                        ),
+                      ),
                     ),
                   ),
               ],
@@ -1545,18 +1527,16 @@ class _PlayerInfoTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorJugador = ColorUtils.getPlayerColor(numeroJugador);
+    final borderColor = esJugadorLocal
+        ? const Color(0xFF9E4F4F)
+        : const Color(0xFF5B6A7A);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
       decoration: BoxDecoration(
         color: const Color(0xFF202229).withValues(alpha: 0.95),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: esTurnoActual
-              ? AppTheme.borderGoldVivo
-              : colorJugador.withValues(alpha: 0.65),
-          width: esTurnoActual ? 1.4 : 1,
-        ),
+        border: Border.all(color: borderColor.withValues(alpha: 0.9), width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
