@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../shared/widgets/app_avatar.dart';
+import '../../auth/providers/auth_provider.dart';
 import '../../game/providers/game_provider.dart';
 import '../../../app/theme/app_theme.dart';
 
@@ -88,6 +90,15 @@ class PanelControlGuerra extends ConsumerWidget {
       tiempoRestante /
       (duracionTemporizador > 0 ? duracionTemporizador.toDouble() : 1.0)
     ).clamp(0.0, 1.0);
+    final avatarPropio = ref.watch(
+      authProvider.select((auth) => auth.user?.avatar),
+    );
+    final avatarTurno = ref.watch(
+      gameProvider.select((state) => state.jugadores[turnoDe]?.avatar),
+    );
+    final avatarActivo = turnoDe == usernamePropio
+        ? (avatarTurno ?? avatarPropio)
+        : avatarTurno;
 
     // Solo habilitamos el botón si es nuestro turno
     final esMiTurno = turnoDe == usernamePropio;
@@ -135,18 +146,11 @@ class PanelControlGuerra extends ConsumerWidget {
                         Positioned.fill(
                           child: Padding(
                             padding: const EdgeInsets.all(3),
-                            child: ClipOval(
-                              child: ColoredBox(
-                                color: Color(0xFF131313),
-                                child: FittedBox(
-                                  fit: BoxFit.contain,
-                                  child: Icon(
-                                    Icons.person,
-                                    color: Colors.white30,
-                                    size: panelHeight * 0.24,
-                                  ),
-                                ),
-                              ),
+                            child: AppAvatar(
+                              avatar: avatarActivo,
+                              radius: (panelHeight * 0.57 - 6) / 2,
+                              backgroundColor: const Color(0xFF131313),
+                              iconColor: Colors.white30,
                             ),
                           ),
                         ),

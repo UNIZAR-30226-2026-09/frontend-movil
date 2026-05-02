@@ -77,6 +77,7 @@ class PlayerState {
   // consistente entre todos los clientes sin depender del orden de lista.
   final int numeroJugador;
   final int monedas;
+  final String? avatar;
   final List<String> tecnologiasCompradas;
   final List<String> tecnologiasPredesbloqueadas;
   /// ID de la tecnología que el jugador está investigando actualmente.
@@ -87,6 +88,7 @@ class PlayerState {
     required this.tropasReserva,
     this.numeroJugador = 1,
     this.monedas = 0,
+    this.avatar,
     this.tecnologiasCompradas = const <String>[],
     this.tecnologiasPredesbloqueadas = const <String>[],
     this.habilidadInvestigando,
@@ -96,6 +98,7 @@ class PlayerState {
     int? tropasReserva,
     int? numeroJugador,
     int? monedas,
+    Object? avatar = _sentinel,
     List<String>? tecnologiasCompradas,
     List<String>? tecnologiasPredesbloqueadas,
     Object? habilidadInvestigando = _sentinel,
@@ -104,6 +107,7 @@ class PlayerState {
       tropasReserva: tropasReserva ?? this.tropasReserva,
       numeroJugador: numeroJugador ?? this.numeroJugador,
       monedas: monedas ?? this.monedas,
+      avatar: avatar == _sentinel ? this.avatar : avatar as String?,
       tecnologiasCompradas: tecnologiasCompradas ?? this.tecnologiasCompradas,
       tecnologiasPredesbloqueadas:
           tecnologiasPredesbloqueadas ?? this.tecnologiasPredesbloqueadas,
@@ -167,6 +171,7 @@ class PlayerState {
       numeroJugador: _parseIntSafe(json['numero_jugador'], fallback: 1),
       // Monedas puede venir como `monedas` o `coins`, int/string/null.
       monedas: _parseIntSafe(json['monedas'] ?? json['coins']),
+      avatar: json['avatar']?.toString() ?? json['avatar_url']?.toString(),
       tecnologiasCompradas: _parseTechList(
         json['tecnologias_compradas'] ??
             json['tecnologias'] ??
@@ -490,6 +495,10 @@ class GameNotifier extends Notifier<GameState> {
       valueMap,
       const <String>['habilidad_investigando', 'investigando'],
     );
+    final traeAvatar = _hasAnyKey(
+      valueMap,
+      const <String>['avatar', 'avatar_url'],
+    );
 
     // En eventos parciales mantenemos lo anterior cuando el campo no llega.
     return base.copyWith(
@@ -502,6 +511,7 @@ class GameNotifier extends Notifier<GameState> {
       monedas: _hasAnyKey(valueMap, const <String>['monedas', 'coins'])
           ? parsed.monedas
           : base.monedas,
+      avatar: traeAvatar ? parsed.avatar : base.avatar,
       tecnologiasCompradas: traeTechCompradas
           ? parsed.tecnologiasCompradas
           : base.tecnologiasCompradas,
@@ -676,11 +686,6 @@ class GameNotifier extends Notifier<GameState> {
     final jugadoresJsonRaw = jsonPartida['jugadores'];
     if (jugadoresJsonRaw is Map) {
       final jugadoresJson = Map<String, dynamic>.from(jugadoresJsonRaw);
-      // ─── DEBUG ───────────────────────────────────────────────────────────────
-      jugadoresJson.forEach((key, value) {
-        print('[DEBUG JSON JUGADOR] id=$key → $value');
-      });
-      // ─────────────────────────────────────────────────────────────────────────
       jugadoresActualizados = Map<String, PlayerState>.from(state.jugadores);
       jugadoresJson.forEach((key, value) {
         final valueMap = value is Map

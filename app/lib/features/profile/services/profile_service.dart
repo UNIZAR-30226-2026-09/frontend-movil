@@ -97,6 +97,7 @@ class ProfileService {
 
   List<dynamic>? _extractAvatarListFromMap(Map<String, dynamic> map) {
     const keys = <String>[
+      'avatares',
       'avatars',
       'opciones',
       'avatar_options',
@@ -139,7 +140,7 @@ class ProfileService {
 
       return AvatarOptionModel(
         avatarName: avatarName,
-        previewUrl: looksLikePath ? normalized : null,
+        previewUrl: looksLikePath ? _normalizeAvatarPreview(normalized) : null,
       );
     }
 
@@ -170,8 +171,32 @@ class ProfileService {
 
     return AvatarOptionModel(
       avatarName: normalizedName,
-      previewUrl: previewUrl.isNotEmpty ? previewUrl : null,
+      previewUrl: previewUrl.isNotEmpty
+          ? _normalizeAvatarPreview(previewUrl)
+          : _normalizeAvatarPreview(normalizedName),
     );
+  }
+
+  String _normalizeAvatarPreview(String raw) {
+    final normalized = raw.trim();
+    if (normalized.isEmpty) return normalized;
+
+    if (normalized.startsWith('http://') ||
+        normalized.startsWith('https://') ||
+        normalized.startsWith('/') ||
+        normalized.contains('assets/')) {
+      return normalized;
+    }
+
+    final lower = normalized.toLowerCase();
+    if (lower.endsWith('.png') ||
+        lower.endsWith('.jpg') ||
+        lower.endsWith('.jpeg') ||
+        lower.endsWith('.webp')) {
+      return '/static/perfiles/$normalized';
+    }
+
+    return normalized;
   }
 
   String _extractAvatarNameFromRaw(String raw) {
