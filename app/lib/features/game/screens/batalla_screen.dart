@@ -11,6 +11,7 @@ import 'package:soberania/features/game/models/partida_log_model.dart';
 import 'package:soberania/features/game/services/tech_catalog_service.dart';
 import 'package:soberania/features/game/services/partida_logs_service.dart';
 import 'package:soberania/features/game/widgets/partida_logs_panel.dart';
+import 'package:soberania/features/game/widgets/info_partida_panel.dart';
 import 'package:soberania/features/map/services/map_loader.dart';
 import 'package:soberania/features/map/widgets/action_panel.dart';
 import 'package:soberania/features/map/widgets/interactive_game_map.dart';
@@ -111,7 +112,11 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
           ),
           content: Row(
             children: [
-              const Icon(Icons.science_rounded, color: AppTheme.borderGoldVivo, size: 20),
+              const Icon(
+                Icons.science_rounded,
+                color: AppTheme.borderGoldVivo,
+                size: 20,
+              ),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
@@ -144,12 +149,19 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
           ),
           content: Row(
             children: [
-              const Icon(Icons.error_outline_rounded, color: Color(0xFFBF5050), size: 20),
+              const Icon(
+                Icons.error_outline_rounded,
+                color: Color(0xFFBF5050),
+                size: 20,
+              ),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   detalle,
-                  style: const TextStyle(color: Color(0xFFE89090), fontWeight: FontWeight.w500),
+                  style: const TextStyle(
+                    color: Color(0xFFE89090),
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
             ],
@@ -529,6 +541,7 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
     final miUsuarioHud = ref.watch(
       authProvider.select((auth) => auth.user?.username ?? ''),
     );
+    final estadoHud = ref.watch(gameProvider);
     // Sacamos las monedas del jugador local para pintarlas en la barra superior.
     final monedasHud = ref.watch(
       gameProvider.select((state) {
@@ -633,6 +646,20 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
                 maxScale: 5.0,
               ),
               Positioned(
+                left: 10,
+                top: 0,
+                bottom: 0,
+                width: 190,
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: _PlayerInfoPanel(
+                    gameState: estadoHud,
+                    jugadorLocalId: miUsuarioHud,
+                    panelHeight: MediaQuery.of(context).size.height * 0.60,
+                  ),
+                ),
+              ),
+              Positioned(
                 top: 0,
                 left: 0,
                 child: Padding(
@@ -717,31 +744,62 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
                   top: false,
                   left: false,
                   minimum: const EdgeInsets.only(right: 4, bottom: 4),
-                  child: Material(
-                    color: AppTheme.secondary,
-                    shape: const CircleBorder(
-                      side: BorderSide(color: AppTheme.primary, width: 1.6),
-                    ),
-                    elevation: 6,
-                    child: InkWell(
-                      customBorder: const CircleBorder(),
-                      onTap: () => _mostrarArbolTecnologicoModal(context),
-                      child: const SizedBox(
-                        width: 78,
-                        height: 78,
-                        child: Icon(
-                          Icons.park_rounded,
-                          color: AppTheme.primary,
-                          size: 38,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Material(
+                        color: const Color(0xFF1C1B22),
+                        shape: const CircleBorder(
+                          side: BorderSide(
+                            color: AppTheme.borderGold,
+                            width: 1.8,
+                          ),
+                        ),
+                        elevation: 6,
+                        child: InkWell(
+                          customBorder: const CircleBorder(),
+                          onTap: () {
+                            ref
+                                .read(gameProvider.notifier)
+                                .toggleVistaRegiones();
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Image.asset(
+                              'assets/icons/map_icon.png',
+                              width: 40,
+                              height: 40,
+                              fit: BoxFit.contain,
+                            ),
+                          ),
                         ),
                       ),
-                    ),
+                      const SizedBox(height: 10),
+                      Material(
+                        color: AppTheme.secondary,
+                        shape: const CircleBorder(
+                          side: BorderSide(color: AppTheme.primary, width: 1.6),
+                        ),
+                        elevation: 6,
+                        child: InkWell(
+                          customBorder: const CircleBorder(),
+                          onTap: () => _mostrarArbolTecnologicoModal(context),
+                          child: const SizedBox(
+                            width: 78,
+                            height: 78,
+                            child: Icon(
+                              Icons.park_rounded,
+                              color: AppTheme.primary,
+                              size: 38,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
-              ActionPanel(
-                techNodes: _techNodes,
-              ),
+              ActionPanel(techNodes: _techNodes),
               AnimatedPositioned(
                 duration: const Duration(milliseconds: 300),
                 curve: Curves.easeInOut,
@@ -1284,7 +1342,10 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
                     Row(
                       children: [
                         IconButton(
-                          icon: const Icon(Icons.remove_circle_outline, size: 34),
+                          icon: const Icon(
+                            Icons.remove_circle_outline,
+                            size: 34,
+                          ),
                           color: AppTheme.primary,
                           onPressed: tropasAMover > 1
                               ? () => setDialogState(() => tropasAMover--)
@@ -1333,7 +1394,9 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
                               data: {'tropas': tropasAMover},
                             );
                             await _sincronizarEstadoPartida(partidaId);
-                            ref.read(gameProvider.notifier).limpiarSeleccionCombate();
+                            ref
+                                .read(gameProvider.notifier)
+                                .limpiarSeleccionCombate();
                             if (!dialogContext.mounted) return;
                             Navigator.of(dialogContext).pop();
                           } on DioException catch (e) {
@@ -1397,6 +1460,184 @@ class _CatalogErrorView extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _PlayerInfoPanel extends StatelessWidget {
+  final GameState gameState;
+  final String jugadorLocalId;
+  final double panelHeight;
+
+  const _PlayerInfoPanel({
+    required this.gameState,
+    required this.jugadorLocalId,
+    required this.panelHeight,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final jugadores = gameState.jugadores.entries.toList(growable: false)
+      ..sort((a, b) => a.value.numeroJugador.compareTo(b.value.numeroJugador));
+
+    return SizedBox(
+      width: 190,
+      child: SizedBox(
+        height: panelHeight,
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final jugador in jugadores)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: _PlayerInfoTile(
+                      username: jugador.key,
+                      numeroJugador: jugador.value.numeroJugador,
+                      esTurnoActual: gameState.turnoDe == jugador.key,
+                      esJugadorLocal: jugador.key == jugadorLocalId,
+                      castillos: _contarComarcasDeJugador(jugador.key),
+                      tropas: _sumarTropasDeJugador(jugador.key),
+                      monedas: jugador.value.monedas,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  int _contarComarcasDeJugador(String jugadorId) {
+    return gameState.mapa.values.where((t) => t.ownerId == jugadorId).length;
+  }
+
+  int _sumarTropasDeJugador(String jugadorId) {
+    return gameState.mapa.values
+        .where((t) => t.ownerId == jugadorId)
+        .fold<int>(0, (sum, t) => sum + t.units);
+  }
+}
+
+class _PlayerInfoTile extends StatelessWidget {
+  final String username;
+  final int numeroJugador;
+  final bool esTurnoActual;
+  final bool esJugadorLocal;
+  final int castillos;
+  final int tropas;
+  final int monedas;
+
+  const _PlayerInfoTile({
+    required this.username,
+    required this.numeroJugador,
+    required this.esTurnoActual,
+    required this.esJugadorLocal,
+    required this.castillos,
+    required this.tropas,
+    required this.monedas,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorJugador = ColorUtils.getPlayerColor(numeroJugador);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+      decoration: BoxDecoration(
+        color: const Color(0xFF202229).withValues(alpha: 0.95),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: esTurnoActual
+              ? AppTheme.borderGoldVivo
+              : colorJugador.withValues(alpha: 0.65),
+          width: esTurnoActual ? 1.4 : 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: colorJugador,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  username,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppTheme.text,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              const Icon(
+                Icons.castle_rounded,
+                size: 13,
+                color: AppTheme.textSecondary,
+              ),
+              const SizedBox(width: 2),
+              Text(
+                '$castillos',
+                style: const TextStyle(
+                  color: AppTheme.text,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Icon(
+                Icons.shield_rounded,
+                size: 13,
+                color: AppTheme.textSecondary,
+              ),
+              const SizedBox(width: 2),
+              Text(
+                '$tropas',
+                style: const TextStyle(
+                  color: AppTheme.text,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              if (esJugadorLocal) ...[
+                const SizedBox(width: 8),
+                const Icon(
+                  Icons.monetization_on,
+                  size: 13,
+                  color: AppTheme.borderGoldVivo,
+                ),
+                const SizedBox(width: 2),
+                Text(
+                  '$monedas',
+                  style: const TextStyle(
+                    color: AppTheme.borderGoldVivo,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ],
       ),
     );
   }

@@ -96,17 +96,6 @@ class PanelControlGuerra extends ConsumerWidget {
       clipBehavior: Clip.none,
       alignment: Alignment.bottomLeft,
       children: [
-        // --- PANEL LATERAL DE JUGADORES (a la izquierda del panel central) ---
-        Positioned(
-          bottom: 10,
-          right: panelWidth / 2 + 12, // 12 es el padding horizontal del Stack
-          child: _PanelJugadores(
-            turnoDe: turnoDe,
-            usernamePropio: usernamePropio,
-            coloresPorJugador: coloresPorJugador,
-          ),
-        ),
-
         // --- EL PANEL CENTRAL (imagen + controles) ---
         Align(
           alignment: Alignment.bottomLeft,
@@ -326,109 +315,6 @@ class PanelControlGuerra extends ConsumerWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-// --- Widget auxiliar privado: panel lateral con los jugadores ---
-class _PanelJugadores extends StatelessWidget {
-  final String turnoDe;
-  final String usernamePropio;
-  final Map<String, Color> coloresPorJugador;
-
-  const _PanelJugadores({
-    required this.turnoDe,
-    required this.usernamePropio,
-    required this.coloresPorJugador,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    if (coloresPorJugador.isEmpty) return const SizedBox.shrink();
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.65),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppTheme.primary.withValues(alpha: 0.4)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Cabecera
-          const Text(
-            'TURNO',
-            style: TextStyle(
-              color: AppTheme.primary,
-              fontSize: 9,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1.2,
-            ),
-          ),
-          const SizedBox(height: 6),
-          // Una fila por jugador
-          ...coloresPorJugador.entries.map((entry) {
-            final username = entry.key;
-            final color = entry.value;
-            final esTurnoDeEste = username == turnoDe;
-            final esTuyo = username == usernamePropio;
-
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Punto de color del jugador
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 300),
-                    width: esTurnoDeEste ? 10 : 7,
-                    height: esTurnoDeEste ? 10 : 7,
-                    decoration: BoxDecoration(
-                      color: color,
-                      shape: BoxShape.circle,
-                      // Brillo en el jugador activo
-                      boxShadow: esTurnoDeEste
-                          ? [
-                              BoxShadow(
-                                color: color.withValues(alpha: 0.8),
-                                blurRadius: 6,
-                                spreadRadius: 1,
-                              ),
-                            ]
-                          : null,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    // "(tú)" para que sepas quién eres sin leer el nombre entero
-                    esTuyo ? '$username (tú)' : username,
-                    style: TextStyle(
-                      color: esTurnoDeEste
-                          ? AppTheme.text
-                          : AppTheme.textSecondary,
-                      fontSize: esTurnoDeEste ? 11 : 10,
-                      fontWeight: esTurnoDeEste
-                          ? FontWeight.bold
-                          : FontWeight.normal,
-                    ),
-                  ),
-                  // Flecha indicando turno activo
-                  if (esTurnoDeEste) ...[
-                    const SizedBox(width: 4),
-                    const Icon(
-                      Icons.play_arrow,
-                      color: AppTheme.primary,
-                      size: 12,
-                    ),
-                  ],
-                ],
-              ),
-            );
-          }),
-        ],
-      ),
     );
   }
 }
