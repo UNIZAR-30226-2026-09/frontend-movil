@@ -11,7 +11,6 @@ import '../providers/game_provider.dart';
 import '../providers/websocket_provider.dart';
 import '../providers/lobby_info_provider.dart';
 import '../providers/matchmaking_provider.dart';
-import '../services/matchmaking_service.dart';
 
 class LobbyScreen extends ConsumerStatefulWidget {
   final int partidaId;
@@ -114,11 +113,14 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
       ...jugadoresIniciales,
       ...jugadoresWs,
     }.toList();
+    final avataresLobby = {
+      for (final jugador in lobbyInfo.jugadoresEnSala)
+        jugador.usuarioId: jugador.avatar,
+    };
     final creador = lobbyInfo.creador;
     final codigoInvitacion = lobbyInfo.codigoInvitacion;
     final maxJugadores = lobbyInfo.maxPlayers;
     final visibilidad = lobbyInfo.visibility;
-    final matchmakingState = ref.watch(matchmakingProvider);
     final esCreador = usuarioActual == creador;
     final esPartidaPausada = widget.esPausada;
 
@@ -293,7 +295,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                             ),
                             child: ListView.separated(
                               itemCount: jugadoresConectados.length,
-                              separatorBuilder: (_, __) =>
+                              separatorBuilder: (_, _) =>
                                   const SizedBox(height: 10),
                               itemBuilder: (context, index) {
                                 final nombreJugador =
@@ -305,6 +307,9 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                                     gameState.jugadores[nombreJugador];
                                 final estaOnline =
                                     jugadoresWs.contains(nombreJugador);
+                                final avatarJugador = playerState?.avatar ??
+                                    avataresLobby[nombreJugador] ??
+                                    (isCurrentUser ? authState.user?.avatar : null);
 
                                 return Opacity(
                                   opacity: estaOnline ? 1.0 : 0.55,
@@ -323,9 +328,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                                   child: Row(
                                     children: [
                                       AppAvatar(
-                                        avatar: isCurrentUser
-                                            ? authState.user?.avatar
-                                            : null,
+                                        avatar: avatarJugador,
                                         radius: 18,
                                         iconColor: isCurrentUser
                                             ? const Color(0xFFC5A059)

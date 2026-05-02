@@ -19,6 +19,7 @@ import 'package:soberania/features/game/widgets/tech_tree_view.dart';
 import '../../../app/theme/app_theme.dart';
 import '../../../shared/api/dio_provider.dart';
 import '../../../shared/utils/color_utils.dart';
+import '../../../shared/widgets/app_avatar.dart';
 import '../../../app/router/app_routes.dart';
 import '../providers/matchmaking_provider.dart';
 import '../providers/lobby_info_provider.dart';
@@ -1462,7 +1463,7 @@ class _PlayerInfoPanel extends StatelessWidget {
       ..sort((a, b) => a.value.numeroJugador.compareTo(b.value.numeroJugador));
 
     return SizedBox(
-      width: 190,
+      width: 208,
       child: SizedBox(
         height: panelHeight,
         child: SingleChildScrollView(
@@ -1484,6 +1485,7 @@ class _PlayerInfoPanel extends StatelessWidget {
                           numeroJugador: jugador.value.numeroJugador,
                           esTurnoActual: gameState.turnoDe == jugador.key,
                           esJugadorLocal: jugador.key == jugadorLocalId,
+                          avatar: jugador.value.avatar,
                           castillos: _contarComarcasDeJugador(jugador.key),
                           tropas: _sumarTropasDeJugador(jugador.key),
                           monedas: jugador.value.monedas,
@@ -1515,6 +1517,7 @@ class _PlayerInfoTile extends StatelessWidget {
   final int numeroJugador;
   final bool esTurnoActual;
   final bool esJugadorLocal;
+  final String? avatar;
   final int castillos;
   final int tropas;
   final int monedas;
@@ -1524,6 +1527,7 @@ class _PlayerInfoTile extends StatelessWidget {
     required this.numeroJugador,
     required this.esTurnoActual,
     required this.esJugadorLocal,
+    required this.avatar,
     required this.castillos,
     required this.tropas,
     required this.monedas,
@@ -1543,84 +1547,98 @@ class _PlayerInfoTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: borderColor.withValues(alpha: 0.9), width: 1),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Row(
-            children: [
-              Container(
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(
-                  color: colorJugador,
-                  shape: BoxShape.circle,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: colorJugador,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        username,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: AppTheme.text,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  username,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppTheme.text,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              const Icon(
-                Icons.castle_rounded,
-                size: 13,
-                color: AppTheme.textSecondary,
-              ),
-              const SizedBox(width: 2),
-              Text(
-                '$castillos',
-                style: const TextStyle(
-                  color: AppTheme.text,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(width: 8),
-              const Icon(
-                Icons.shield_rounded,
-                size: 13,
-                color: AppTheme.textSecondary,
-              ),
-              const SizedBox(width: 2),
-              Text(
-                '$tropas',
-                style: const TextStyle(
-                  color: AppTheme.text,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              if (esJugadorLocal) ...[
-                const SizedBox(width: 8),
-                const Icon(
-                  Icons.monetization_on,
-                  size: 13,
-                  color: AppTheme.borderGoldVivo,
-                ),
-                const SizedBox(width: 2),
-                Text(
-                  '$monedas',
-                  style: const TextStyle(
-                    color: AppTheme.borderGoldVivo,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                  ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.castle_rounded,
+                      size: 13,
+                      color: AppTheme.textSecondary,
+                    ),
+                    const SizedBox(width: 2),
+                    Text(
+                      '$castillos',
+                      style: const TextStyle(
+                        color: AppTheme.text,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Icon(
+                      Icons.shield_rounded,
+                      size: 13,
+                      color: AppTheme.textSecondary,
+                    ),
+                    const SizedBox(width: 2),
+                    Text(
+                      '$tropas',
+                      style: const TextStyle(
+                        color: AppTheme.text,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    if (esJugadorLocal) ...[
+                      const SizedBox(width: 8),
+                      const Icon(
+                        Icons.monetization_on,
+                        size: 13,
+                        color: AppTheme.borderGoldVivo,
+                      ),
+                      const SizedBox(width: 2),
+                      Text(
+                        '$monedas',
+                        style: const TextStyle(
+                          color: AppTheme.borderGoldVivo,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ],
-            ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          AppAvatar(
+            avatar: avatar,
+            radius: 18,
+            backgroundColor: const Color(0xFF15171D),
+            iconColor: Colors.white24,
           ),
         ],
       ),

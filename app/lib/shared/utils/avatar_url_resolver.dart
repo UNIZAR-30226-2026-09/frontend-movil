@@ -15,6 +15,13 @@ String? resolveAvatarUrl(String? rawAvatar) {
   if (apiUri == null || apiUri.authority.isEmpty) return avatar;
 
   final origin = '${apiUri.scheme}://${apiUri.authority}';
+  final looksLikeFilename = !avatar.contains('/') &&
+      RegExp(r'\.(png|jpe?g|webp|gif|avif)$', caseSensitive: false).hasMatch(avatar);
+
+  if (looksLikeFilename) {
+    return '$origin/static/perfiles/$avatar';
+  }
+
   if (avatar.startsWith('/')) {
     return '$origin$avatar';
   }

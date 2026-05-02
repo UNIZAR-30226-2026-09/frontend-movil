@@ -472,6 +472,20 @@ class GameNotifier extends Notifier<GameState> {
     return false;
   }
 
+  Map<String, String> _parseAvatarMap(dynamic raw) {
+    if (raw is! Map) return const <String, String>{};
+
+    final output = <String, String>{};
+    raw.forEach((key, value) {
+      final username = key.toString().trim();
+      final avatar = value?.toString().trim() ?? '';
+      if (username.isNotEmpty && avatar.isNotEmpty) {
+        output[username] = avatar;
+      }
+    });
+    return output;
+  }
+
   PlayerState _mergePlayerStateDesdeJson(
     PlayerState? previo,
     Map<String, dynamic> valueMap,
@@ -531,6 +545,38 @@ class GameNotifier extends Notifier<GameState> {
       state.jugadores,
     );
     jugadoresActualizados[username] = PlayerState(tropasReserva: 0);
+    state = state.copyWith(jugadores: jugadoresActualizados);
+  }
+
+  void agregarOActualizarJugador({
+    required String username,
+    String? avatar,
+  }) {
+    if (username.trim().isEmpty) return;
+
+    final jugadoresActualizados = Map<String, PlayerState>.from(
+      state.jugadores,
+    );
+    final previo = jugadoresActualizados[username] ?? PlayerState(tropasReserva: 0);
+
+    jugadoresActualizados[username] = previo.copyWith(
+      avatar: avatar != null && avatar.trim().isNotEmpty ? avatar.trim() : previo.avatar,
+    );
+    state = state.copyWith(jugadores: jugadoresActualizados);
+  }
+
+  void actualizarAvataresJugadores(Map<String, String> avataresPorUsuario) {
+    if (avataresPorUsuario.isEmpty) return;
+
+    final jugadoresActualizados = Map<String, PlayerState>.from(
+      state.jugadores,
+    );
+
+    avataresPorUsuario.forEach((username, avatar) {
+      final previo = jugadoresActualizados[username] ?? PlayerState(tropasReserva: 0);
+      jugadoresActualizados[username] = previo.copyWith(avatar: avatar);
+    });
+
     state = state.copyWith(jugadores: jugadoresActualizados);
   }
 
@@ -695,6 +741,14 @@ class GameNotifier extends Notifier<GameState> {
           jugadoresActualizados[key],
           valueMap,
         );
+      });
+    }
+
+    final avataresPorUsuario = _parseAvatarMap(jsonPartida['avatares']);
+    if (avataresPorUsuario.isNotEmpty) {
+      avataresPorUsuario.forEach((username, avatar) {
+        final previo = jugadoresActualizados[username] ?? PlayerState(tropasReserva: 0);
+        jugadoresActualizados[username] = previo.copyWith(avatar: avatar);
       });
     }
 

@@ -195,8 +195,7 @@ class WebSocketNotifier extends Notifier<WebSocketState> {
                 tipoEventoSistema: tipoEvento,
                 jugadorEventoSistema:
                     (payload['votante'] ?? data['votante'])?.toString(),
-                payloadEventoSistema:
-                    payload is Map<String, dynamic> ? payload : data,
+                payloadEventoSistema: payload,
                 votosAFavor: votosAFavor,
                 totalJugadores: totalJugadores,
                 versionEventoSistema: state.versionEventoSistema + 1,
@@ -230,8 +229,7 @@ class WebSocketNotifier extends Notifier<WebSocketState> {
 
               state = state.copyWith(
                 tipoEventoSistema: tipoEvento,
-                payloadEventoSistema:
-                    payload is Map<String, dynamic> ? payload : data,
+                payloadEventoSistema: payload,
                 versionEventoSistema: state.versionEventoSistema + 1,
                 clearVotacion: true,
               );
@@ -421,7 +419,10 @@ class WebSocketNotifier extends Notifier<WebSocketState> {
             if (tipoEvento == 'NUEVO_JUGADOR') {
               final username = data['jugador'] as String?;
               if (username != null) {
-                ref.read(gameProvider.notifier).agregarJugador(username);
+                ref.read(gameProvider.notifier).agregarOActualizarJugador(
+                  username: username,
+                  avatar: data['avatar']?.toString(),
+                );
               }
               return;
             }
