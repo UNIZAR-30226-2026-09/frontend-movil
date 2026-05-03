@@ -38,6 +38,8 @@ class BatallaScreen extends ConsumerStatefulWidget {
 class _BatallaScreenState extends ConsumerState<BatallaScreen> {
   late final Future<GameMap> _mapFuture;
   bool _partidaTerminada = false;
+  bool _jugadorLocalEliminado = false;
+  bool _modoEspectador = false;
   bool _cargandoCatalogoTecnologias = false;
   bool _hayDialogoPopupActivo = false;
   bool _resolviendoResultadoAtaque = false;
@@ -50,6 +52,7 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
   String? _codigoPartida;
   String? _comarcaGestionSeleccionada;
 
+
   TechCatalogService get _techCatalogService =>
       TechCatalogService(ref.read(dioProvider));
 
@@ -59,6 +62,15 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
   int _partidaIdActual() {
     if (widget.partidaId > 0) return widget.partidaId;
     return ref.read(webSocketProvider).currentPartidaId ?? 0;
+  }
+
+  int _contarJugadoresVivos(GameState state) {
+    final jugadoresConTerritorios = state.mapa.values
+        .map((territorio) => territorio.ownerId)
+        .where((ownerId) => ownerId.trim().isNotEmpty)
+        .toSet();
+
+    return jugadoresConTerritorios.length;
   }
 
   Future<void> _sincronizarEstadoPartida(int partidaId) async {
@@ -71,6 +83,8 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
   }
 
   void _onResearchPressed(String habilidadId, int cost) async {
+    if (_jugadorLocalEliminado || _modoEspectador) return;
+
     final partidaId = _partidaIdActual();
     if (partidaId <= 0) {
       if (!mounted) return;
@@ -295,6 +309,8 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
       final miUsuario = ref.read(authProvider).user?.username;
       if (miUsuario == null || miUsuario.isEmpty) return;
 
+      if (_jugadorLocalEliminado || _modoEspectador) return;
+
       final faseActual = next.faseActual.toLowerCase();
       final faseAnterior = previous?.faseActual.toLowerCase();
 
@@ -439,7 +455,7 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
               titulo: 'Partida pausada',
               mensaje: 'La pausa fue aprobada. Volverás al menú principal.',
               alAceptar: () {
-                if (mounted) context.go('/inicio');
+                if (mounted) context.go('/home');
               },
             ),
           );
@@ -461,18 +477,47 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
       }
 
       if (tipo == 'JUGADOR_ELIMINADO') {
-        _partidaTerminada = true;
         final jugador = next.jugadorEventoSistema ?? 'Desconocido';
         final esYo = miUsuario != null && jugador == miUsuario;
 
-        final titulo = esYo ? 'Has sido eliminado' : 'Jugador eliminado';
-        final mensaje = esYo
-            ? 'Te han eliminado de la partida. Volverás al lobby.'
-            : '$jugador ha sido eliminado de la partida. Regresarás al lobby.';
+        if (esYo) {
+          _jugadorLocalEliminado = true;
+
+          WidgetsBinding.instance.addPostFrameCallback((_) async {
+            if (!mounted) return;
+
+            final partidaId = _partidaIdActual();
+
+            if (partidaId > 0) {
+              try {
+                await _sincronizarEstadoPartida(partidaId);
+              } catch (e) {
+                debugPrint('Error sincronizando estado tras eliminación: $e');
+              }
+            }
+
+            if (!mounted) return;
+
+            final gameStateActual = ref.read(gameProvider);
+            final jugadoresVivos = _contarJugadoresVivos(gameStateActual);
+            final puedeEspectar = jugadoresVivos > 1;
+
+            await _mostrarDialogoEliminado(
+              puedeEspectar: puedeEspectar,
+            );
+          });
+          
+          return;
+        }
 
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          _mostrarDialogoSistemaYSalir(titulo, mensaje);
+          if (!mounted) return;
+          _mostrarPopup(
+            titulo: 'Jugador eliminado',
+            mensaje: '$jugador ha sido eliminado de la partida.',
+          );
         });
+
         return;
       }
 
@@ -497,7 +542,7 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
 
     ref.listen<GameState>(gameProvider, (previous, next) {
       // Si ya terminó la partida, no lanzamos popups de combate.
-      if (_partidaTerminada) return;
+      if (_partidaTerminada || _jugadorLocalEliminado || _modoEspectador) return;
 
       final prevVersion = previous?.versionResultadoAtaque ?? 0;
       final hayNuevoResultado =
@@ -570,6 +615,8 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
               InteractiveGameMap(
                 gameMap: snapshot.data!,
                 onTapComarca: (c) {
+                  if (_jugadorLocalEliminado || _modoEspectador) return;
+
                   final estadoActual = ref.read(gameProvider);
                   final miUsuario = ref.read(authProvider).user?.username ?? '';
                   final faseActual = estadoActual.faseActual.toLowerCase();
@@ -649,69 +696,130 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
                       ),
                     ),
                     child: IconButton(
-                      tooltip: 'Solicitar pausa',
-                      icon: const Icon(
-                        Icons.pause_circle_outline_rounded,
+                      tooltip: (_jugadorLocalEliminado || _modoEspectador)
+                          ? 'Salir de la partida'
+                          : 'Solicitar pausa',
+                      icon: Icon(
+                        (_jugadorLocalEliminado || _modoEspectador)
+                            ? Icons.exit_to_app_rounded
+                            : Icons.pause_circle_outline_rounded,
                         color: AppTheme.borderGold,
                       ),
-                      onPressed: () async {
-                        final confirmar = await _mostrarPopupDecision(
-                          titulo: '¿Solicitar pausa?',
-                          mensaje:
-                              'Se pedirá al resto de jugadores que voten para pausar la partida.',
-                        );
-                        if (!mounted || confirmar != true) return;
-                        final codigo = _codigoPartida;
-                        if (codigo == null || codigo.isEmpty) {
-                          unawaited(
-                            _mostrarPopup(
-                              titulo: 'Error',
-                              mensaje:
-                                  'No se encontró el código de la partida.',
-                            ),
-                          );
-                          return;
-                        }
-                        // Mostramos la espera antes de llamar — el popup se cerrará
-                        // cuando llegue PARTIDA_PAUSADA o PAUSA_RECHAZADA por WS.
-                        unawaited(
-                          _mostrarPopup(
-                            titulo: 'Votación en curso',
-                            mensaje: 'Esperando al resto de jugadores...',
-                          ),
-                        );
-                        try {
-                          await ref
-                              .read(matchmakingServiceProvider)
-                              .solicitarPausa(codigo);
-                          // El backend no auto-asigna el voto al iniciador,
-                          // así que lo emitimos explícitamente como 'a favor'.
-                          await ref
-                              .read(matchmakingServiceProvider)
-                              .votarPausa(codigo, aFavor: true);
-                        } on DioException catch (e) {
-                          if (!mounted) return;
-                          if (_hayDialogoPopupActivo) {
-                            Navigator.of(context, rootNavigator: true).pop();
-                          }
-                          final detalle =
-                              e.response?.data is Map<String, dynamic>
-                              ? (e.response?.data['detail']?.toString() ??
-                                    e.message ??
-                                    'No se pudo solicitar la pausa')
-                              : (e.message ?? 'No se pudo solicitar la pausa');
-                          unawaited(
-                            _mostrarPopup(
-                              titulo: 'Error al pausar',
-                              mensaje: detalle,
-                            ),
-                          );
-                        }
-                      },
+                      onPressed: (_jugadorLocalEliminado || _modoEspectador)
+                          ? () async {
+                              final salir = await _mostrarPopupDecision(
+                                titulo: 'Salir de la partida',
+                                mensaje: '¿Quieres dejar de espectar y volver al menú principal?',
+                              );
+
+                              if (!mounted || salir != true) return;
+
+                              context.go('/home');
+                            }
+                          : () async {
+                              final confirmar = await _mostrarPopupDecision(
+                                titulo: '¿Solicitar pausa?',
+                                mensaje:
+                                    'Se pedirá al resto de jugadores que voten para pausar la partida.',
+                              );
+                              if (!mounted || confirmar != true) return;
+
+                              final codigo = _codigoPartida;
+                              if (codigo == null || codigo.isEmpty) {
+                                unawaited(
+                                  _mostrarPopup(
+                                    titulo: 'Error',
+                                    mensaje: 'No se encontró el código de la partida.',
+                                  ),
+                                );
+                                return;
+                              }
+
+                              unawaited(
+                                _mostrarPopup(
+                                  titulo: 'Votación en curso',
+                                  mensaje: 'Esperando al resto de jugadores...',
+                                ),
+                              );
+
+                              try {
+                                await ref
+                                    .read(matchmakingServiceProvider)
+                                    .solicitarPausa(codigo);
+
+                                await ref
+                                    .read(matchmakingServiceProvider)
+                                    .votarPausa(codigo, aFavor: true);
+                              } on DioException catch (e) {
+                                if (!mounted) return;
+
+                                if (_hayDialogoPopupActivo) {
+                                  Navigator.of(context, rootNavigator: true).pop();
+                                }
+
+                                final detalle = e.response?.data is Map<String, dynamic>
+                                    ? (e.response?.data['detail']?.toString() ??
+                                          e.message ??
+                                          'No se pudo solicitar la pausa')
+                                    : (e.message ?? 'No se pudo solicitar la pausa');
+
+                                unawaited(
+                                  _mostrarPopup(
+                                    titulo: 'Error al pausar',
+                                    mensaje: detalle,
+                                  ),
+                                );
+                              }
+                            },
                     ),
                   ),
                 ),
               ),
+              if (_modoEspectador)
+                Positioned(
+                  top: MediaQuery.of(context).padding.top + 14,
+                  left: 0,
+                  right: 0,
+                  child: Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF252530).withOpacity(0.92),
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(
+                          color: AppTheme.borderGold.withOpacity(0.85),
+                          width: 1.2,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.28),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.visibility_rounded,
+                            color: AppTheme.borderGold,
+                            size: 18,
+                          ),
+                          SizedBox(width: 8),
+                          Text(
+                            'Modo espectador',
+                            style: TextStyle(
+                              color: AppTheme.borderGold,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
               Positioned(
                 right: 10,
                 bottom: 26,
@@ -774,23 +882,26 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
                   ),
                 ),
               ),
-              ActionPanel(techNodes: _techNodes),
-              AnimatedPositioned(
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.easeInOut,
-                right: _comarcaGestionSeleccionada != null ? 12 : -360,
-                top: MediaQuery.of(context).size.height * 0.12,
-                width: 360,
-                child: IgnorePointer(
-                  ignoring: _comarcaGestionSeleccionada == null,
-                  child: GestionPanel(
-                    comarcaId: _comarcaGestionSeleccionada ?? '',
-                    partidaId: widget.partidaId,
-                    onClose: _cerrarPanelGestion,
-                    techNodes: _techNodes,
+              if (!_jugadorLocalEliminado && !_modoEspectador)
+                ActionPanel(techNodes: _techNodes),
+              
+              if (!_jugadorLocalEliminado && !_modoEspectador)
+                AnimatedPositioned(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
+                  right: _comarcaGestionSeleccionada != null ? 12 : -360,
+                  top: MediaQuery.of(context).size.height * 0.12,
+                  width: 360,
+                  child: IgnorePointer(
+                    ignoring: _comarcaGestionSeleccionada == null,
+                    child: GestionPanel(
+                      comarcaId: _comarcaGestionSeleccionada ?? '',
+                      partidaId: widget.partidaId,
+                      onClose: _cerrarPanelGestion,
+                      techNodes: _techNodes,
+                    ),
                   ),
                 ),
-              ),
             ],
           );
         },
@@ -1146,6 +1257,116 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
         if (mounted) context.go('/lobby');
       },
     );
+  }
+
+  Future<void> _mostrarDialogoEliminado({
+    required bool puedeEspectar,
+  }) async {
+    if (!mounted) return;
+
+    _hayDialogoPopupActivo = true;
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return PopScope(
+          canPop: false,
+          child: _buildBattleDialog(
+            context: context,
+            maxWidth: 420,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'HAS SIDO',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Color(0xFFE84A4A),
+                    fontSize: 32,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'ELIMINADO',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Color(0xFFE84A4A),
+                    fontSize: 32,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+                const SizedBox(height: 22),
+                const Text(
+                  'Tus legiones han caído y tus tierras han sido reclamadas.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: AppTheme.text,
+                    fontSize: 14,
+                    height: 1.45,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Tu soberanía termina aquí.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: AppTheme.textSecondary,
+                    fontSize: 14,
+                    height: 1.45,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(dialogContext).pop();
+                      context.go('/home');
+                    },
+                    style: _battlePrimaryButtonStyle(),
+                    child: const Text(
+                      'Volver a la pantalla principal',
+                      style: TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                  ),
+                ),
+
+                if (puedeEspectar) ...[
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      onPressed: () {
+                        setState(() {
+                          _modoEspectador = true;
+                          _comarcaGestionSeleccionada = null;
+                        });
+
+                        Navigator.of(dialogContext).pop();
+                      },
+                      style: _battleSecondaryButtonStyle(),
+                      child: const Text(
+                        'Espectar partida',
+                        style: TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    _hayDialogoPopupActivo = false;
   }
 
   Future<void> _mostrarArbolTecnologicoModal(BuildContext context) async {
