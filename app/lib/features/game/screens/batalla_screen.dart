@@ -11,6 +11,7 @@ import 'package:soberania/features/game/models/partida_log_model.dart';
 import 'package:soberania/features/game/services/tech_catalog_service.dart';
 import 'package:soberania/features/game/services/partida_logs_service.dart';
 import 'package:soberania/features/game/widgets/partida_logs_panel.dart';
+import 'package:soberania/features/game/widgets/reacciones_button.dart';
 import 'package:soberania/features/map/services/map_loader.dart';
 import 'package:soberania/features/map/widgets/action_panel.dart';
 import 'package:soberania/features/map/widgets/interactive_game_map.dart';
@@ -656,15 +657,73 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
                 maxScale: 5.0,
               ),
               Positioned(
-                top: MediaQuery.of(context).padding.top + 4,
-                right: 60,
-                child: IconButton(
-                  tooltip: 'Logs de partida',
-                  onPressed: _mostrarLogsPartidaModal,
-                  icon: const Icon(
-                    Icons.feed_outlined,
-                    color: AppTheme.text,
-                  ),
+                top: MediaQuery.of(context).padding.top,
+                right: 12,
+                child: Row(
+                  children: [
+                    Container(
+                      width: 48,
+                      height: 48,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: AppTheme.panelBg,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: AppTheme.goldMain,
+                          width: 1.5,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppTheme.goldDark.withValues(alpha: 0.35),
+                            blurRadius: 2,
+                            offset: const Offset(0, 1),
+                            blurStyle: BlurStyle.inner,
+                          ),
+                          BoxShadow(
+                            color: AppTheme.panelShadow.withValues(alpha: 0.7),
+                            blurRadius: 6,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: const ReaccionesButton(),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      width: 48,
+                      height: 48,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: AppTheme.panelBg,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: AppTheme.goldMain,
+                          width: 1.5,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppTheme.goldDark.withValues(alpha: 0.35),
+                            blurRadius: 2,
+                            offset: const Offset(0, 1),
+                            blurStyle: BlurStyle.inner,
+                          ),
+                          BoxShadow(
+                            color: AppTheme.panelShadow.withValues(alpha: 0.7),
+                            blurRadius: 6,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: IconButton(
+                        tooltip: 'Logs de partida',
+                        onPressed: _mostrarLogsPartidaModal,
+                        icon: const Icon(
+                          Icons.feed_outlined,
+                          color: AppTheme.goldMain,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
               Positioned(

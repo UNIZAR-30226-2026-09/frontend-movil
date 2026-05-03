@@ -4,6 +4,12 @@ class AppTheme {
   static const bg = Color(0xFF1A1A24);
   static const surface = Color(0xFF252530);
   static const panelOverlay = Color.fromRGBO(26, 26, 36, 0.85);
+  static const panelBg = Color(0xFF28262C);
+  static const panelShadow = Color(0xFF23180B);
+
+  static const goldMain = Color(0xFFB59A63);
+  static const goldSecondary = Color(0xFF967F5A);
+  static const goldDark = Color(0xFF615038);
 
   static const primary = Color(0xFFC5A059);
   static const borderGoldVivo = Color(0xFFFFD13B);
