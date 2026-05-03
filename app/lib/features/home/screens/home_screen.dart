@@ -4,9 +4,14 @@ import 'package:go_router/go_router.dart';
 import 'package:soberania/features/auth/providers/auth_provider.dart';
 
 import '../../../app/router/app_routes.dart';
+import '../../../app/theme/app_theme.dart';
 import '../widgets/home_action_button.dart';
 import '../widgets/home_profile_card.dart';
 import '../menu_background.dart';
+
+import '../widgets/home_allies_panel.dart';
+import '../widgets/home_center_block.dart';
+import '../widgets/home_ranking_panel.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -16,44 +21,68 @@ class HomeScreen extends ConsumerWidget {
     final authState = ref.watch(authProvider);
     final username = authState.user?.username ?? 'Jugador';
     final avatar = authState.user?.avatar;
+
     return Scaffold(
       body: MenuBackground(
-        child: Stack(
-          children: [
-            Center(
-              child: Wrap(
-                spacing: 24,
-                runSpacing: 16,
-                alignment: WrapAlignment.center,
-                children: [
-                  HomeActionButton(
-                    text: 'Entrar al lobby',
-                    onPressed: () {
-                      context.push(AppRoutes.batallas);
-                    },
+        child: SafeArea(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final isWide = constraints.maxWidth >= 760;
+
+              if (!isWide) {
+                return Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      HomeCenterBlock(
+                        username: username,
+                        avatar: avatar,
+                      ),
+                      const SizedBox(height: 14),
+                      HomeActionButton(
+                        text: 'Aliados',
+                        width: 300,
+                        height: 72,
+                        onPressed: () {
+                          context.push(AppRoutes.social);
+                        },
+                      ),
+                    ],
                   ),
-                  HomeActionButton(
-                    text: 'Aliados',
-                    onPressed: () {
-                      context.push(AppRoutes.social);
-                    },
-                  ),
-                ],
-              ),
-            ),
-            SafeArea(
-              child: Align(
-                alignment: Alignment.topRight,
-                child: Padding(
-                  padding: const EdgeInsets.all(12.0),
-                  child: HomeProfileCard(username: username, avatar: avatar),
+                );
+              }
+              return Padding(
+                padding: const EdgeInsets.fromLTRB(32, 24, 32, 28),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    const SizedBox(
+                      width: 250,
+                      child: HomeRankingPanel(),
+                    ),
+                    const Spacer(),
+                    Transform.translate(
+                      offset: const Offset(0, 55),
+                      child: HomeCenterBlock(
+                        username: username,
+                        avatar: avatar,
+                      ),
+                    ),
+                    const Spacer(),
+                    SizedBox(
+                      width: 250,
+                      child: HomeAlliesPanel(
+                        username: username,
+                        avatar: avatar,
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ),
-          ],
+              );
+            },
+          ),
         ),
       ),
-      //bottomNavigationBar: const AppBottomNavBar(currentIndex: 0),
     );
   }
 }

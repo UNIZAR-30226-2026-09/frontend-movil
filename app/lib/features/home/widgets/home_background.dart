@@ -16,7 +16,7 @@ class HomeBackground extends StatelessWidget {
           child: Image.asset(
             'assets/images/mesa-mando.png',
             fit: BoxFit.cover,
-            alignment: Alignment.center,
+            alignment: const Alignment(0, -0.4),
           ),
         ),
         Positioned.fill(

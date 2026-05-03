@@ -16,7 +16,7 @@ class MenuBackground extends StatelessWidget {
           child: Image.asset(
             'assets/images/fondoLobby.png',
             fit: BoxFit.fitWidth,
-            alignment: const Alignment(0, -1),
+            alignment: const Alignment(0, -0.7),
           ),
         ),
         Positioned.fill(
