@@ -44,6 +44,8 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
   bool _cargandoCatalogoTecnologias = false;
   bool _hayDialogoPopupActivo = false;
   bool _resolviendoResultadoAtaque = false;
+  Timer? _reactionBubbleTimer;
+  _ReactionBubbleData? _reactionBubble;
   List<TechNodeModel> _techNodes = const <TechNodeModel>[];
   Size _techCanvasSize = const Size(1200, 790);
   String? _techCatalogError;
@@ -218,6 +220,12 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
     _mapFuture = MapLoader.loadMap();
     Future<void>.microtask(_cargarCatalogoTecnologias);
     Future<void>.microtask(_resolverCodigoPartida);
+  }
+
+  @override
+  void dispose() {
+    _reactionBubbleTimer?.cancel();
+    super.dispose();
   }
 
   // Intenta obtener el código de invitación desde el servidor.
@@ -522,6 +530,44 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
         return;
       }
 
+      if (tipo == 'REACCION' || tipo == 'CHAT' || tipo == 'MENSAJE_CHAT') {
+        final payload = next.payloadEventoSistema ?? const <String, dynamic>{};
+        final jugador =
+            (payload['jugador'] ??
+                    payload['usuario'] ??
+                    payload['emisor'] ??
+                    payload['username'] ??
+                    next.jugadorEventoSistema)
+                ?.toString();
+        final tipoReaccion =
+            (payload['tipo'] ??
+                    payload['tipo_mensaje'] ??
+                    payload['clase'] ??
+                    (payload['archivo'] != null ? 'reaccion' : null))
+                ?.toString() ??
+            '';
+        final contenido =
+            (payload['contenido'] ??
+                    payload['archivo'] ??
+                    payload['reaccion'] ??
+                    payload['texto'] ??
+                    payload['mensaje'])
+                ?.toString() ??
+            '';
+
+        if (contenido.trim().isEmpty) return;
+
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          _mostrarNotificacionReaccion(
+            jugador: jugador ?? 'Jugador',
+            tipo: tipoReaccion,
+            contenido: contenido,
+          );
+        });
+        return;
+      }
+
       if (tipo == 'PARTIDA_FINALIZADA' || tipo == 'FIN_PARTIDA') {
         _partidaTerminada = true;
         final ganador = next.ganadorEventoSistema;
@@ -740,6 +786,19 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
                   ),
                 ),
               ),
+              if (_reactionBubble != null)
+                Positioned(
+                  left: 215,
+                  top: _reactionBubbleTop(
+                    context: context,
+                    gameState: estadoHud,
+                    jugador: _reactionBubble!.jugador,
+                  ),
+                  child: _ReactionBubbleView(
+                    data: _reactionBubble!,
+                    imageUrlBuilder: _reactionImageUrl,
+                  ),
+                ),
               Positioned(
                 top: 0,
                 left: 0,
@@ -1235,6 +1294,57 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
     _hayDialogoPopupActivo = false;
   }
 
+  String _reactionImageUrl(String fileName) {
+    final normalized = fileName.trim();
+    if (normalized.startsWith('http://') ||
+        normalized.startsWith('https://')) {
+      return normalized;
+    }
+
+    if (normalized.startsWith('/')) {
+      return 'https://soberania.dev$normalized';
+    }
+
+    return 'https://soberania.dev/static/reacciones/$normalized';
+  }
+
+  void _mostrarNotificacionReaccion({
+    required String jugador,
+    required String tipo,
+    required String contenido,
+  }) {
+    if (!mounted) return;
+
+    _reactionBubbleTimer?.cancel();
+    setState(() {
+      _reactionBubble = _ReactionBubbleData(
+        jugador: jugador,
+        tipo: tipo,
+        contenido: contenido,
+      );
+    });
+
+    _reactionBubbleTimer = Timer(const Duration(seconds: 3), () {
+      if (!mounted) return;
+      setState(() => _reactionBubble = null);
+    });
+  }
+
+  double _reactionBubbleTop({
+    required BuildContext context,
+    required GameState gameState,
+    required String jugador,
+  }) {
+    final screenHeight = MediaQuery.of(context).size.height;
+    final panelHeight = screenHeight * 0.60;
+    final jugadores = gameState.jugadores.entries.toList(growable: false)
+      ..sort((a, b) => a.value.numeroJugador.compareTo(b.value.numeroJugador));
+    final index = jugadores.indexWhere((entry) => entry.key == jugador);
+    final safeIndex = index < 0 ? 0 : index;
+    final panelTop = (screenHeight - panelHeight) / 2;
+    return panelTop + 18 + safeIndex * 72;
+  }
+
   Future<bool?> _mostrarPopupDecision({
     required String titulo,
     required String mensaje,
@@ -1724,6 +1834,120 @@ class _CatalogErrorView extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ReactionBubbleData {
+  final String jugador;
+  final String tipo;
+  final String contenido;
+
+  const _ReactionBubbleData({
+    required this.jugador,
+    required this.tipo,
+    required this.contenido,
+  });
+}
+
+class _ReactionBubbleView extends StatelessWidget {
+  final _ReactionBubbleData data;
+  final String Function(String fileName) imageUrlBuilder;
+
+  const _ReactionBubbleView({
+    required this.data,
+    required this.imageUrlBuilder,
+  });
+
+  bool get _isImage {
+    return data.tipo == 'reaccion' ||
+        RegExp(
+          r'\.(png|jpe?g|webp|gif|avif)$',
+          caseSensitive: false,
+        ).hasMatch(data.contenido);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          CustomPaint(
+            size: const Size(10, 18),
+            painter: _ReactionBubbleTailPainter(),
+          ),
+          Container(
+            constraints: const BoxConstraints(maxWidth: 230),
+            padding: EdgeInsets.symmetric(
+              horizontal: _isImage ? 8 : 12,
+              vertical: _isImage ? 8 : 9,
+            ),
+            decoration: BoxDecoration(
+              color: AppTheme.panelBg.withValues(alpha: 0.96),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: AppTheme.goldMain.withValues(alpha: 0.85),
+                width: 1.4,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.35),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: _isImage
+                ? Image.network(
+                    imageUrlBuilder(data.contenido),
+                    width: 44,
+                    height: 44,
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) => const Icon(
+                      Icons.add_reaction_outlined,
+                      color: AppTheme.primary,
+                      size: 32,
+                    ),
+                  )
+                : Text(
+                    data.contenido,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppTheme.text,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReactionBubbleTailPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final fill = Paint()
+      ..color = AppTheme.panelBg.withValues(alpha: 0.96)
+      ..style = PaintingStyle.fill;
+    final border = Paint()
+      ..color = AppTheme.goldMain.withValues(alpha: 0.85)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.4;
+
+    final path = Path()
+      ..moveTo(0, size.height / 2)
+      ..lineTo(size.width, 0)
+      ..lineTo(size.width, size.height)
+      ..close();
+
+    canvas.drawPath(path, fill);
+    canvas.drawPath(path, border);
+  }
+
+  @override
+  bool shouldRepaint(covariant _ReactionBubbleTailPainter oldDelegate) => false;
 }
 
 class _PlayerInfoPanel extends StatelessWidget {

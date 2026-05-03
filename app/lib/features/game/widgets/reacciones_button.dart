@@ -1,15 +1,28 @@
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:soberania/app/theme/app_theme.dart';
+import 'package:soberania/features/auth/providers/auth_provider.dart';
+import 'package:soberania/features/game/providers/websocket_provider.dart';
+import 'package:soberania/shared/api/dio_provider.dart';
 
-class ReaccionesButton extends StatelessWidget {
+class ReaccionesButton extends ConsumerStatefulWidget {
   const ReaccionesButton({super.key});
 
-  Future<Map<String, dynamic>> _fetchOpciones() async {
-    final response = await Dio().get(
-      'https://soberania.dev/api/v1/usuarios/opciones',
-    );
+  @override
+  ConsumerState<ReaccionesButton> createState() => _ReaccionesButtonState();
+}
+
+class _ReaccionesButtonState extends ConsumerState<ReaccionesButton> {
+  final LayerLink _layerLink = LayerLink();
+  OverlayEntry? _overlayEntry;
+  Future<Map<String, dynamic>>? _opcionesFuture;
+
+  static const String _reactionAssetsBaseUrl =
+      'https://soberania.dev/static/reacciones';
+
+  Future<Map<String, dynamic>> _fetchOpciones(WidgetRef ref) async {
+    final response = await ref.read(dioProvider).get('/usuarios/opciones');
 
     if (response.statusCode == 200 && response.data is Map) {
       return Map<String, dynamic>.from(response.data as Map);
@@ -18,178 +31,327 @@ class ReaccionesButton extends StatelessWidget {
     return <String, dynamic>{};
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 48,
-      height: 48,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: AppTheme.panelBg,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppTheme.goldMain, width: 1.5),
-      ),
-      child: PopupMenuButton<String>(
-        icon: const Icon(
-          Icons.add_reaction_outlined,
-          color: AppTheme.goldMain,
-          size: 28,
-        ),
-        padding: EdgeInsets.zero,
-        tooltip: 'Reacciones',
-        offset: const Offset(0, 48),
-        color: AppTheme.panelBg,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: AppTheme.goldMain.withValues(alpha: 0.2)),
-        ),
-        onSelected: (_) {},
-        itemBuilder: (BuildContext context) => [
-          PopupMenuItem<String>(
-            enabled: false,
-            padding: EdgeInsets.zero,
-            child: SizedBox(
-              width: 280,
-              height: 450,
-              child: FutureBuilder<Map<String, dynamic>>(
-                future: _fetchOpciones(),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(
-                      child: SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                    );
-                  }
+  String _reactionImageUrl(String fileName) {
+    final normalized = fileName.trim();
+    if (normalized.startsWith('http://') ||
+        normalized.startsWith('https://')) {
+      return normalized;
+    }
 
-                  if (snapshot.hasError || snapshot.data == null) {
-                    return Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Text(
-                          'No se pudieron cargar las opciones.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(color: AppTheme.textSecondary),
-                        ),
-                      ),
-                    );
-                  }
+    if (normalized.startsWith('/')) {
+      return 'https://soberania.dev$normalized';
+    }
 
-                  final data = snapshot.data!;
-                  final reacciones = <String>[];
-                  final mensajes = <String>[];
+    return '$_reactionAssetsBaseUrl/$normalized';
+  }
 
-                  final rawReacciones = data['reacciones'];
-                  if (rawReacciones is List) {
-                    for (final item in rawReacciones) {
-                      if (item is String) {
-                        reacciones.add(item);
-                      } else if (item is Map && item['file'] != null) {
-                        reacciones.add(item['file'].toString());
-                      } else if (item is Map && item['nombre'] != null) {
-                        reacciones.add(item['nombre'].toString());
-                      }
-                    }
-                  }
+  void _emitirOpcion(WidgetRef ref, String selected) {
+    final separatorIndex = selected.indexOf(':');
+    if (separatorIndex <= 0 || separatorIndex == selected.length - 1) return;
 
-                  final rawMensajes = data['mensajes'];
-                  if (rawMensajes is List) {
-                    for (final item in rawMensajes) {
-                      if (item is String) {
-                        mensajes.add(item);
-                      } else if (item is Map && item['texto'] != null) {
-                        mensajes.add(item['texto'].toString());
-                      }
-                    }
-                  }
+    final tipo = selected.substring(0, separatorIndex);
+    final contenido = selected.substring(separatorIndex + 1);
+    final username = ref.read(authProvider).user?.username;
 
-                  return SingleChildScrollView(
-                    padding: const EdgeInsets.all(12),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (reacciones.isNotEmpty) ...[
-                          GridView.builder(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            itemCount: reacciones.length,
-                            gridDelegate:
-                                const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 3,
-                              mainAxisSpacing: 8,
-                              crossAxisSpacing: 8,
-                              childAspectRatio: 1,
-                            ),
-                            itemBuilder: (context, index) {
-                              final fileName = reacciones[index];
-                              final imageUrl =
-                                  'https://soberania.dev/storage/reacciones/$fileName';
-                              // Añade esto para ver qué URL se está intentando cargar en la consola
-                              print('DEBUG: Cargando imagen desde -> $imageUrl');
-                              return GestureDetector(
-                                onTap: () => Navigator.of(context).pop(
-                                  'reaccion:$fileName',
-                                ),
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: Image.network(
-                                    imageUrl,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) => Container(
-                                      color: const Color(0xFF1F1F1F),
-                                      alignment: Alignment.center,
-                                      child: const Icon(
-                                        Icons.broken_image_outlined,
-                                        color: Colors.white24,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        ],
-                        if (mensajes.isNotEmpty) ...[
-                          if (reacciones.isNotEmpty) const SizedBox(height: 12),
-                          ...mensajes.map(
-                            (mensaje) => InkWell(
-                              onTap: () => Navigator.of(context).pop(
-                                'mensaje:$mensaje',
-                              ),
-                              child: Padding(
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 6),
-                                child: Text(
-                                  mensaje,
-                                  style: const TextStyle(
-                                    color: Color(0xFFB59A63),
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                        if (reacciones.isEmpty && mensajes.isEmpty)
-                          Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: Text(
-                              'No hay opciones disponibles.',
-                              style: TextStyle(color: AppTheme.textSecondary),
-                            ),
-                          ),
-                      ],
-                    ),
-                  );
-                },
+    ref.read(webSocketProvider.notifier).emitirEvento('CHAT', {
+      'accion': 'enviar_chat',
+      'tipo': tipo,
+      'contenido': contenido,
+      if (tipo == 'reaccion') 'archivo': contenido,
+      if (tipo == 'mensaje') 'mensaje': contenido,
+      if (username != null && username.isNotEmpty) 'jugador': username,
+    });
+  }
+
+  void _cerrarPanel() {
+    _overlayEntry?.remove();
+    _overlayEntry = null;
+  }
+
+  void _togglePanel() {
+    if (_overlayEntry != null) {
+      _cerrarPanel();
+      return;
+    }
+
+    _opcionesFuture ??= _fetchOpciones(ref);
+    _overlayEntry = OverlayEntry(
+      builder: (context) {
+        final mediaQuery = MediaQuery.of(context);
+        final screenSize = mediaQuery.size;
+        final safeTop = mediaQuery.padding.top + 8;
+        final panelWidth = (screenSize.width * 0.31).clamp(300.0, 330.0);
+        final panelHeight = screenSize.height - safeTop - 10;
+        final panelLeft = screenSize.width - panelWidth - 80;
+
+        return Stack(
+          children: [
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onTap: _cerrarPanel,
               ),
             ),
+            Positioned(
+              left: panelLeft,
+              top: safeTop,
+              width: panelWidth,
+              height: panelHeight,
+              child: Material(
+                color: Colors.transparent,
+                child: _ReaccionesPanel(
+                  futureOpciones: _opcionesFuture!,
+                  imageUrlBuilder: _reactionImageUrl,
+                  onSelected: (selected) {
+                    _cerrarPanel();
+                    _emitirOpcion(ref, selected);
+                  },
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    Overlay.of(context).insert(_overlayEntry!);
+  }
+
+  @override
+  void dispose() {
+    _cerrarPanel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CompositedTransformTarget(
+      link: _layerLink,
+      child: Container(
+        width: 48,
+        height: 48,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: AppTheme.panelBg,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: AppTheme.goldMain, width: 1.5),
+        ),
+        child: IconButton(
+          tooltip: 'Reacciones',
+          padding: EdgeInsets.zero,
+          onPressed: _togglePanel,
+          icon: const Icon(
+            Icons.add_reaction_outlined,
+            color: AppTheme.goldMain,
+            size: 28,
           ),
-        ],
+        ),
       ),
+    );
+  }
+}
+
+class _ReaccionesPanel extends StatelessWidget {
+  const _ReaccionesPanel({
+    required this.futureOpciones,
+    required this.imageUrlBuilder,
+    required this.onSelected,
+  });
+
+  final Future<Map<String, dynamic>> futureOpciones;
+  final String Function(String fileName) imageUrlBuilder;
+  final ValueChanged<String> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppTheme.panelBg,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: AppTheme.goldMain.withValues(alpha: 0.9),
+          width: 2,
+        ),
+      ),
+      child: FutureBuilder<Map<String, dynamic>>(
+        future: futureOpciones,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(
+              child: SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            );
+          }
+
+          if (snapshot.hasError || snapshot.data == null) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Text(
+                  'No se pudieron cargar las opciones.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: AppTheme.textSecondary),
+                ),
+              ),
+            );
+          }
+
+          final data = snapshot.data!;
+          final reacciones = _parseStringOptions(data['reacciones']);
+          final mensajes = _parseStringOptions(data['mensajes']);
+
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (reacciones.isNotEmpty)
+                  _ReactionGrid(
+                    reacciones: reacciones,
+                    imageUrlBuilder: imageUrlBuilder,
+                    onSelected: onSelected,
+                  ),
+                if (mensajes.isNotEmpty) ...[
+                  if (reacciones.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: Divider(
+                        height: 1,
+                        thickness: 1,
+                        color: AppTheme.goldMain.withValues(alpha: 0.3),
+                      ),
+                    ),
+                  for (var i = 0; i < mensajes.length; i++) ...[
+                    InkWell(
+                      onTap: () => onSelected('mensaje:${mensajes[i]}'),
+                      child: SizedBox(
+                        width: double.infinity,
+                        height: 28,
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            mensajes[i],
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Color(0xFFB59A63),
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (i < mensajes.length - 1)
+                      Divider(
+                        height: 1,
+                        thickness: 1,
+                        color: AppTheme.goldMain.withValues(alpha: 0.18),
+                      ),
+                  ],
+                ],
+                if (reacciones.isEmpty && mensajes.isEmpty)
+                  Expanded(
+                    child: Center(
+                      child: Text(
+                        'No hay opciones disponibles.',
+                        style: TextStyle(color: AppTheme.textSecondary),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  static List<String> _parseStringOptions(dynamic raw) {
+    final output = <String>[];
+    if (raw is! List) return output;
+
+    for (final item in raw) {
+      if (item is String) {
+        output.add(item);
+      } else if (item is Map && item['file'] != null) {
+        output.add(item['file'].toString());
+      } else if (item is Map && item['nombre'] != null) {
+        output.add(item['nombre'].toString());
+      } else if (item is Map && item['texto'] != null) {
+        output.add(item['texto'].toString());
+      }
+    }
+
+    return output;
+  }
+}
+
+class _ReactionGrid extends StatelessWidget {
+  const _ReactionGrid({
+    required this.reacciones,
+    required this.imageUrlBuilder,
+    required this.onSelected,
+  });
+
+  final List<String> reacciones;
+  final String Function(String fileName) imageUrlBuilder;
+  final ValueChanged<String> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const spacing = 6.0;
+        final tileSize = (constraints.maxWidth - spacing * 2) / 3;
+
+        return Wrap(
+          spacing: spacing,
+          runSpacing: spacing,
+          children: [
+            for (final fileName in reacciones)
+              SizedBox(
+                width: tileSize,
+                height: tileSize,
+                child: GestureDetector(
+                  onTap: () => onSelected('reaccion:$fileName'),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF17161B),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: AppTheme.goldMain.withValues(alpha: 0.25),
+                        width: 1,
+                      ),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(4),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(7),
+                        child: Image.network(
+                          imageUrlBuilder(fileName),
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) =>
+                              Container(
+                            color: const Color(0xFF1F1F1F),
+                            alignment: Alignment.center,
+                            child: const Icon(
+                              Icons.broken_image_outlined,
+                              color: Colors.white24,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }

@@ -145,7 +145,10 @@ class WebSocketNotifier extends Notifier<WebSocketState> {
                 tipoEvento == 'FIN_PARTIDA' ||
                 tipoEvento == 'SOLICITUD_PAUSA' ||
                 tipoEvento == 'PAUSA_RECHAZADA' ||
-                tipoEvento == 'PARTIDA_PAUSADA') {
+                tipoEvento == 'PARTIDA_PAUSADA' ||
+                tipoEvento == 'REACCION' ||
+                tipoEvento == 'CHAT' ||
+                tipoEvento == 'MENSAJE_CHAT') {
               final rawPayload = data['payload'];
               final payload = rawPayload is Map<String, dynamic>
                   ? rawPayload
