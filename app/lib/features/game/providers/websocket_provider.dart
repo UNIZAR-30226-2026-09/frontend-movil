@@ -79,8 +79,7 @@ class WebSocketNotifier extends Notifier<WebSocketState> {
 
   @override
   WebSocketState build() {
-    final baseUrl =
-      dotenv.env['API_BASE_URL'] ?? 'https://soberania.dev/api/v1';
+    final baseUrl = dotenv.env['API_BASE_URL'] ?? 'http://192.168.1.35:8000/api/v1';
     final wsUrl = baseUrl.replaceFirst('http', 'ws');
     _wsService = WebSocketService(baseUrl: wsUrl);
 
@@ -135,6 +134,11 @@ class WebSocketNotifier extends Notifier<WebSocketState> {
           debugPrint('📩 Evento WS recibido: $message');
           try {
             final data = jsonDecode(message);
+            debugPrint('🔥 WS CRUDO: $message');
+            final tipoEv = data['tipo_evento']?.toString();
+            if (tipoEv != null && (tipoEv.toLowerCase().contains('reaccion') || tipoEv.toLowerCase().contains('chat'))) {
+              debugPrint('🚨 ALARMA DE REACCIÓN DETECTADA: $message');
+            }
             if (data is! Map<String, dynamic>) return;
 
             final tipoEvento = data['tipo_evento']?.toString();
@@ -510,6 +514,7 @@ class WebSocketNotifier extends Notifier<WebSocketState> {
 
   void emitirEvento(String tipoEvento, Map<String, dynamic> datos) {
     final payloadParaFastAPI = {'accion': tipoEvento, ...datos};
+    debugPrint('📦 ENVIANDO AL WS: $payloadParaFastAPI');
     _wsService.sendEvent(tipoEvento, payloadParaFastAPI);
   }
 

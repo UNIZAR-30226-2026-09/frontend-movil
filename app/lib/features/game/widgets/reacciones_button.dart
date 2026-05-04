@@ -19,10 +19,10 @@ class _ReaccionesButtonState extends ConsumerState<ReaccionesButton> {
   Future<Map<String, dynamic>>? _opcionesFuture;
 
   static const String _reactionAssetsBaseUrl =
-      'https://soberania.dev/static/reacciones';
+      'http://192.168.1.35:8000/static/reacciones/';
 
   Future<Map<String, dynamic>> _fetchOpciones(WidgetRef ref) async {
-    final response = await ref.read(dioProvider).get('/usuarios/opciones');
+    final response = await ref.read(dioProvider).get('http://192.168.1.35:8000/api/v1/usuarios/opciones');
 
     if (response.statusCode == 200 && response.data is Map) {
       return Map<String, dynamic>.from(response.data as Map);
@@ -39,10 +39,10 @@ class _ReaccionesButtonState extends ConsumerState<ReaccionesButton> {
     }
 
     if (normalized.startsWith('/')) {
-      return 'https://soberania.dev$normalized';
+      return 'http://192.168.1.35:8000$normalized';
     }
 
-    return '$_reactionAssetsBaseUrl/$normalized';
+    return '$_reactionAssetsBaseUrl$normalized';
   }
 
   void _emitirOpcion(WidgetRef ref, String selected) {
@@ -151,7 +151,7 @@ class _ReaccionesButtonState extends ConsumerState<ReaccionesButton> {
   }
 }
 
-class _ReaccionesPanel extends StatelessWidget {
+class _ReaccionesPanel extends ConsumerWidget {
   const _ReaccionesPanel({
     required this.futureOpciones,
     required this.imageUrlBuilder,
@@ -163,7 +163,7 @@ class _ReaccionesPanel extends StatelessWidget {
   final ValueChanged<String> onSelected;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: AppTheme.panelBg,
@@ -212,7 +212,7 @@ class _ReaccionesPanel extends StatelessWidget {
                   _ReactionGrid(
                     reacciones: reacciones,
                     imageUrlBuilder: imageUrlBuilder,
-                    onSelected: onSelected,
+                    ref: ref,
                   ),
                 if (mensajes.isNotEmpty) ...[
                   if (reacciones.isNotEmpty)
@@ -226,7 +226,19 @@ class _ReaccionesPanel extends StatelessWidget {
                     ),
                   for (var i = 0; i < mensajes.length; i++) ...[
                     InkWell(
-                      onTap: () => onSelected('mensaje:${mensajes[i]}'),
+                      onTap: () {
+                        final mensaje = mensajes[i];
+                        debugPrint('🚀 ENVIANDO MENSAJE: $mensaje');
+                        ref.read(webSocketProvider.notifier).emitirEvento('CHAT', {
+                          'tipo_chat': 'mensaje',
+                          'contenido': mensaje,
+                        });
+                        Future.delayed(Duration.zero, () {
+                          if (context.mounted && Navigator.of(context).canPop()) {
+                            Navigator.of(context).pop();
+                          }
+                        });
+                      },
                       child: SizedBox(
                         width: double.infinity,
                         height: 28,
@@ -290,19 +302,19 @@ class _ReaccionesPanel extends StatelessWidget {
   }
 }
 
-class _ReactionGrid extends StatelessWidget {
+class _ReactionGrid extends ConsumerWidget {
   const _ReactionGrid({
     required this.reacciones,
     required this.imageUrlBuilder,
-    required this.onSelected,
+    required this.ref,
   });
 
   final List<String> reacciones;
   final String Function(String fileName) imageUrlBuilder;
-  final ValueChanged<String> onSelected;
+  final WidgetRef ref;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef refWidget) {
     return LayoutBuilder(
       builder: (context, constraints) {
         const spacing = 6.0;
@@ -317,7 +329,18 @@ class _ReactionGrid extends StatelessWidget {
                 width: tileSize,
                 height: tileSize,
                 child: GestureDetector(
-                  onTap: () => onSelected('reaccion:$fileName'),
+                  onTap: () {
+                    debugPrint('🚀 ENVIANDO STICKER: $fileName');
+                    ref.read(webSocketProvider.notifier).emitirEvento('CHAT', {
+                      'tipo_chat': 'reaccion',
+                      'contenido': fileName,
+                    });
+                    Future.delayed(Duration.zero, () {
+                      if (context.mounted && Navigator.of(context).canPop()) {
+                        Navigator.of(context).pop();
+                      }
+                    });
+                  },
                   child: DecoratedBox(
                     decoration: BoxDecoration(
                       color: const Color(0xFF17161B),
