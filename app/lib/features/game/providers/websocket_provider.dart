@@ -79,7 +79,7 @@ class WebSocketNotifier extends Notifier<WebSocketState> {
 
   @override
   WebSocketState build() {
-    final baseUrl = dotenv.env['API_BASE_URL'] ?? 'http://192.168.1.35:8000/api/v1';
+    final baseUrl = dotenv.env['API_BASE_URL'] ?? 'https://soberania.dev/api/v1';
     final wsUrl = baseUrl.replaceFirst('http', 'ws');
     _wsService = WebSocketService(baseUrl: wsUrl);
 
@@ -150,9 +150,7 @@ class WebSocketNotifier extends Notifier<WebSocketState> {
                 tipoEvento == 'SOLICITUD_PAUSA' ||
                 tipoEvento == 'PAUSA_RECHAZADA' ||
                 tipoEvento == 'PARTIDA_PAUSADA' ||
-                tipoEvento == 'REACCION' ||
-                tipoEvento == 'CHAT' ||
-                tipoEvento == 'MENSAJE_CHAT') {
+              tipoEvento == 'REACCION') {
               final rawPayload = data['payload'];
               final payload = rawPayload is Map<String, dynamic>
                   ? rawPayload
@@ -179,6 +177,17 @@ class WebSocketNotifier extends Notifier<WebSocketState> {
                 payloadEventoSistema: payload,
                 versionEventoSistema: state.versionEventoSistema + 1,
                 clearVotacion: esFinVotacion,
+              );
+              return;
+            }
+
+            if (tipoEvento == 'CHAT' || tipoEvento == 'MENSAJE_CHAT') {
+              state = state.copyWith(
+                tipoEventoSistema: 'CHAT',
+                jugadorEventoSistema: data['emisor']?.toString(),
+                mensajeEventoSistema: data['contenido']?.toString(),
+                payloadEventoSistema: data,
+                versionEventoSistema: state.versionEventoSistema + 1,
               );
               return;
             }

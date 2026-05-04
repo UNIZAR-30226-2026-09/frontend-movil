@@ -19,10 +19,10 @@ class _ReaccionesButtonState extends ConsumerState<ReaccionesButton> {
   Future<Map<String, dynamic>>? _opcionesFuture;
 
   static const String _reactionAssetsBaseUrl =
-      'http://192.168.1.35:8000/static/reacciones/';
+      'https://soberania.dev/static/reacciones/';
 
   Future<Map<String, dynamic>> _fetchOpciones(WidgetRef ref) async {
-    final response = await ref.read(dioProvider).get('http://192.168.1.35:8000/api/v1/usuarios/opciones');
+    final response = await ref.read(dioProvider).get('https://soberania.dev/api/v1/usuarios/opciones');
 
     if (response.statusCode == 200 && response.data is Map) {
       return Map<String, dynamic>.from(response.data as Map);
