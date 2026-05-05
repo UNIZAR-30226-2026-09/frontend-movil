@@ -607,6 +607,23 @@ class GameNotifier extends Notifier<GameState> {
     state = state.copyWith(mapa: mapaActual);
   }
 
+  void actualizarEstadoBloqueoWs({
+    required String territorioId,
+    String? ownerId,
+    int? units,
+    String? estadoBloqueo,
+  }) {
+    final mapaActual = Map<String, TerritoryState>.from(state.mapa);
+    final territorioActual = mapaActual[territorioId];
+    if (territorioActual == null) return;
+    mapaActual[territorioId] = territorioActual.copyWith(
+      ownerId: ownerId,
+      units: units,
+      estadoBloqueo: estadoBloqueo,
+    );
+    state = state.copyWith(mapa: mapaActual);
+  }
+
   void actualizarCambioFaseDesdeWs({
     required String nuevaFase,
     required String jugadorActivo,
@@ -1091,6 +1108,26 @@ class GameNotifier extends Notifier<GameState> {
       esperandoDestino: false,
       comarcasResaltadas: const {},
     );
+  }
+
+  void actualizarIconosGestionWs({
+    required String territorioId,
+    String? ownerId,
+    int? units,
+    String? estadoBloqueo,
+  }) {
+    final mapaActual = Map<String, TerritoryState>.from(state.mapa);
+    final territorio = mapaActual[territorioId];
+
+    if (territorio == null) return;
+
+    mapaActual[territorioId] = territorio.copyWith(
+      ownerId: ownerId ?? territorio.ownerId,
+      units: units ?? territorio.units,
+      estadoBloqueo: estadoBloqueo,
+    );
+
+    state = state.copyWith(mapa: mapaActual);
   }
 
   void limpiarSeleccionCombate() {

@@ -191,6 +191,27 @@ class WebSocketNotifier extends Notifier<WebSocketState> {
               );
               return;
             }
+            
+            if (tipoEvento == 'TERRITORIO_ACTUALIZADO') {
+              final territorioId = data['territorio_id']?.toString();
+              final detalles = data['detalles'];
+
+              if (territorioId != null && detalles is Map) {
+                final ownerId = detalles['owner_id']?.toString();
+                final units = detalles['units'] is int 
+                    ? detalles['units'] as int 
+                    : int.tryParse(detalles['units']?.toString() ?? '');
+                final estadoBloqueo = detalles['estado_bloqueo']?.toString();
+
+                ref.read(gameProvider.notifier).actualizarIconosGestionWs(
+                  territorioId: territorioId,
+                  ownerId: ownerId,
+                  units: units,
+                  estadoBloqueo: estadoBloqueo,
+                );
+              }
+              return; 
+            }
 
             // ── VOTO_PAUSA — actualiza el marcador de votos sin disparar popup ──
             if (tipoEvento == 'VOTO_PAUSA') {
@@ -382,6 +403,26 @@ class WebSocketNotifier extends Notifier<WebSocketState> {
                       monedasGanadas: monedasGanadas,
                       monedasTotales: null,
                     );
+              }
+              return;
+            }
+
+            // ── TERRITORIO_ACTUALIZADO ────────────────────────────────────────────
+            if (tipoEvento == 'TERRITORIO_ACTUALIZADO') {
+              final territorioId = data['territorio_id']?.toString();
+              if (territorioId != null && territorioId.isNotEmpty) {
+                final detalles = data['detalles'] is Map
+                    ? Map<String, dynamic>.from(data['detalles'])
+                    : <String, dynamic>{};
+                final ownerId = detalles['owner_id']?.toString();
+                final units = _toInt(detalles['units']);
+                final estadoBloqueo = detalles['estado_bloqueo']?.toString();
+                ref.read(gameProvider.notifier).actualizarEstadoBloqueoWs(
+                  territorioId: territorioId,
+                  ownerId: ownerId,
+                  units: units,
+                  estadoBloqueo: estadoBloqueo,
+                );
               }
               return;
             }
