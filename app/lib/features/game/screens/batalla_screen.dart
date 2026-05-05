@@ -793,7 +793,7 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
                     context: context,
                     gameState: estadoHud,
                     jugador: _reactionBubble!.jugador,
-                  ),
+                  ) - 12,
                   child: _ReactionBubbleView(
                     data: _reactionBubble!,
                     imageUrlBuilder: _reactionImageUrl,
@@ -948,52 +948,29 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Material(
-                        color: const Color(0xFF1C1B22),
-                        shape: const CircleBorder(
-                          side: BorderSide(
-                            color: AppTheme.borderGold,
-                            width: 1.8,
-                          ),
-                        ),
-                        elevation: 6,
-                        child: InkWell(
-                          customBorder: const CircleBorder(),
-                          onTap: () {
-                            ref
-                                .read(gameProvider.notifier)
-                                .toggleVistaRegiones();
-                          },
-                          child: Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: Image.asset(
-                              'assets/icons/map_icon.png',
-                              width: 40,
-                              height: 40,
-                              fit: BoxFit.contain,
-                            ),
-                          ),
+                      InkWell(
+                        customBorder: const CircleBorder(),
+                        onTap: () {
+                          ref
+                              .read(gameProvider.notifier)
+                              .toggleVistaRegiones();
+                        },
+                        child: Image.asset(
+                          'assets/icons/map_icon2.png',
+                          width: 64,
+                          height: 64,
+                          fit: BoxFit.contain,
                         ),
                       ),
                       const SizedBox(height: 10),
-                      Material(
-                        color: AppTheme.secondary,
-                        shape: const CircleBorder(
-                          side: BorderSide(color: AppTheme.primary, width: 1.6),
-                        ),
-                        elevation: 6,
-                        child: InkWell(
-                          customBorder: const CircleBorder(),
-                          onTap: () => _mostrarArbolTecnologicoModal(context),
-                          child: const SizedBox(
-                            width: 78,
-                            height: 78,
-                            child: Icon(
-                              Icons.park_rounded,
-                              color: AppTheme.primary,
-                              size: 38,
-                            ),
-                          ),
+                      InkWell(
+                        customBorder: const CircleBorder(),
+                        onTap: () => _mostrarArbolTecnologicoModal(context),
+                        child: Image.asset(
+                          'assets/icons/tree_icon.png',
+                          width: 64,
+                          height: 64,
+                          fit: BoxFit.contain,
                         ),
                       ),
                     ],
@@ -1848,7 +1825,7 @@ class _ReactionBubbleData {
   });
 }
 
-class _ReactionBubbleView extends StatelessWidget {
+class _ReactionBubbleView extends ConsumerWidget {
   final _ReactionBubbleData data;
   final String Function(String fileName) imageUrlBuilder;
 
@@ -1866,73 +1843,86 @@ class _ReactionBubbleView extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final gameState = ref.watch(gameProvider);
+    final numeroJugador = gameState.jugadores[data.jugador]?.numeroJugador;
+    final borderColor = numeroJugador == null
+        ? AppTheme.goldMain
+        : ColorUtils.getPlayerColor(numeroJugador);
+
     return IgnorePointer(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          CustomPaint(
-            size: const Size(10, 18),
-            painter: _ReactionBubbleTailPainter(),
-          ),
-          Container(
-            constraints: const BoxConstraints(maxWidth: 230),
-            padding: EdgeInsets.symmetric(
-              horizontal: _isImage ? 8 : 12,
-              vertical: _isImage ? 8 : 9,
+      child: Transform.translate(
+        offset: Offset(0, _isImage ? -12 : 0),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            CustomPaint(
+              size: const Size(10, 18),
+              painter: _ReactionBubbleTailPainter(borderColor: borderColor),
             ),
-            decoration: BoxDecoration(
-              color: AppTheme.panelBg.withValues(alpha: 0.96),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: AppTheme.goldMain.withValues(alpha: 0.85),
-                width: 1.4,
+            Container(
+              constraints: const BoxConstraints(maxWidth: 230),
+              padding: EdgeInsets.symmetric(
+                horizontal: _isImage ? 2 : 12,
+                vertical: _isImage ? 2 : 9,
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.35),
-                  blurRadius: 8,
-                  offset: const Offset(0, 3),
+              decoration: BoxDecoration(
+                color: AppTheme.panelBg.withValues(alpha: 0.96),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: borderColor.withValues(alpha: 0.85),
+                  width: 1.4,
                 ),
-              ],
-            ),
-            child: _isImage
-                ? Image.network(
-                    imageUrlBuilder(data.contenido),
-                    width: 44,
-                    height: 44,
-                    fit: BoxFit.contain,
-                    errorBuilder: (context, error, stackTrace) => const Icon(
-                      Icons.add_reaction_outlined,
-                      color: AppTheme.primary,
-                      size: 32,
-                    ),
-                  )
-                : Text(
-                    data.contenido,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: AppTheme.text,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                    ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.35),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
                   ),
-          ),
-        ],
+                ],
+              ),
+              child: _isImage
+                  ? Image.network(
+                      imageUrlBuilder(data.contenido),
+                      width: 60,
+                      height: 60,
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) => const Icon(
+                        Icons.add_reaction_outlined,
+                        color: AppTheme.primary,
+                        size: 32,
+                      ),
+                    )
+                  : Text(
+                      data.contenido,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppTheme.text,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
 class _ReactionBubbleTailPainter extends CustomPainter {
+  final Color borderColor;
+
+  const _ReactionBubbleTailPainter({required this.borderColor});
+
   @override
   void paint(Canvas canvas, Size size) {
     final fill = Paint()
       ..color = AppTheme.panelBg.withValues(alpha: 0.96)
       ..style = PaintingStyle.fill;
     final border = Paint()
-      ..color = AppTheme.goldMain.withValues(alpha: 0.85)
+      ..color = borderColor.withValues(alpha: 0.85)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.4;
 
@@ -1947,7 +1937,8 @@ class _ReactionBubbleTailPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _ReactionBubbleTailPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _ReactionBubbleTailPainter oldDelegate) =>
+      oldDelegate.borderColor != borderColor;
 }
 
 class _PlayerInfoPanel extends StatelessWidget {
@@ -2040,16 +2031,18 @@ class _PlayerInfoTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorJugador = ColorUtils.getPlayerColor(numeroJugador);
-    final borderColor = esJugadorLocal
-        ? const Color(0xFF9E4F4F)
-        : const Color(0xFF5B6A7A);
+    final borderColor = colorJugador;
+    final borderWidth = esTurnoActual ? 3.5 : 1.5;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
       decoration: BoxDecoration(
         color: const Color(0xFF202229).withValues(alpha: 0.95),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: borderColor.withValues(alpha: 0.9), width: 1),
+        border: Border.all(
+          color: borderColor.withValues(alpha: 0.9),
+          width: borderWidth,
+        ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
