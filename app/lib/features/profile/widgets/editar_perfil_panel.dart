@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/theme/app_theme.dart';
 import '../../../shared/utils/avatar_url_resolver.dart';
 import '../../../shared/widgets/app_avatar.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -114,6 +115,34 @@ class _EditarPerfilPanelState extends ConsumerState<EditarPerfilPanel> {
     return fileName;
   }
 
+  String _avatarDisplayName(String avatarName) {
+    final cleanName = avatarName
+        .replaceAll('.png', '')
+        .replaceAll('.jpg', '')
+        .replaceAll('.jpeg', '')
+        .replaceAll('.webp', '')
+        .replaceAll('_', ' ')
+        .replaceAll('-', ' ')
+        .trim();
+
+    switch (cleanName.toLowerCase()) {
+      case '1':
+        return 'José Antonio Labordeta';
+      case '2':
+        return 'Alberto Zapater';
+      case '3':
+        return 'Amaral';
+      case '4':
+        return 'Kase.O';
+      case '5':
+        return 'Francisco de Goya';
+      case '6':
+        return 'Jesús Vallejo';
+      default:
+        return cleanName.isEmpty ? 'Avatar' : cleanName;
+    }
+  }
+
   Future<void> _openAvatarPicker() async {
     if (_loadingAvatarOptions) {
       ScaffoldMessenger.of(
@@ -135,85 +164,155 @@ class _EditarPerfilPanelState extends ConsumerState<EditarPerfilPanel> {
     final selected = await showDialog<AvatarOptionModel>(
       context: context,
       builder: (dialogContext) {
-        final media = MediaQuery.of(dialogContext).size;
-        final crossAxisCount = media.width > 620 ? 4 : 3;
+        final crossAxisCount = 3;
+        String localSelectedAvatarName = _selectedAvatarName ?? '';
+        String? pressedAvatarName;
 
-        return Dialog(
-          backgroundColor: const Color(0xFF1A1A24),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 560, maxHeight: 520),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(18, 18, 18, 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    children: [
-                      const Expanded(
-                        child: Text(
-                          'Elige tu avatar',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: () => Navigator.of(dialogContext).pop(),
-                        icon: const Icon(Icons.close_rounded),
-                      ),
-                    ],
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return Dialog(
+              backgroundColor: Colors.transparent,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: AppTheme.panelOverlay.withValues(alpha: 0.96),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: AppTheme.borderGold,
+                    width: 1.2,
                   ),
-                  const SizedBox(height: 12),
-                  Expanded(
-                    child: GridView.builder(
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: crossAxisCount,
-                        mainAxisSpacing: 12,
-                        crossAxisSpacing: 12,
-                      ),
-                      itemCount: options.length,
-                      itemBuilder: (context, index) {
-                        final option = options[index];
-                        final isSelected =
-                            option.avatarName.toLowerCase() ==
-                            (_selectedAvatarName ?? '').toLowerCase();
-
-                        return InkWell(
-                          onTap: () => Navigator.of(dialogContext).pop(option),
-                          borderRadius: BorderRadius.circular(12),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF252530),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: isSelected
-                                    ? const Color(0xFFC5A059)
-                                    : const Color(0xFF8C6D3F),
-                                width: isSelected ? 2 : 1,
-                              ),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(8),
-                              child: Center(
-                                child: _AvatarPreview(
-                                  radius: 32,
-                                  source: option.previewUrl,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.54),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 560, maxHeight: 520),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(18, 18, 18, 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          children: [
+                            const Expanded(
+                              child: Text(
+                                'ELIGE TU AVATAR',
+                                style: TextStyle(
+                                  color: AppTheme.borderGold,
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 0.8,
                                 ),
                               ),
                             ),
+                            _PanelCloseButton(
+                              onPressed: () => Navigator.of(dialogContext).pop(),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Expanded(
+                          child: GridView.builder(
+                            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: crossAxisCount,
+                              mainAxisSpacing: 12,
+                              crossAxisSpacing: 12,
+                              childAspectRatio: 1.25,
+                            ),
+                            itemCount: options.length,
+                            itemBuilder: (context, index) {
+                              final option = options[index];
+                              final isSelected =
+                                  option.avatarName.toLowerCase() ==
+                                  localSelectedAvatarName.toLowerCase();
+                              final isPressed =
+                                option.avatarName.toLowerCase() ==
+                                (pressedAvatarName ?? '').toLowerCase();
+
+                              return GestureDetector(
+                                onTapDown: (_) {
+                                  setDialogState(() {
+                                    pressedAvatarName = option.avatarName;
+                                  });
+                                },
+                                onTapCancel: () {
+                                  setDialogState(() {
+                                    pressedAvatarName = null;
+                                  });
+                                },
+                                onTapUp: (_) {
+                                  setDialogState(() {
+                                    pressedAvatarName = null;
+                                    localSelectedAvatarName = option.avatarName;
+                                  });
+
+
+                                  Future.delayed(const Duration(milliseconds: 90), () {
+                                    if (dialogContext.mounted) {
+                                      Navigator.of(dialogContext).pop(option);
+                                    }
+                                  });
+                                },
+                                child: AnimatedScale(
+                                  scale: isPressed ? 0.96 : 1,
+                                  duration: const Duration(milliseconds: 90),
+                                  curve: Curves.easeOut,
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 90),
+                                    curve: Curves.easeOut,
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.surface.withValues(alpha: 0.78),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: isPressed || isSelected
+                                            ? AppTheme.borderGoldVivo
+                                            : AppTheme.borderBronze,
+                                        width: isPressed || isSelected ? 2 : 1,
+                                      ),
+                                    ),
+                                    child: Padding(
+                                      padding: const EdgeInsets.fromLTRB(8, 10, 8, 8),
+                                      child: Column(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          _AvatarPreview(
+                                            radius: 30,
+                                            source: option.previewUrl,
+                                          ),
+                                          const SizedBox(height: 8),
+                                          Text(
+                                            _avatarDisplayName(option.avatarName),
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                            textAlign: TextAlign.center,
+                                            style: TextStyle(
+                                              color: isPressed || isSelected
+                                                  ? AppTheme.borderGoldVivo
+                                                  : AppTheme.textSecondary,
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w700,
+                                              height: 1.05,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
                           ),
-                        );
-                      },
+                        ),
+                      ],
                     ),
                   ),
-                ],
+                ),
               ),
-            ),
-          ),
+            );
+          },
         );
       },
     );
@@ -302,9 +401,9 @@ class _EditarPerfilPanelState extends ConsumerState<EditarPerfilPanel> {
               width: double.infinity,
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: const Color(0xFF252530).withOpacity(0.96),
+                color: AppTheme.panelOverlay.withValues(alpha: 0.96),
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: const Color(0xFFC5A059), width: 1.2),
+                border: Border.all(color: AppTheme.borderGold, width: 1.2),
                 boxShadow: const [
                   BoxShadow(
                     color: Colors.black54,
@@ -322,24 +421,15 @@ class _EditarPerfilPanelState extends ConsumerState<EditarPerfilPanel> {
                         child: Text(
                           'EDITAR PERFIL',
                           style: TextStyle(
+                            color: AppTheme.borderGold,
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                       ),
-                      Container(
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF1A1A24),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: const Color(0xFFC5A059),
-                            width: 1.1,
-                          ),
-                        ),
-                        child: IconButton(
-                          onPressed: isLoading ? null : widget.onClose,
-                          icon: const Icon(Icons.close_rounded),
-                        ),
+                      _PanelCloseButton(
+                        enabled: !isLoading,
+                        onPressed: widget.onClose,
                       ),
                     ],
                   ),
@@ -348,10 +438,10 @@ class _EditarPerfilPanelState extends ConsumerState<EditarPerfilPanel> {
                     child: Container(
                       padding: const EdgeInsets.all(18),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1A1A24).withOpacity(0.85),
+                        color: AppTheme.surface.withValues(alpha: 0.85),
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: const Color(0xFF8C6D3F),
+                          color: AppTheme.borderGold,
                           width: 1,
                         ),
                       ),
@@ -388,19 +478,17 @@ class _EditarPerfilPanelState extends ConsumerState<EditarPerfilPanel> {
                                             child: Container(
                                               padding: const EdgeInsets.all(4),
                                               decoration: BoxDecoration(
-                                                color: const Color(0xFFC5A059),
+                                                color: AppTheme.borderGold,
                                                 shape: BoxShape.circle,
                                                 border: Border.all(
-                                                  color: const Color(
-                                                    0xFF1A1A24,
-                                                  ),
+                                                  color: AppTheme.surface,
                                                   width: 1.5,
                                                 ),
                                               ),
                                               child: const Icon(
                                                 Icons.edit,
                                                 size: 14,
-                                                color: Color(0xFF1A1A24),
+                                                color: AppTheme.surface,
                                               ),
                                             ),
                                           ),
@@ -413,7 +501,7 @@ class _EditarPerfilPanelState extends ConsumerState<EditarPerfilPanel> {
                                           ? 'Cargando avatares...'
                                           : 'Pulsa la foto para cambiar avatar',
                                       style: const TextStyle(
-                                        color: Color(0xFFA0A0B0),
+                                        color: AppTheme.textSecondary,
                                         fontSize: 12,
                                       ),
                                     ),
@@ -432,7 +520,7 @@ class _EditarPerfilPanelState extends ConsumerState<EditarPerfilPanel> {
                               TextFormField(
                                 controller: _emailController,
                                 keyboardType: TextInputType.emailAddress,
-                                style: const TextStyle(color: Colors.white),
+                                style: const TextStyle(color: AppTheme.textSecondary),
                                 decoration: _inputDecoration(
                                   hintText: 'tu@correo.com',
                                 ),
@@ -457,7 +545,7 @@ class _EditarPerfilPanelState extends ConsumerState<EditarPerfilPanel> {
                               TextFormField(
                                 controller: _newPasswordController,
                                 obscureText: _obscureNewPassword,
-                                style: const TextStyle(color: Colors.white),
+                                style: const TextStyle(color: AppTheme.text),
                                 decoration: _inputDecoration(
                                   hintText:
                                       'Dejalo vacio si no quieres cambiarla',
@@ -466,7 +554,7 @@ class _EditarPerfilPanelState extends ConsumerState<EditarPerfilPanel> {
                                       _obscureNewPassword
                                           ? Icons.visibility
                                           : Icons.visibility_off,
-                                      color: const Color(0xFFA0A0B0),
+                                      color: AppTheme.textSecondary,
                                     ),
                                     onPressed: () {
                                       setState(() {
@@ -497,7 +585,7 @@ class _EditarPerfilPanelState extends ConsumerState<EditarPerfilPanel> {
                               TextFormField(
                                 controller: _repeatPasswordController,
                                 obscureText: _obscureRepeatPassword,
-                                style: const TextStyle(color: Colors.white),
+                                style: const TextStyle(color: AppTheme.text),
                                 decoration: _inputDecoration(
                                   hintText: 'Repite la nueva contrasena',
                                   suffixIcon: IconButton(
@@ -505,7 +593,7 @@ class _EditarPerfilPanelState extends ConsumerState<EditarPerfilPanel> {
                                       _obscureRepeatPassword
                                           ? Icons.visibility
                                           : Icons.visibility_off,
-                                      color: const Color(0xFFA0A0B0),
+                                      color: AppTheme.textSecondary,
                                     ),
                                     onPressed: () {
                                       setState(() {
@@ -538,20 +626,9 @@ class _EditarPerfilPanelState extends ConsumerState<EditarPerfilPanel> {
                                 },
                               ),
                               const SizedBox(height: 24),
-                              SizedBox(
-                                width: double.infinity,
-                                child: ElevatedButton(
-                                  onPressed: isLoading ? null : _handleSubmit,
-                                  child: isLoading
-                                      ? const SizedBox(
-                                          height: 20,
-                                          width: 20,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                          ),
-                                        )
-                                      : const Text('GUARDAR CAMBIOS'),
-                                ),
+                              _SaveProfileButton(
+                                isLoading: isLoading,
+                                onPressed: _handleSubmit,
                               ),
                             ],
                           ),
@@ -578,23 +655,23 @@ class _EditarPerfilPanelState extends ConsumerState<EditarPerfilPanel> {
       isDense: true,
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       filled: true,
-      fillColor: const Color(0xFF252530),
-      hintStyle: const TextStyle(color: Color(0xFFA0A0B0)),
+      fillColor: AppTheme.surface,
+      hintStyle: const TextStyle(color: AppTheme.textSecondary),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: Color(0xFF8C6D3F), width: 1),
+        borderSide: const BorderSide(color: AppTheme.borderBronze, width: 1),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: Color(0xFFC5A059), width: 1.5),
+        borderSide: const BorderSide(color: AppTheme.borderGold, width: 1.5),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: Color(0xFFD32F2F), width: 1),
+        borderSide: const BorderSide(color: AppTheme.error, width: 1),
       ),
       focusedErrorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: Color(0xFFD32F2F), width: 1.5),
+        borderSide: const BorderSide(color: AppTheme.error, width: 1.5),
       ),
     );
   }
@@ -642,6 +719,165 @@ class _AvatarPreview extends StatelessWidget {
         errorBuilder: (_, __, ___) {
           return AppAvatar(avatar: fallback, radius: radius);
         },
+      ),
+    );
+  }
+}
+
+class _PanelCloseButton extends StatefulWidget {
+  const _PanelCloseButton({
+    required this.onPressed,
+    this.enabled = true,
+  });
+
+  final VoidCallback onPressed;
+  final bool enabled;
+
+  @override
+  State<_PanelCloseButton> createState() => _PanelCloseButtonState();
+}
+
+class _PanelCloseButtonState extends State<_PanelCloseButton> {
+  bool _pressed = false;
+
+  void _setPressed(bool value) {
+    if (!widget.enabled) return;
+    if (_pressed == value) return;
+
+    setState(() {
+      _pressed = value;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final borderColor = _pressed
+        ? AppTheme.borderGoldVivo
+        : AppTheme.borderGold.withValues(alpha: widget.enabled ? 1 : 0.45);
+
+    final iconColor = _pressed
+        ? AppTheme.borderGoldVivo
+        : AppTheme.primary.withValues(alpha: widget.enabled ? 1 : 0.45);
+
+    return AnimatedScale(
+      scale: _pressed ? 0.94 : 1,
+      duration: const Duration(milliseconds: 90),
+      curve: Curves.easeOut,
+      child: GestureDetector(
+        onTapDown: (_) => _setPressed(true),
+        onTapUp: (_) => _setPressed(false),
+        onTapCancel: () => _setPressed(false),
+        onTap: widget.enabled ? widget.onPressed : null,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 90),
+          curve: Curves.easeOut,
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            color: AppTheme.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: borderColor,
+              width: _pressed ? 1.5 : 1.1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.38),
+                blurRadius: _pressed ? 8 : 10,
+                offset: Offset(0, _pressed ? 3 : 4),
+              ),
+            ],
+          ),
+          child: Icon(
+            Icons.close_rounded,
+            color: iconColor,
+            size: 22,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+
+class _SaveProfileButton extends StatefulWidget {
+  const _SaveProfileButton({
+    required this.isLoading,
+    required this.onPressed,
+  });
+
+  final bool isLoading;
+  final VoidCallback onPressed;
+
+  @override
+  State<_SaveProfileButton> createState() => _SaveProfileButtonState();
+}
+
+class _SaveProfileButtonState extends State<_SaveProfileButton> {
+  bool _pressed = false;
+
+  void _setPressed(bool value) {
+    if (widget.isLoading) return;
+    if (_pressed == value) return;
+
+    setState(() {
+      _pressed = value;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final backgroundColor = _pressed
+        ? AppTheme.borderGoldVivo
+        : AppTheme.primary;
+
+    return AnimatedScale(
+      scale: _pressed ? 0.97 : 1,
+      duration: const Duration(milliseconds: 90),
+      curve: Curves.easeOut,
+      child: GestureDetector(
+        onTapDown: (_) => _setPressed(true),
+        onTapUp: (_) => _setPressed(false),
+        onTapCancel: () => _setPressed(false),
+        onTap: widget.isLoading ? null : widget.onPressed,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 90),
+          curve: Curves.easeOut,
+          width: double.infinity,
+          height: 44,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: widget.isLoading
+                ? AppTheme.disabled
+                : backgroundColor,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: _pressed ? 0.22 : 0.32),
+                blurRadius: _pressed ? 8 : 10,
+                offset: Offset(0, _pressed ? 3 : 5),
+              ),
+            ],
+          ),
+          child: widget.isLoading
+              ? const SizedBox(
+                  height: 20,
+                  width: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: AppTheme.bg,
+                  ),
+                )
+              : const Text(
+                  'GUARDAR CAMBIOS',
+                  style: TextStyle(
+                    color: AppTheme.bg,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+        ),
       ),
     );
   }
