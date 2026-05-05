@@ -191,7 +191,7 @@ class WebSocketNotifier extends Notifier<WebSocketState> {
               );
               return;
             }
-            
+
             if (tipoEvento == 'TERRITORIO_ACTUALIZADO') {
               final territorioId = data['territorio_id']?.toString();
               final detalles = data['detalles'];
@@ -209,6 +209,19 @@ class WebSocketNotifier extends Notifier<WebSocketState> {
                   units: units,
                   estadoBloqueo: estadoBloqueo,
                 );
+              }
+              return; 
+            }
+
+            if (tipoEvento == 'ataque_especial') {
+              final resultado = data['resultado'];
+              
+              if (resultado is Map) {
+                final afectados = resultado['afectados'];
+                
+                if (afectados is List) {
+                  ref.read(gameProvider.notifier).procesarBajasAtaqueEspecialWs(afectados);
+                }
               }
               return; 
             }

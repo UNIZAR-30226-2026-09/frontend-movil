@@ -435,6 +435,34 @@ class GameNotifier extends Notifier<GameState> {
     _temporizadorFase = null;
   }
 
+  void procesarBajasAtaqueEspecialWs(List<dynamic> afectados) {
+    final mapaActual = Map<String, TerritoryState>.from(state.mapa);
+    bool hayCambios = false;
+
+    for (var afectado in afectados) {
+      if (afectado is Map) {
+        final territorioId = afectado['territorio_id']?.toString();
+        final bajasRaw = afectado['bajas'];
+        final bajas = bajasRaw is int 
+            ? bajasRaw 
+            : int.tryParse(bajasRaw?.toString() ?? '0') ?? 0;
+
+        if (territorioId != null && mapaActual.containsKey(territorioId)) {
+          final territorio = mapaActual[territorioId]!;
+          int tropasRestantes = territorio.units - bajas;
+          if (tropasRestantes < 0) tropasRestantes = 0;
+
+          mapaActual[territorioId] = territorio.copyWith(units: tropasRestantes);
+          hayCambios = true;
+        }
+      }
+    }
+
+    if (hayCambios) {
+      state = state.copyWith(mapa: mapaActual);
+    }
+  }
+
   void _iniciarTemporizador() {
     _detenerTemporizador();
 
