@@ -238,6 +238,33 @@ class MapPainter extends CustomPainter {
     }
   }
 
+  // --- FUNCIONES PARA EL RESALTE DE REGIONES COMPLETAS ---
+  String? _getPlayerControllingRegion(Region region, GameState state) {
+    if (region.comarcasIds.isEmpty) return null;
+    String? firstOwnerId;
+
+    for (final comarcaId in region.comarcasIds) {
+      final territoryData = state.mapa[comarcaId];
+      final ownerId = territoryData?.ownerId ?? '';
+
+      // Si hay una sola comarca vacía, la región no es de nadie
+      if (ownerId.isEmpty) return null; 
+
+      if (firstOwnerId == null) {
+        firstOwnerId = ownerId;
+      } else if (ownerId != firstOwnerId) {
+        return null; // Hay mezcla de jugadores, región dividida
+      }
+    }
+    return firstOwnerId;
+  }
+
+  Color _getHighlightedPlayerColor(String username, GameState state) {
+    final baseColor = _getPlayerColorFromState(username, state);
+    // Le inyectamos un 45% de blanco puro para crear el brillo del jugador
+    return Color.lerp(baseColor, Colors.white, 0.45) ?? baseColor;
+  }
+
   Color _getPlayerColorFromState(String username, GameState state) {
     if (username.isEmpty) return AppTheme.mapLandNeutral;
 
@@ -1289,8 +1316,43 @@ class MapPainter extends CustomPainter {
       canvas.drawPath(path, fillPaint);
     }
 
-    // 2. PINTADO DE LOS BORDES
-    for (var priority = 0; priority <= 3; priority++) {
+    // 2. PINTADO DE BORDES INACTIVOS (Prioridad 0)
+    for (final comarca in comarcas) {
+      if (_getAnimatedBorderPriority(comarca) != 0) continue;
+
+      final path = comarcaPaths[comarca.id];
+      if (path == null) continue;
+
+      final strokePaint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = _getTerritoryStrokeWidthAnimated(comarca)
+        ..color = _getTerritoryStrokeColor(comarca);
+
+      canvas.drawPath(path, strokePaint);
+    }
+
+    // 2.5. PINTADO DEL BORDE EXTERIOR DE REGIONES CONQUISTADAS
+    // (Dibuja por encima de los inactivos, pero debajo de las interacciones amarillas)
+    for (final region in regions) {
+      final controlador = _getPlayerControllingRegion(region, gameState);
+      if (controlador != null) {
+        final regionPath = _buildRegionUnionPath(region);
+        if (regionPath != null) {
+          final colorBrillante = _getHighlightedPlayerColor(controlador, gameState);
+          final regionStrokePaint = Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 3.5 // Trazo exterior grueso
+            ..strokeJoin = StrokeJoin.round
+            ..color = colorBrillante;
+            
+          canvas.drawPath(regionPath, regionStrokePaint);
+        }
+      }
+    }
+
+    // 2.8. PINTADO DE BORDES ACTIVOS/SELECCIONADOS (Prioridades 1, 2, 3)
+    // (Por encima de todo lo demás para que resalten las selecciones al jugar)
+    for (var priority = 1; priority <= 3; priority++) {
       for (final comarca in comarcas) {
         if (_getAnimatedBorderPriority(comarca) != priority) continue;
 

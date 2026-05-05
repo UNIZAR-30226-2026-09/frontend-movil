@@ -501,15 +501,15 @@ class _PerfilScreenState extends ConsumerState<PerfilScreen> {
         'valor': '${estadisticas.numSoldadosMatados}',
       },
       {
-        'titulo': 'REGIONES CONQUISTADAS',
+        'titulo': 'COMARCAS CONQUISTADAS',
         'valor': '${estadisticas.numRegionesConquistadas}',
       },
       {
-        'titulo': 'CONTINENTES CONQUISTADOS',
+        'titulo': 'REGIONES CONQUISTADAS',
         'valor': '${estadisticas.conquistasPorRegion.length}',
       },
       {
-        'titulo': 'REGION FAVORITA',
+        'titulo': 'COMARCA FAVORITA',
         'valor': (regionFavorita == null || regionFavorita.trim().isEmpty)
             ? 'Ninguna'
             : regionFavorita,
