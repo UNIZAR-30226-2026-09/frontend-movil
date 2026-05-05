@@ -7,6 +7,7 @@ class AppRoutes {
   static const String menu = '/menu';
   static const String ajustes = '/ajustes';
   static const String perfil = '/perfil';
+  static const String perfilPublico = '/usuarios/:username';
   static const String alianzas = '/alianzas';
   static const String batallas = '/batallas';
   static const String batalla = '/batalla';
@@ -16,4 +17,5 @@ class AppRoutes {
   static const String lobby = '/lobby/:partidaId';
 
   static String lobbyPath(int partidaId) => '/lobby/$partidaId';
+  static String perfilPublicoPath(String username) => '/usuarios/$username';
 }

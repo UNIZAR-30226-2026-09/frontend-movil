@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../app/theme/app_theme.dart';
 
-class HomeActionButton extends StatelessWidget {
+class HomeActionButton extends StatefulWidget {
   const HomeActionButton({
     super.key,
     required this.text,
@@ -20,53 +20,77 @@ class HomeActionButton extends StatelessWidget {
   final bool compact;
 
   @override
-  Widget build(BuildContext context) {
-    final hasSubtitle = subtitle != null && subtitle!.trim().isNotEmpty;
+  State<HomeActionButton> createState() => _HomeActionButtonState();
+}
 
-    return SizedBox(
-      width: width,
-      height: height,
-      child: OutlinedButton(
-        onPressed: onPressed,
-        style: OutlinedButton.styleFrom(
-          backgroundColor: AppTheme.surface.withValues(alpha: 0.96),
-          side: const BorderSide(
-            color: AppTheme.borderGold,
-            width: 1.35,
-          ),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(7),
-          ),
+class _HomeActionButtonState extends State<HomeActionButton> {
+  bool _pressed = false;
+
+  void _setPressed(bool value) {
+    if (_pressed == value) return;
+
+    setState(() {
+      _pressed = value;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hasSubtitle =
+        widget.subtitle != null && widget.subtitle!.trim().isNotEmpty;
+
+    return AnimatedScale(
+      scale: _pressed ? 0.97 : 1,
+      duration: const Duration(milliseconds: 90),
+      curve: Curves.easeOut,
+      child: GestureDetector(
+        onTapDown: (_) => _setPressed(true),
+        onTapUp: (_) => _setPressed(false),
+        onTapCancel: () => _setPressed(false),
+        onTap: widget.onPressed,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 90),
+          curve: Curves.easeOut,
+          width: widget.width,
+          height: widget.height,
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              text.toUpperCase(),
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: AppTheme.primary,
-                fontSize: compact ? 16 : 18,
-                fontWeight: FontWeight.w900,
-                letterSpacing: compact ? 2.4 : 4,
-              ),
+          decoration: BoxDecoration(
+            color: AppTheme.surface.withValues(alpha: 0.96),
+            borderRadius: BorderRadius.circular(7),
+            border: Border.all(
+              color: _pressed ? AppTheme.borderGoldVivo : AppTheme.borderGold,
+              width: _pressed ? 1.7 : 1.35,
             ),
-            if (hasSubtitle) ...[
-              const SizedBox(height: 2),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
               Text(
-                subtitle!,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                widget.text.toUpperCase(),
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: AppTheme.textSecondary.withValues(alpha: 0.62),
-                  fontSize: compact ? 11 : 12,
-                  fontWeight: FontWeight.w400,
+                  color: AppTheme.primary,
+                  fontSize: widget.compact ? 16 : 18,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: widget.compact ? 2.4 : 4,
                 ),
               ),
+              if (hasSubtitle) ...[
+                const SizedBox(height: 4),
+                Text(
+                  widget.subtitle!,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: AppTheme.textSecondary.withValues(alpha: 0.62),
+                    fontSize: widget.compact ? 11 : 12,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );

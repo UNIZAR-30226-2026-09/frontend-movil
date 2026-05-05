@@ -4,9 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:soberania/features/auth/providers/auth_provider.dart';
 
 import '../../../app/router/app_routes.dart';
-import '../../../app/theme/app_theme.dart';
 import '../widgets/home_action_button.dart';
-import '../widgets/home_profile_card.dart';
 import '../menu_background.dart';
 
 import '../widgets/home_allies_panel.dart';
@@ -56,9 +54,11 @@ class HomeScreen extends ConsumerWidget {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    const SizedBox(
+                    SizedBox(
                       width: 250,
-                      child: HomeRankingPanel(),
+                      child: HomeRankingPanel(
+                        currentUsername: username,
+                      ),
                     ),
                     const Spacer(),
                     Transform.translate(

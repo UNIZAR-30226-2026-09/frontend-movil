@@ -7,6 +7,7 @@ import 'package:soberania/features/auth/screens/registrar_screen.dart';
 import 'package:soberania/features/social/screens/social_menu_screen.dart';
 import 'app_routes.dart';
 import '../../shared/screens/screens.dart';
+import 'package:soberania/features/profile/screens/perfil_publico_screen.dart';
 
 final GoRouter appRouter = GoRouter(
   routes: <RouteBase>[
@@ -39,6 +40,16 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: AppRoutes.perfil,
       builder: (BuildContext context, GoRouterState state) => const PerfilScreen(),
+    ),
+    GoRoute(
+      path: AppRoutes.perfilPublico,
+      builder: (BuildContext context, GoRouterState state) {
+        final username = state.pathParameters['username']!;
+    
+        return PerfilPublicoScreen(
+          username: username,
+        );
+      },
     ),
     GoRoute(
       path: AppRoutes.alianzas,
