@@ -103,6 +103,15 @@ class PanelControlGuerra extends ConsumerWidget {
     // Solo habilitamos el botón si es nuestro turno
     final esMiTurno = turnoDe == usernamePropio;
 
+    // Validación visual/funcional para la fase de refuerzo: si estamos en
+    // refuerzo y tenemos tropas en reserva, el botón debe parecer apagado
+    // pero seguir respondiendo para mostrar el SnackBar explicativo.
+    final estadoActual = ref.read(gameProvider);
+    final miUsuario = ref.read(authProvider).user?.username ?? '';
+    final tropasReserva = estadoActual.jugadores[miUsuario]?.tropasReserva ?? 0;
+    final esRefuerzo = estadoActual.faseActual.toLowerCase() == 'refuerzo';
+    final bloqueoRefuerzo = esRefuerzo && tropasReserva > 0;
+
     return Stack(
       clipBehavior: Clip.none,
       alignment: Alignment.bottomLeft,
@@ -267,23 +276,57 @@ class PanelControlGuerra extends ConsumerWidget {
                   child: Center(
                     child: GestureDetector(
                       behavior: HitTestBehavior.opaque,
-                      // null = no hace nada al tocar cuando no es tu turno
-                      onTap: esMiTurno ? onNextPhasePressed : null,
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: panelHeight * 0.03,
-                          vertical: panelHeight * 0.01,
-                        ),
-                        child: Text(
-                          textoBoton,
-                          style: TextStyle(
-                            // Gris apagado si no es tu turno, dorado si sí
-                            color: esMiTurno
-                                ? AppTheme.primary
-                                : AppTheme.disabled,
-                            fontWeight: FontWeight.bold,
-                            fontSize: panelHeight * 0.07,
-                            letterSpacing: 0.6,
+                      // Si no es nuestro turno, no respondemos.
+                      onTap: esMiTurno
+                          ? () {
+                              // Si parece apagado por refuerzo, avisamos y no pasamos fase
+                              if (bloqueoRefuerzo) {
+                                if (!context.mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    backgroundColor: const Color(0xFF1E1212),
+                                    behavior: SnackBarBehavior.floating,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                      side: const BorderSide(color: Color(0xFFBF5050), width: 1),
+                                    ),
+                                    content: const Row(
+                                      children: [
+                                        Icon(Icons.error_outline_rounded, color: Color(0xFFBF5050), size: 20),
+                                        SizedBox(width: 10),
+                                        Expanded(
+                                          child: Text(
+                                            'No puedes saltar la fase hasta que hayas agotado todas tus tropas de refuerzo',
+                                            style: TextStyle(color: Color(0xFFE89090), fontWeight: FontWeight.w500),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                                return;
+                              }
+
+                              // Si todo OK, delegamos en el callback original
+                              onNextPhasePressed();
+                            }
+                          : null,
+                      child: Opacity(
+                        opacity: bloqueoRefuerzo ? 0.5 : 1.0,
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: panelHeight * 0.03,
+                            vertical: panelHeight * 0.01,
+                          ),
+                          child: Text(
+                            textoBoton,
+                            style: TextStyle(
+                              // Gris apagado si no es tu turno, dorado si sí
+                              color: esMiTurno ? AppTheme.primary : AppTheme.disabled,
+                              fontWeight: FontWeight.bold,
+                              fontSize: panelHeight * 0.07,
+                              letterSpacing: 0.6,
+                            ),
                           ),
                         ),
                       ),
