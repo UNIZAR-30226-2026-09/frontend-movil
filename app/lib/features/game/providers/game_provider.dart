@@ -249,6 +249,8 @@ class GameState {
   final int tropasRecibidasTurno;
   final int ultimosRefuerzosRecibidos;
   final int tiempoRestante;
+  final bool haTrabajadoEsteTurno;
+  final bool haInvestigadoEsteTurno;
 
   GameState({
     this.origenSeleccionado,
@@ -271,6 +273,8 @@ class GameState {
     this.tropasRecibidasTurno = 0,
     this.ultimosRefuerzosRecibidos = 0,
     this.tiempoRestante = 60,
+    this.haTrabajadoEsteTurno = false,
+    this.haInvestigadoEsteTurno = false,
   });
 
   GameState copyWith({
@@ -294,6 +298,8 @@ class GameState {
     int? tropasRecibidasTurno,
     int? ultimosRefuerzosRecibidos,
     int? tiempoRestante,
+    bool? haTrabajadoEsteTurno,
+    bool? haInvestigadoEsteTurno,
     bool clearOrigen = false,
     bool clearDestino = false,
     bool clearAtaquePendiente = false,
@@ -324,10 +330,10 @@ class GameState {
       jugadores: jugadores ?? this.jugadores,
       turnoDe: turnoDe ?? this.turnoDe,
       faseActual: faseActual ?? this.faseActual,
-        finFaseUtc: finFaseUtc == _sentinel
+      finFaseUtc: finFaseUtc == _sentinel
           ? this.finFaseUtc
           : finFaseUtc as DateTime?,
-        duracionTemporizadorFase:
+      duracionTemporizadorFase:
           duracionTemporizadorFase ?? this.duracionTemporizadorFase,
       monedasGanadasUltimoTurno:
           monedasGanadasUltimoTurno ?? this.monedasGanadasUltimoTurno,
@@ -337,6 +343,9 @@ class GameState {
       ultimosRefuerzosRecibidos:
           ultimosRefuerzosRecibidos ?? this.ultimosRefuerzosRecibidos,
       tiempoRestante: tiempoRestante ?? this.tiempoRestante,
+      // SOLUCIÓN AL ERROR NULL:
+      haTrabajadoEsteTurno: haTrabajadoEsteTurno ?? this.haTrabajadoEsteTurno,
+      haInvestigadoEsteTurno: haInvestigadoEsteTurno ?? this.haInvestigadoEsteTurno,
     );
   }
 }
@@ -713,6 +722,9 @@ class GameNotifier extends Notifier<GameState> {
           : state.investigacionCompletada,
       tropasRecibidasTurno: refuerzosRecibidos,
       ultimosRefuerzosRecibidos: refuerzosRecibidos,
+      // Solo reseteamos los flags de gestión si hay un cambio REAL a la fase 'gestion'
+      haTrabajadoEsteTurno: (faseCambiada && faseNormalizada == 'gestion') ? false : state.haTrabajadoEsteTurno,
+      haInvestigadoEsteTurno: (faseCambiada && faseNormalizada == 'gestion') ? false : state.haInvestigadoEsteTurno,
     );
 
     if (faseCambiada || turnoCambiado || nuevaFechaLimite != null) {
@@ -1229,6 +1241,21 @@ class GameNotifier extends Notifier<GameState> {
       tiempoRestante: timerLobby,
     );
     _iniciarTemporizador();
+  }
+
+  // Marca que el jugador ha completado una acción de trabajo en gestión.
+  void marcarTrabajoCompletado() {
+    state = state.copyWith(haTrabajadoEsteTurno: true);
+  }
+
+  // Marca que el jugador ha completado una investigación en gestión.
+  void marcarInvestigacionCompletada() {
+    state = state.copyWith(haInvestigadoEsteTurno: true);
+  }
+
+  // Verifica si ambas acciones de gestión están completadas.
+  bool ambosAccionesGestionCompletadas() {
+    return state.haTrabajadoEsteTurno && state.haInvestigadoEsteTurno;
   }
 }
 

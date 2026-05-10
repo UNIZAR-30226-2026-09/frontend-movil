@@ -287,6 +287,23 @@ class _GestionPanelState extends ConsumerState<GestionPanel> {
                             );
                           },
                         );
+                        
+                        // Marcar trabajo completado y verificar si ambas acciones están hechas
+                        ref.read(gameProvider.notifier).marcarTrabajoCompletado();
+                        
+                        // Si ya ha investigado también, pasar de fase automáticamente
+                        if (ref.read(gameProvider.notifier).ambosAccionesGestionCompletadas()) {
+                          Future.delayed(const Duration(seconds: 2), () async {
+                            if (!mounted) return;
+                            final dio = ref.read(dioProvider);
+                            try {
+                              await dio.post('/partidas/$partidaIdEfectiva/pasar_fase');
+                              // El backend notificará el cambio de fase por WebSocket
+                            } catch (e) {
+                              debugPrint('Error pasando de fase automáticamente: $e');
+                            }
+                          });
+                        }
                       } on DioException catch (e) {
                         if (!mounted) return;
                         final detalle =
@@ -762,6 +779,23 @@ class _GestionPanelState extends ConsumerState<GestionPanel> {
                                   );
                                 },
                               );
+
+                              // Marcar investigación completada y verificar si ambas acciones están hechas
+                              ref.read(gameProvider.notifier).marcarInvestigacionCompletada();
+                              
+                              // Si ya ha trabajado también, pasar de fase automáticamente
+                              if (ref.read(gameProvider.notifier).ambosAccionesGestionCompletadas()) {
+                                Future.delayed(const Duration(seconds: 2), () async {
+                                  if (!mounted) return;
+                                  final dio = ref.read(dioProvider);
+                                  try {
+                                    await dio.post('/partidas/$partidaIdEfectiva/pasar_fase');
+                                    // El backend notificará el cambio de fase por WebSocket
+                                  } catch (e) {
+                                    debugPrint('Error pasando de fase automáticamente: $e');
+                                  }
+                                });
+                              }
                             } on DioException catch (e) {
                               if (!mounted) return;
                               final detalle =

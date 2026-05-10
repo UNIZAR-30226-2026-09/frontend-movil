@@ -1129,6 +1129,17 @@ class _ActionPanelState extends ConsumerState<ActionPanel> {
                               if (!dialogContext.mounted) return;
                               Navigator.of(dialogContext).pop();
                               ref.read(gameProvider.notifier).cancelarAtaque();
+                              
+                              // Como es el único movimiento permitido en fortificación, pasamos de fase automáticamente
+                              Future.delayed(const Duration(milliseconds: 500), () async {
+                                final dio = ref.read(dioProvider);
+                                try {
+                                  await dio.post('/partidas/$partidaId/pasar_fase');
+                                  // El backend notificará el cambio de fase por WebSocket
+                                } catch (e) {
+                                  debugPrint('Error pasando de fase automáticamente en fortificación: $e');
+                                }
+                              });
                             } on DioException catch (e) {
                               final detalle = _parseErrorDetail(
                                 e,
