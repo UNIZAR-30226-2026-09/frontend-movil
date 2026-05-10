@@ -7,6 +7,8 @@ import '../providers/matchmaking_provider.dart';
 import '../providers/lobby_info_provider.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../models/jugador_partida_model.dart';
+import '../../../app/theme/app_theme.dart';
+import '../../../shared/widgets/app_close_button.dart';
 
 class CrearPartidaPanel extends ConsumerStatefulWidget {
   const CrearPartidaPanel({
@@ -98,10 +100,10 @@ class _CrearPartidaPanelState extends ConsumerState<CrearPartidaPanel> {
           width: double.infinity,
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: const Color(0xFF252530).withOpacity(0.96),
+            color: AppTheme.panelOverlay.withValues(alpha: 0.96),
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: const Color(0xFFC5A059),
+              color: AppTheme.borderGold,
               width: 1.2,
             ),
             boxShadow: const [
@@ -121,24 +123,15 @@ class _CrearPartidaPanelState extends ConsumerState<CrearPartidaPanel> {
                     child: Text(
                       'CREAR PARTIDA',
                       style: TextStyle(
+                        color: AppTheme.borderGold,
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
+                        letterSpacing: 0.8,
                       ),
                     ),
                   ),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF1A1A24),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: const Color(0xFFC5A059),
-                        width: 1.1,
-                      ),
-                    ),
-                    child: IconButton(
-                      onPressed: widget.onClose,
-                      icon: const Icon(Icons.close_rounded),
-                    ),
+                  AppCloseButton(
+                    onPressed: widget.onClose,
                   ),
                 ],
               ),
@@ -147,10 +140,10 @@ class _CrearPartidaPanelState extends ConsumerState<CrearPartidaPanel> {
                 child: Container(
                   padding: const EdgeInsets.all(18),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1A1A24).withOpacity(0.85),
+                    color: AppTheme.surface.withValues(alpha: 0.85),
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: const Color(0xFF8C6D3F),
+                      color: AppTheme.borderGold,
                       width: 1,
                     ),
                   ),
@@ -160,7 +153,7 @@ class _CrearPartidaPanelState extends ConsumerState<CrearPartidaPanel> {
                         label: 'Max. Jugadores',
                         child: DropdownButtonFormField<int>(
                           value: _maxPlayers,
-                          dropdownColor: const Color(0xFF252530),
+                          dropdownColor: AppTheme.surface,
                           decoration: _inputDecoration(),
                           items: const [
                             DropdownMenuItem(value: 2, child: Text('2')),
@@ -174,6 +167,11 @@ class _CrearPartidaPanelState extends ConsumerState<CrearPartidaPanel> {
                               });
                             }
                           },
+                          style: const TextStyle(
+                            color: AppTheme.text,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          iconEnabledColor: AppTheme.primary,
                         ),
                       ),
                       const SizedBox(height: 14),
@@ -200,6 +198,11 @@ class _CrearPartidaPanelState extends ConsumerState<CrearPartidaPanel> {
                               });
                             }
                           },
+                          style: const TextStyle(
+                            color: AppTheme.text,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          iconEnabledColor: AppTheme.primary,
                         ),
                       ),
                       const SizedBox(height: 14),
@@ -221,22 +224,17 @@ class _CrearPartidaPanelState extends ConsumerState<CrearPartidaPanel> {
                               });
                             }
                           },
+                          style: const TextStyle(
+                            color: AppTheme.text,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          iconEnabledColor: AppTheme.primary,
                         ),
                       ),
                       const Spacer(),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed:
-                              matchmakingState.isCreating ? null : _createMatch,
-                          child: matchmakingState.isCreating
-                              ? const SizedBox(
-                                  height: 20,
-                                  width: 20,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
-                                )
-                              : const Text('CREAR PARTIDA'),
-                        ),
+                      _CreateMatchButton(
+                        isLoading: matchmakingState.isCreating,
+                        onPressed: _createMatch,
                       ),
                     ],
                   ),
@@ -280,19 +278,100 @@ class _CrearPartidaPanelState extends ConsumerState<CrearPartidaPanel> {
       isDense: true,
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       filled: true,
-      fillColor: const Color(0xFF252530),
+      fillColor: AppTheme.surface,
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
         borderSide: const BorderSide(
-          color: Color(0xFF8C6D3F),
+          color: AppTheme.borderBronze,
           width: 1,
         ),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
         borderSide: const BorderSide(
-          color: Color(0xFFC5A059),
+          color: AppTheme.borderGold,
           width: 1.5,
+        ),
+      ),
+    );
+  }
+}
+
+class _CreateMatchButton extends StatefulWidget {
+  const _CreateMatchButton({
+    required this.isLoading,
+    required this.onPressed,
+  });
+
+  final bool isLoading;
+  final VoidCallback onPressed;
+
+  @override
+  State<_CreateMatchButton> createState() => _CreateMatchButtonState();
+}
+
+class _CreateMatchButtonState extends State<_CreateMatchButton> {
+  bool _pressed = false;
+
+  void _setPressed(bool value) {
+    if (widget.isLoading) return;
+    if (_pressed == value) return;
+
+    setState(() {
+      _pressed = value;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final backgroundColor = _pressed
+        ? AppTheme.borderGoldVivo
+        : AppTheme.primary;
+
+    return AnimatedScale(
+      scale: _pressed ? 0.97 : 1,
+      duration: const Duration(milliseconds: 90),
+      curve: Curves.easeOut,
+      child: GestureDetector(
+        onTapDown: (_) => _setPressed(true),
+        onTapUp: (_) => _setPressed(false),
+        onTapCancel: () => _setPressed(false),
+        onTap: widget.isLoading ? null : widget.onPressed,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 90),
+          curve: Curves.easeOut,
+          width: double.infinity,
+          height: 44,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: widget.isLoading ? AppTheme.disabled : backgroundColor,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: _pressed ? 0.22 : 0.32),
+                blurRadius: _pressed ? 8 : 10,
+                offset: Offset(0, _pressed ? 3 : 5),
+              ),
+            ],
+          ),
+          child: widget.isLoading
+              ? const SizedBox(
+                  height: 20,
+                  width: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: AppTheme.bg,
+                  ),
+                )
+              : const Text(
+                  'CREAR PARTIDA',
+                  style: TextStyle(
+                    color: AppTheme.bg,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.2,
+                  ),
+                ),
         ),
       ),
     );

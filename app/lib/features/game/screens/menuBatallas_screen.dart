@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:soberania/app/router/app_routes.dart';
 import '../../home/widgets/home_background.dart';
 import '../../home/widgets/home_action_button.dart';
 import '../widgets/partida_rapida_panel.dart';
 import '../widgets/crear_partida_panel.dart';
 import '../widgets/unirse_partida_panel.dart';
+import '../../../shared/widgets/app_back_button.dart';
+import '../widgets/battle_operations_panel.dart';
 
 class MenubatallasScreen extends StatefulWidget {
   const MenubatallasScreen({super.key});
@@ -70,32 +73,16 @@ class _MenubatallasScreenState extends State<MenubatallasScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       body: HomeBackground(
         child: Stack(
           children: [
             // ── Botones principales ────────────────────────────────────────
             SafeArea(
-              child: Align(
-                alignment: const Alignment(-0.07, 0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    HomeActionButton(
-                      text: 'Partida rápida',
-                      onPressed: _openQuickMatch,
-                    ),
-                    const SizedBox(height: 18),
-                    HomeActionButton(
-                      text: 'Crear partida',
-                      onPressed: _openCreateMatch,
-                    ),
-                    const SizedBox(height: 18),
-                    HomeActionButton(
-                      text: 'Unirse a partida',
-                      onPressed: _openUnirsePartida,
-                    ),
-                  ],
-                ),
+              child: BattleOperationsPanel(
+                onQuickMatch: _openQuickMatch,
+                onCreateMatch: _openCreateMatch,
+                onJoinMatch: _openUnirsePartida,
               ),
             ),
 
@@ -105,26 +92,8 @@ class _MenubatallasScreenState extends State<MenubatallasScreen> {
                 alignment: Alignment.topLeft,
                 child: Padding(
                   padding: const EdgeInsets.all(12.0),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF252530).withOpacity(0.92),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: const Color(0xFFC5A059),
-                        width: 1.2,
-                      ),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Colors.black54,
-                          blurRadius: 12,
-                          offset: Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: IconButton(
-                      onPressed: () => context.pop(),
-                      icon: const Icon(Icons.arrow_back_rounded),
-                    ),
+                  child: AppBackButton(
+                    onPressed: () => context.go(AppRoutes.home),
                   ),
                 ),
               ),

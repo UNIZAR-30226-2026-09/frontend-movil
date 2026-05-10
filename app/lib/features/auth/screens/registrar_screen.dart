@@ -78,6 +78,7 @@ class _RegistrarScreenState extends ConsumerState<RegistrarScreen> {
     final bool isLoading = authState.status == AuthStatus.loading;
 
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       body: AuthInicioBackground(
         child: Stack(
           children: [

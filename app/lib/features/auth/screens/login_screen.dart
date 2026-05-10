@@ -70,6 +70,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final bool isLoading = authState.status == AuthStatus.loading;
 
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       body: AuthInicioBackground(
         child: Stack(
           children: [

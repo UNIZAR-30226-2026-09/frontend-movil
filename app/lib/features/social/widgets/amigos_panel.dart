@@ -260,40 +260,9 @@ class _RecruitRow extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 12),
-        SizedBox(
-          height: 52,
-          child: OutlinedButton(
-            onPressed: isLoading ? null : onSubmit,
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppTheme.primary,
-              disabledForegroundColor: AppTheme.disabled,
-              side: BorderSide(
-                color: isLoading ? AppTheme.disabled : AppTheme.borderGold,
-                width: 1.2,
-              ),
-              shape: const RoundedRectangleBorder(
-                borderRadius: BorderRadius.zero,
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 22),
-              backgroundColor: AppTheme.surface.withOpacity(0.45),
-            ),
-            child: isLoading
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: AppTheme.primary,
-                    ),
-                  )
-                : const Text(
-                    'RECLUTAR',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0.8,
-                    ),
-                  ),
-          ),
+        _RecruitButton(
+          isLoading: isLoading,
+          onPressed: onSubmit,
         ),
       ],
     );
@@ -657,7 +626,7 @@ class _BaseCommanderCard extends StatelessWidget {
   }
 }
 
-class _SquareIconButton extends StatelessWidget {
+class _SquareIconButton extends StatefulWidget {
   final IconData icon;
   final VoidCallback onTap;
   final String tooltip;
@@ -671,21 +640,52 @@ class _SquareIconButton extends StatelessWidget {
   });
 
   @override
+  State<_SquareIconButton> createState() => _SquareIconButtonState();
+}
+
+class _SquareIconButtonState extends State<_SquareIconButton> {
+  bool _pressed = false;
+
+  void _setPressed(bool value) {
+    if (_pressed == value) return;
+
+    setState(() {
+      _pressed = value;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final activeColor = _pressed ? AppTheme.borderGoldVivo : widget.color;
+
     return Tooltip(
-      message: tooltip,
-      child: Material(
-        color: AppTheme.surface.withOpacity(0.38),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.zero,
-          side: BorderSide(color: color.withOpacity(0.7)),
-        ),
-        child: InkWell(
-          onTap: onTap,
-          child: SizedBox(
+      message: widget.tooltip,
+      child: AnimatedScale(
+        scale: _pressed ? 0.94 : 1,
+        duration: const Duration(milliseconds: 90),
+        curve: Curves.easeOut,
+        child: GestureDetector(
+          onTapDown: (_) => _setPressed(true),
+          onTapUp: (_) => _setPressed(false),
+          onTapCancel: () => _setPressed(false),
+          onTap: widget.onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 90),
+            curve: Curves.easeOut,
             width: 42,
             height: 42,
-            child: Icon(icon, color: color, size: 22),
+            decoration: BoxDecoration(
+              color: AppTheme.surface.withValues(alpha: 0.38),
+              border: Border.all(
+                color: activeColor.withValues(alpha: _pressed ? 1 : 0.7),
+                width: _pressed ? 1.5 : 1,
+              ),
+            ),
+            child: Icon(
+              widget.icon,
+              color: activeColor,
+              size: 22,
+            ),
           ),
         ),
       ),
@@ -782,6 +782,86 @@ class _ErrorBox extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _RecruitButton extends StatefulWidget {
+  const _RecruitButton({
+    required this.isLoading,
+    required this.onPressed,
+  });
+
+  final bool isLoading;
+  final VoidCallback onPressed;
+
+  @override
+  State<_RecruitButton> createState() => _RecruitButtonState();
+}
+
+class _RecruitButtonState extends State<_RecruitButton> {
+  bool _pressed = false;
+
+  void _setPressed(bool value) {
+    if (widget.isLoading) return;
+    if (_pressed == value) return;
+
+    setState(() {
+      _pressed = value;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final borderColor = widget.isLoading
+        ? AppTheme.disabled
+        : (_pressed ? AppTheme.borderGoldVivo : AppTheme.borderGold);
+
+    final textColor = widget.isLoading
+        ? AppTheme.disabled
+        : (_pressed ? AppTheme.borderGoldVivo : AppTheme.primary);
+
+    return AnimatedScale(
+      scale: _pressed ? 0.97 : 1,
+      duration: const Duration(milliseconds: 90),
+      curve: Curves.easeOut,
+      child: GestureDetector(
+        onTapDown: (_) => _setPressed(true),
+        onTapUp: (_) => _setPressed(false),
+        onTapCancel: () => _setPressed(false),
+        onTap: widget.isLoading ? null : widget.onPressed,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 90),
+          curve: Curves.easeOut,
+          height: 52,
+          padding: const EdgeInsets.symmetric(horizontal: 22),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: AppTheme.surface.withValues(alpha: 0.45),
+            border: Border.all(
+              color: borderColor,
+              width: _pressed ? 1.5 : 1.2,
+            ),
+          ),
+          child: widget.isLoading
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: AppTheme.borderGoldVivo,
+                  ),
+                )
+              : Text(
+                  'RECLUTAR',
+                  style: TextStyle(
+                    color: textColor,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+        ),
       ),
     );
   }

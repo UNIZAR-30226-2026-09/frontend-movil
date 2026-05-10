@@ -6,6 +6,8 @@ import '../../../app/router/app_routes.dart';
 import '../models/partida_publica_model.dart';
 import '../providers/lobby_info_provider.dart';
 import '../providers/matchmaking_provider.dart';
+import '../../../app/theme/app_theme.dart';
+import '../../../shared/widgets/app_close_button.dart';
 
 enum _Vista { codigoDirecto, enSuspenso }
 
@@ -162,9 +164,12 @@ class _UnirsePartidaPanelState extends ConsumerState<UnirsePartidaPanel> {
           width: double.infinity,
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: const Color(0xFF252530).withOpacity(0.96),
+            color: AppTheme.panelOverlay.withValues(alpha: 0.96),
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: const Color(0xFFC5A059), width: 1.2),
+            border: Border.all(
+              color: AppTheme.borderGold, 
+              width: 1.2
+            ),
             boxShadow: const [
               BoxShadow(
                 color: Colors.black54,
@@ -183,24 +188,15 @@ class _UnirsePartidaPanelState extends ConsumerState<UnirsePartidaPanel> {
                     child: Text(
                       'UNIRSE A PARTIDA',
                       style: TextStyle(
+                        color: AppTheme.borderGold,
                         fontSize: 22,
                         fontWeight: FontWeight.bold,
-                        letterSpacing: 1.2,
+                        letterSpacing: 0.8,
                       ),
                     ),
                   ),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF1A1A24),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                          color: const Color(0xFFC5A059), width: 1.1),
-                    ),
-                    child: IconButton(
-                      onPressed: widget.onClose,
-                      icon: const Icon(Icons.close_rounded),
-                      tooltip: 'Cerrar',
-                    ),
+                  AppCloseButton(
+                    onPressed: widget.onClose,
                   ),
                 ],
               ),
@@ -217,10 +213,13 @@ class _UnirsePartidaPanelState extends ConsumerState<UnirsePartidaPanel> {
               Expanded(
                 child: Container(
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1A1A24).withOpacity(0.85),
+                    color: AppTheme.surface.withValues(alpha: 0.85),
                     borderRadius: BorderRadius.circular(16),
                     border:
-                        Border.all(color: const Color(0xFF8C6D3F), width: 1),
+                        Border.all(
+                          color: AppTheme.borderGold, 
+                          width: 1,
+                        ),
                   ),
                   child: _vistaActual == _Vista.codigoDirecto
                       ? _VistaCodigo(
@@ -261,9 +260,12 @@ class _TabSelector extends StatelessWidget {
     return Container(
       height: 40,
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A24),
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFF8C6D3F), width: 1),
+        border: Border.all(
+          color: AppTheme.borderBronze,
+          width: 1,
+        ),
       ),
       child: Row(
         children: [
@@ -307,14 +309,17 @@ class _TabButton extends StatelessWidget {
           duration: const Duration(milliseconds: 180),
           decoration: BoxDecoration(
             color: isActive
-                ? const Color(0xFFC5A059).withOpacity(0.18)
+                ? AppTheme.borderGold.withValues(alpha: 0.18)
                 : Colors.transparent,
             borderRadius: BorderRadius.horizontal(
               left: isFirst ? const Radius.circular(9) : Radius.zero,
               right: !isFirst ? const Radius.circular(9) : Radius.zero,
             ),
             border: isActive
-                ? Border.all(color: const Color(0xFFC5A059), width: 1)
+                ? Border.all(
+                    color: AppTheme.borderGold, 
+                    width: 1,
+                  )
                 : null,
           ),
           alignment: Alignment.center,
@@ -324,8 +329,8 @@ class _TabButton extends StatelessWidget {
               fontSize: 12,
               fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
               color: isActive
-                  ? const Color(0xFFC5A059)
-                  : const Color(0xFFA0A0B0),
+                  ? AppTheme.borderGold
+                  : AppTheme.textSecondary,
               letterSpacing: 0.8,
             ),
           ),
@@ -367,25 +372,31 @@ class _VistaCodigo extends ConsumerWidget {
           TextField(
             controller: codigoController,
             textCapitalization: TextCapitalization.characters,
-            style: const TextStyle(color: Colors.white, fontSize: 15),
+            style: const TextStyle(
+              color: Colors.white, 
+              fontSize: 15,
+              fontWeight: FontWeight.w600,  
+            ),
             decoration: InputDecoration(
               hintText: 'Ejemplo: 5RH8AQ',
-              hintStyle:
-                  const TextStyle(color: Color(0xFF6A6A7A), fontSize: 14),
+              hintStyle: TextStyle(
+                color: AppTheme.textSecondary.withValues(alpha: 0.7), 
+                fontSize: 14,
+              ),
               isDense: true,
               contentPadding:
                   const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
               filled: true,
-              fillColor: const Color(0xFF252530),
+              fillColor: AppTheme.surface,
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
                 borderSide:
-                    const BorderSide(color: Color(0xFF8C6D3F), width: 1),
+                    const BorderSide(color: AppTheme.borderBronze, width: 1),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
                 borderSide:
-                    const BorderSide(color: Color(0xFFC5A059), width: 1.5),
+                    const BorderSide(color: AppTheme.borderGold, width: 1.5),
               ),
             ),
           ),
@@ -394,39 +405,14 @@ class _VistaCodigo extends ConsumerWidget {
             'Introduce el código de una partida privada o pública para unirte directamente.',
             style: TextStyle(
               fontSize: 13,
-              color: Color(0xFFA0A0B0),
+              color: AppTheme.textSecondary,
             ),
           ),
           const Spacer(),
-          SizedBox(
-            width: double.infinity,
-            height: 46,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFC5A059),
-                foregroundColor: Colors.black,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              onPressed:
-                  state.isJoining ? null : () => onJoinMatch(codigoController.text),
-              child: state.isJoining
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.black),
-                    )
-                  : const Text(
-                      'INFILTRARSE',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                        letterSpacing: 1.2,
-                      ),
-                    ),
-            ),
+          _JoinMatchButton(
+            text: 'INFILTRARSE',
+            isLoading: state.isJoining,
+            onPressed: () => onJoinMatch(codigoController.text),
           ),
         ],
       ),
@@ -455,7 +441,11 @@ class _VistaPausada extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (cargando) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(
+        child: CircularProgressIndicator(
+          color: AppTheme.borderGoldVivo,
+        )
+      );
     }
 
     if (error != null) {
@@ -469,7 +459,7 @@ class _VistaPausada extends StatelessWidget {
                 error!,
                 textAlign: TextAlign.center,
                 style: const TextStyle(
-                    fontSize: 15, color: Color(0xFFA0A0B0)),
+                    fontSize: 15, color: AppTheme.textSecondary),
               ),
               const SizedBox(height: 16),
               TextButton.icon(
@@ -490,7 +480,7 @@ class _VistaPausada extends StatelessWidget {
           child: Text(
             'No tienes ninguna partida pausada actualmente.',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 15, color: Color(0xFFA0A0B0)),
+            style: TextStyle(fontSize: 15, color: AppTheme.textSecondary),
           ),
         ),
       );
@@ -505,9 +495,9 @@ class _VistaPausada extends StatelessWidget {
         return Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: const Color(0xFF252530),
+            color: AppTheme.surface,
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xFFC5A059), width: 1),
+            border: Border.all(color: AppTheme.borderGold, width: 1),
           ),
           child: Row(
             children: [
@@ -526,35 +516,114 @@ class _VistaPausada extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       'Jugadores: ${partida.configMaxPlayers} máx.',
-                      style: const TextStyle(color: Color(0xFFA0A0B0)),
+                      style: const TextStyle(color: AppTheme.textSecondary),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       'Visibilidad: ${partida.configVisibility}',
-                      style: const TextStyle(color: Color(0xFFA0A0B0)),
+                      style: const TextStyle(color: AppTheme.textSecondary),
                     ),
                   ],
                 ),
               ),
               const SizedBox(width: 12),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFC5A059),
-                  foregroundColor: Colors.black,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
+              _JoinMatchButton(
+                text: 'ENTRAR',
+                compact: true,
                 onPressed: () => onEntrar(partida),
-                child: const Text(
-                  'Entrar',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
               ),
             ],
           ),
         );
       },
+    );
+  }
+}
+
+class _JoinMatchButton extends StatefulWidget {
+  const _JoinMatchButton({
+    required this.text,
+    required this.onPressed,
+    this.isLoading = false,
+    this.compact = false,
+  });
+
+  final String text;
+  final VoidCallback onPressed;
+  final bool isLoading;
+  final bool compact;
+
+  @override
+  State<_JoinMatchButton> createState() => _JoinMatchButtonState();
+}
+
+class _JoinMatchButtonState extends State<_JoinMatchButton> {
+  bool _pressed = false;
+
+  void _setPressed(bool value) {
+    if (widget.isLoading) return;
+    if (_pressed == value) return;
+
+    setState(() {
+      _pressed = value;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final backgroundColor = _pressed
+        ? AppTheme.borderGoldVivo
+        : AppTheme.primary;
+
+    return AnimatedScale(
+      scale: _pressed ? 0.97 : 1,
+      duration: const Duration(milliseconds: 90),
+      curve: Curves.easeOut,
+      child: GestureDetector(
+        onTapDown: (_) => _setPressed(true),
+        onTapUp: (_) => _setPressed(false),
+        onTapCancel: () => _setPressed(false),
+        onTap: widget.isLoading ? null : widget.onPressed,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 90),
+          curve: Curves.easeOut,
+          width: widget.compact ? null : double.infinity,
+          height: widget.compact ? 38 : 46,
+          padding: EdgeInsets.symmetric(
+            horizontal: widget.compact ? 16 : 18,
+          ),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: widget.isLoading ? AppTheme.disabled : backgroundColor,
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: _pressed ? 0.22 : 0.32),
+                blurRadius: _pressed ? 8 : 10,
+                offset: Offset(0, _pressed ? 3 : 5),
+              ),
+            ],
+          ),
+          child: widget.isLoading
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: AppTheme.bg,
+                  ),
+                )
+              : Text(
+                  widget.text.toUpperCase(),
+                  style: const TextStyle(
+                    color: AppTheme.bg,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 14,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+        ),
+      ),
     );
   }
 }

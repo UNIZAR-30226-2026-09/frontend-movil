@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../../app/router/app_routes.dart';
 import '../providers/matchmaking_provider.dart';
 import '../providers/lobby_info_provider.dart';
+import '../../../app/theme/app_theme.dart';
+import '../../../shared/widgets/app_close_button.dart';
 
 class PartidaRapidaPanel extends ConsumerStatefulWidget {
   const PartidaRapidaPanel({
@@ -70,10 +72,10 @@ class _PartidaRapidaPanelState extends ConsumerState<PartidaRapidaPanel> {
           width: double.infinity,
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: const Color(0xFF252530).withOpacity(0.96),
+            color: AppTheme.panelOverlay.withValues(alpha: 0.96),
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: const Color(0xFFC5A059),
+              color: AppTheme.borderGold,
               width: 1.2,
             ),
             boxShadow: const [
@@ -93,24 +95,15 @@ class _PartidaRapidaPanelState extends ConsumerState<PartidaRapidaPanel> {
                     child: Text(
                       'PARTIDAS PÚBLICAS',
                       style: TextStyle(
+                        color: AppTheme.borderGold,
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
+                        letterSpacing: 0.8,
                       ),
                     ),
                   ),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF1A1A24),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: const Color(0xFFC5A059),
-                        width: 1.1,
-                      ),
-                    ),
-                    child: IconButton(
-                      onPressed: widget.onClose,
-                      icon: const Icon(Icons.close_rounded),
-                    ),
+                  AppCloseButton(
+                    onPressed: widget.onClose,
                   ),
                 ],
               ),
@@ -118,10 +111,10 @@ class _PartidaRapidaPanelState extends ConsumerState<PartidaRapidaPanel> {
               Expanded(
                 child: Container(
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1A1A24).withOpacity(0.85),
+                    color: AppTheme.surface.withValues(alpha: 0.85),
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: const Color(0xFF8C6D3F),
+                      color: AppTheme.borderBronze,
                       width: 1,
                     ),
                   ),
@@ -138,7 +131,9 @@ class _PartidaRapidaPanelState extends ConsumerState<PartidaRapidaPanel> {
   Widget _buildContent(MatchmakingState state) {
     if (state.isLoading) {
       return const Center(
-        child: CircularProgressIndicator(),
+        child: CircularProgressIndicator(
+          color: AppTheme.borderGold,
+        ),
       );
     }
 
@@ -151,7 +146,7 @@ class _PartidaRapidaPanelState extends ConsumerState<PartidaRapidaPanel> {
             textAlign: TextAlign.center,
             style: const TextStyle(
               fontSize: 16,
-              color: Color(0xFFA0A0B0),
+              color: AppTheme.textSecondary,
             ),
           ),
         ),
@@ -170,7 +165,7 @@ class _PartidaRapidaPanelState extends ConsumerState<PartidaRapidaPanel> {
                 'No hay partidas públicas disponibles.',
                 style: TextStyle(
                   fontSize: 16,
-                  color: Color(0xFFA0A0B0),
+                  color: AppTheme.textSecondary,
                 ),
               ),
             ),
@@ -188,66 +183,70 @@ class _PartidaRapidaPanelState extends ConsumerState<PartidaRapidaPanel> {
         itemBuilder: (context, index) {
           final match = state.matches[index];
 
-          return InkWell(
-            borderRadius: BorderRadius.circular(14),
-            onTap: state.isJoining
-                ? null
-                : () {
-                  print('CODIGO A UNIRSE: ${match.codigoInvitacion}');
-                  _joinMatch(match.codigoInvitacion);
-                  },
-            child: Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: const Color(0xFF252530),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: const Color(0xFFC5A059),
-                  width: 1,
-                ),
+          return Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppTheme.surface,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: AppTheme.borderGold,
+                width: 1,
               ),
-              child: Row(
-                children: [
-                  const Icon(Icons.public),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Código: ${match.codigoInvitacion}',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.public,
+                  color: AppTheme.borderGold,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Código: ${match.codigoInvitacion}',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Estado: ${match.estado}',
-                          style: const TextStyle(
-                            color: Color(0xFFA0A0B0),
-                          ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Estado: ${match.estado}',
+                        style: const TextStyle(
+                          color: AppTheme.textSecondary,
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'Máximo de jugadores: ${match.configMaxPlayers}',
-                          style: const TextStyle(
-                            color: Color(0xFFA0A0B0),
-                          ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Máximo de jugadores: ${match.configMaxPlayers}',
+                        style: const TextStyle(
+                          color: AppTheme.textSecondary,
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 12),
-                  state.isJoining
-                      ? const SizedBox(
+                ),
+                const SizedBox(width: 12),
+                state.isJoining
+                    ? const SizedBox(
                         width: 20,
                         height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.arrow_forward_rounded, size: 18),
-                ],
-              ),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppTheme.borderGold,
+                        ),
+                      )
+                    : AppCloseButton(
+                        size: 36,
+                        icon: Icons.arrow_forward_rounded,
+                        onPressed: () {
+                          print('CODIGO A UNIRSE: ${match.codigoInvitacion}');
+                          _joinMatch(match.codigoInvitacion);
+                        },
+                      ),
+              ],
             ),
           );
         },
