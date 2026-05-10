@@ -83,6 +83,7 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
 
     final payload = Map<String, dynamic>.from(response.data as Map);
     ref.read(gameProvider.notifier).actualizarDesdeServidor(payload);
+
   }
 
   void _onResearchPressed(String habilidadId, int cost) async {
@@ -91,10 +92,13 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
     final partidaId = _partidaIdActual();
     if (partidaId <= 0) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No se pudo identificar la partida actual.'),
-        ),
+      _showOverlayMessage(
+        backgroundColor: const Color(0xFF1E1212),
+        borderColor: const Color(0xFFBF5050),
+        icon: Icons.error_outline_rounded,
+        iconColor: const Color(0xFFBF5050),
+        message: 'No se pudo identificar la partida actual.',
+        textColor: const Color(0xFFE89090),
       );
       return;
     }
@@ -119,34 +123,13 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
 
       if (!mounted) return;
       final nombreTech = _formatName(habilidadId);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          backgroundColor: const Color(0xFF1E1A12),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-            side: const BorderSide(color: AppTheme.borderGoldVivo, width: 1),
-          ),
-          content: Row(
-            children: [
-              const Icon(
-                Icons.science_rounded,
-                color: AppTheme.borderGoldVivo,
-                size: 20,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  '¡Investigación completada! Has adquirido $nombreTech.',
-                  style: const TextStyle(
-                    color: AppTheme.borderGoldVivo,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
+      _showOverlayMessage(
+        backgroundColor: const Color(0xFF1E1A12),
+        borderColor: AppTheme.borderGoldVivo,
+        icon: Icons.science_rounded,
+        iconColor: AppTheme.borderGoldVivo,
+        message: '¡Investigación completada! Has adquirido $nombreTech.',
+        textColor: AppTheme.borderGoldVivo,
       );
     } on DioException catch (e) {
       if (!mounted) return;
@@ -156,36 +139,67 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
                 'No se pudo comprar la tecnología')
           : (e.message ?? 'No se pudo comprar la tecnología');
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          backgroundColor: const Color(0xFF1E1212),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-            side: const BorderSide(color: Color(0xFFBF5050), width: 1),
-          ),
-          content: Row(
-            children: [
-              const Icon(
-                Icons.error_outline_rounded,
-                color: Color(0xFFBF5050),
-                size: 20,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  detalle,
-                  style: const TextStyle(
-                    color: Color(0xFFE89090),
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
+      _showOverlayMessage(
+        backgroundColor: const Color(0xFF1E1212),
+        borderColor: const Color(0xFFBF5050),
+        icon: Icons.error_outline_rounded,
+        iconColor: const Color(0xFFBF5050),
+        message: detalle,
+        textColor: const Color(0xFFE89090),
       );
     }
+  }
+
+  void _showOverlayMessage({
+    required Color backgroundColor,
+    required Color borderColor,
+    required IconData icon,
+    required Color iconColor,
+    required String message,
+    required Color textColor,
+  }) {
+    final overlayState = Overlay.of(context);
+    late OverlayEntry overlayEntry;
+    overlayEntry = OverlayEntry(
+      builder: (ctx) => Positioned(
+        bottom: 16,
+        left: 16,
+        right: 16,
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: backgroundColor,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: borderColor, width: 1),
+            ),
+            child: Row(
+              children: [
+                Icon(icon, color: iconColor, size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    message,
+                    style: TextStyle(
+                      color: textColor,
+                      fontWeight: FontWeight.w500,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    overlayState.insert(overlayEntry);
+    Future.delayed(const Duration(seconds: 4), () {
+      if (mounted) {
+        overlayEntry.remove();
+      }
+    });
   }
 
   String _formatName(String id) {
@@ -197,6 +211,7 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
               : '${word[0].toUpperCase()}${word.substring(1)}',
         )
         .join(' ');
+
   }
 
   void _cerrarPanelGestion() {
@@ -662,43 +677,75 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
               InteractiveGameMap(
                 gameMap: snapshot.data!,
                 onTapComarca: (c) {
-                  if (_jugadorLocalEliminado || _modoEspectador) return;
+                if (_jugadorLocalEliminado || _modoEspectador) return;
 
-                  final estadoActual = ref.read(gameProvider);
-                  final miUsuario = ref.read(authProvider).user?.username ?? '';
-                  final faseActual = estadoActual.faseActual.toLowerCase();
-                  final esMiTurno = estadoActual.turnoDe == miUsuario;
+                final estadoActual = ref.read(gameProvider);
+                final miUsuario = ref.read(authProvider).user?.username ?? '';
+                final faseActual = estadoActual.faseActual.toLowerCase();
+                final esMiTurno = estadoActual.turnoDe == miUsuario;
 
-                  if (faseActual == 'gestion') {
-                    final ownerId = estadoActual.mapa[c.id]?.ownerId ?? '';
-                    final esComarcaPropia =
-                        miUsuario.isNotEmpty && ownerId == miUsuario;
-
-                    if (!esComarcaPropia || !esMiTurno) return;
-
-                    final yaEstabaAbierta = _comarcaGestionSeleccionada == c.id;
-
-                    ref
-                        .read(gameProvider.notifier)
-                        .seleccionarComarca(c.id, jugadorLocalId: miUsuario);
-
-                    setState(() {
-                      _comarcaGestionSeleccionada = yaEstabaAbierta
-                          ? null
-                          : c.id;
-                    });
-
-                    return;
+                // --- NUEVO CÓDIGO DEL CARTELITO ---
+                if (!esMiTurno) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        backgroundColor: const Color(0xFF1E1212),
+                        behavior: SnackBarBehavior.floating,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          side: const BorderSide(color: Color(0xFFBF5050), width: 1),
+                        ),
+                        content: const Row(
+                          children: [
+                            Icon(
+                              Icons.error_outline_rounded,
+                              color: Color(0xFFBF5050),
+                              size: 20,
+                            ),
+                            SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                '¡Alto ahí! No es tu turno.',
+                                style: TextStyle(
+                                  color: Color(0xFFE89090),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
                   }
+                  return; // Cortamos para que no seleccione nada
+                }
+                // --- FIN DEL CARTELITO ---
+
+                if (faseActual == 'gestion') {
+                  final ownerId = estadoActual.mapa[c.id]?.ownerId ?? '';
+                  final esComarcaPropia = miUsuario.isNotEmpty && ownerId == miUsuario;
+
+                  if (!esComarcaPropia || !esMiTurno) return;
+
+                  final yaEstabaAbierta = _comarcaGestionSeleccionada == c.id;
 
                   ref
                       .read(gameProvider.notifier)
-                      .seleccionarComarca(
-                        c.id,
-                        jugadorLocalId: miUsuario,
-                        vecinosDelNodoTocado: c.adjacentTo,
-                      );
-                },
+                      .seleccionarComarca(c.id, jugadorLocalId: miUsuario);
+
+                  setState(() {
+                    _comarcaGestionSeleccionada = yaEstabaAbierta ? null : c.id;
+                  });
+
+                  return;
+                }
+
+                ref.read(gameProvider.notifier).seleccionarComarca(
+                      c.id,
+                      jugadorLocalId: miUsuario,
+                      vecinosDelNodoTocado: c.adjacentTo,
+                    );
+              },
                 minScale: 1.0,
                 maxScale: 5.0,
               ),
@@ -2142,3 +2189,10 @@ class _PlayerInfoTile extends StatelessWidget {
     );
   }
 }
+
+
+
+
+
+
+

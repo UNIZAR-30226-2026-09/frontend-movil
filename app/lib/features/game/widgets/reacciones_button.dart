@@ -39,7 +39,7 @@ class _ReaccionesButtonState extends ConsumerState<ReaccionesButton> {
     }
 
     if (normalized.startsWith('/')) {
-      return 'http://192.168.1.35:8000$normalized';
+      return 'https://soberania.dev$normalized';
     }
 
     return '$_reactionAssetsBaseUrl$normalized';

@@ -229,11 +229,63 @@ class _GestionPanelState extends ConsumerState<GestionPanel> {
                         ref.read(gameProvider.notifier)
                             .actualizarEstadoBloqueo(widget.comarcaId, 'trabajando');
                         widget.onClose();
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Comarca enviada a la mina'),
-                            backgroundColor: Colors.green,
-                          ),
+                        // Formateamos el nombre de la comarca para que se vea bonito
+                        final nombreComarca = widget.comarcaId.split('_').map((w) => w.isNotEmpty ? '${w[0].toUpperCase()}${w.substring(1)}' : '').join(' ');
+
+                        showDialog(
+                          context: context,
+                          builder: (ctx) {
+                            // Cerramos el popup automáticamente a los 2 segundos
+                            Future.delayed(const Duration(seconds: 2), () {
+                              if (Navigator.of(ctx).canPop()) {
+                                Navigator.of(ctx).pop();
+                              }
+                            });
+
+                            return Dialog(
+                              backgroundColor: Colors.transparent,
+                              elevation: 0,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF1E1E1E).withValues(alpha: 0.95), // Fondo oscuro panel
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: const Color(0xFFD4AF37), // Dorado clásico
+                                    width: 1.5,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: 0.5),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(
+                                      Icons.agriculture_rounded, // Icono de trabajar
+                                      color: Color(0xFFD4AF37),
+                                      size: 40,
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Text(
+                                      '¡$nombreComarca trabajando!',
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(
+                                        color: Color(0xFFE0E0E0),
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
                         );
                       } on DioException catch (e) {
                         if (!mounted) return;
@@ -241,12 +293,28 @@ class _GestionPanelState extends ConsumerState<GestionPanel> {
                             e.response?.data is Map<String, dynamic>
                             ? (e.response?.data['detail']?.toString() ??
                                   e.message ??
-                                  'Error al enviar comarca a la mina')
-                            : (e.message ?? 'Error al enviar comarca a la mina');
+                                  'Ya has realizado una acción de gestión este turno.')
+                            : (e.message ?? 'Ya has realizado una acción de gestión este turno.');
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text(detalle),
-                            backgroundColor: Colors.red,
+                            backgroundColor: const Color(0xFF1E1212),
+                            behavior: SnackBarBehavior.floating,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              side: const BorderSide(color: Color(0xFFBF5050), width: 1),
+                            ),
+                            content: Row(
+                              children: [
+                                const Icon(Icons.error_outline_rounded, color: Color(0xFFBF5050), size: 20),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    detalle,
+                                    style: const TextStyle(color: Color(0xFFE89090), fontWeight: FontWeight.w500),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         );
                       }
@@ -637,11 +705,62 @@ class _GestionPanelState extends ConsumerState<GestionPanel> {
                               final label = ramas
                                   .firstWhere((r) => r.id == ramaSeleccionada)
                                   .nombre;
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Comarca investigando: $label'),
-                                  backgroundColor: Colors.green,
-                                ),
+                              final nombreComarca = widget.comarcaId.split('_').map((w) => w.isNotEmpty ? '${w[0].toUpperCase()}${w.substring(1)}' : '').join(' ');
+
+                              showDialog(
+                                context: context,
+                                builder: (ctx) {
+                                  Future.delayed(const Duration(seconds: 2), () {
+                                    if (Navigator.of(ctx).canPop()) {
+                                      Navigator.of(ctx).pop();
+                                    }
+                                  });
+
+                                  return Dialog(
+                                    backgroundColor: Colors.transparent,
+                                    elevation: 0,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF1E1E1E).withValues(alpha: 0.95),
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(
+                                          color: const Color(0xFFD4AF37),
+                                          width: 1.5,
+                                        ),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withValues(alpha: 0.5),
+                                            blurRadius: 10,
+                                            offset: const Offset(0, 4),
+                                          ),
+                                        ],
+                                      ),
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(
+                                            Icons.science_rounded, // Icono de investigación
+                                            color: Color(0xFFD4AF37),
+                                            size: 40,
+                                          ),
+                                          const SizedBox(height: 12),
+                                          Text(
+                                            '¡$nombreComarca\ninvestigando $label!',
+                                            textAlign: TextAlign.center,
+                                            style: const TextStyle(
+                                              color: Color(0xFFE0E0E0),
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w600,
+                                              letterSpacing: 0.5,
+                                              height: 1.3,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                },
                               );
                             } on DioException catch (e) {
                               if (!mounted) return;
@@ -649,12 +768,28 @@ class _GestionPanelState extends ConsumerState<GestionPanel> {
                                   e.response?.data is Map<String, dynamic>
                                   ? (e.response?.data['detail']?.toString() ??
                                         e.message ??
-                                        'Error al iniciar investigación')
-                                  : (e.message ?? 'Error al iniciar investigación');
+                                        'Ya has realizado una acción de gestión este turno.')
+                                  : (e.message ?? 'Ya has realizado una acción de gestión este turno.');
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                  content: Text(detalle),
-                                  backgroundColor: Colors.red,
+                                  backgroundColor: const Color(0xFF1E1212),
+                                  behavior: SnackBarBehavior.floating,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                    side: const BorderSide(color: Color(0xFFBF5050), width: 1),
+                                  ),
+                                  content: Row(
+                                    children: [
+                                      const Icon(Icons.error_outline_rounded, color: Color(0xFFBF5050), size: 20),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Text(
+                                          detalle,
+                                          style: const TextStyle(color: Color(0xFFE89090), fontWeight: FontWeight.w500),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               );
                             }

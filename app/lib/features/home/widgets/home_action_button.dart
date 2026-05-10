@@ -53,7 +53,11 @@ class _HomeActionButtonState extends State<HomeActionButton> {
           curve: Curves.easeOut,
           width: widget.width,
           height: widget.height,
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+          // En compacto recorto padding vertical para que el contenido no se coma la altura.
+          padding: EdgeInsets.symmetric(
+            horizontal: widget.compact ? 14 : 18,
+            vertical: widget.compact ? 6 : 10,
+          ),
           decoration: BoxDecoration(
             color: AppTheme.surface.withValues(alpha: 0.96),
             borderRadius: BorderRadius.circular(7),
@@ -63,29 +67,37 @@ class _HomeActionButtonState extends State<HomeActionButton> {
             ),
           ),
           child: Column(
+            // Esto deja que la columna mida solo lo justo y evita overflow en alturas ajustadas.
+            mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(
-                widget.text.toUpperCase(),
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: AppTheme.primary,
-                  fontSize: widget.compact ? 16 : 18,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: widget.compact ? 2.4 : 4,
-                ),
-              ),
-              if (hasSubtitle) ...[
-                const SizedBox(height: 4),
-                Text(
-                  widget.subtitle!,
+              Flexible(
+                child: Text(
+                  widget.text.toUpperCase(),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: AppTheme.textSecondary.withValues(alpha: 0.62),
-                    fontSize: widget.compact ? 11 : 12,
-                    fontWeight: FontWeight.w400,
+                    color: AppTheme.primary,
+                    fontSize: widget.compact ? 15 : 18,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: widget.compact ? 2.2 : 4,
+                  ),
+                ),
+              ),
+              if (hasSubtitle) ...[
+                SizedBox(height: widget.compact ? 2 : 4),
+                Flexible(
+                  child: Text(
+                    widget.subtitle!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: AppTheme.textSecondary.withValues(alpha: 0.62),
+                      fontSize: widget.compact ? 10 : 12,
+                      fontWeight: FontWeight.w400,
+                    ),
                   ),
                 ),
               ],

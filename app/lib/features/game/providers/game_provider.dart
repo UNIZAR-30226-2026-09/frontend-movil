@@ -450,9 +450,18 @@ class GameNotifier extends Notifier<GameState> {
         if (territorioId != null && mapaActual.containsKey(territorioId)) {
           final territorio = mapaActual[territorioId]!;
           int tropasRestantes = territorio.units - bajas;
-          if (tropasRestantes < 0) tropasRestantes = 0;
+          String nuevoOwner = territorio.ownerId;
 
-          mapaActual[territorioId] = territorio.copyWith(units: tropasRestantes);
+          // Si el ataque aniquila a todos, la comarca se vuelve neutral
+          if (tropasRestantes <= 0) {
+            tropasRestantes = 0;
+            nuevoOwner = ''; 
+          }
+
+          mapaActual[territorioId] = territorio.copyWith(
+            units: tropasRestantes,
+            ownerId: nuevoOwner,
+          );
           hayCambios = true;
         }
       }

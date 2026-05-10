@@ -56,12 +56,29 @@ class _CrearPartidaPanelState extends ConsumerState<CrearPartidaPanel> {
       widget.onClose();
       context.push(AppRoutes.lobbyPath(match.id));
     } else {
-      final errorMessage = ref.read(matchmakingProvider).errorMessage ??
-          'No se pudo crear la partida';
+      // Pasamos del mensaje del servidor y ponemos el nuestro que se entiende mejor
+      final errorMessage = 'Error al crear partida, ya tienes una partida activa';
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(errorMessage),
+          backgroundColor: const Color(0xFF1E1212),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+            side: const BorderSide(color: Color(0xFFBF5050), width: 1),
+          ),
+          content: Row(
+            children: [
+              const Icon(Icons.error_outline_rounded, color: Color(0xFFBF5050), size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  errorMessage,
+                  style: const TextStyle(color: Color(0xFFE89090), fontWeight: FontWeight.w500),
+                ),
+              ),
+            ],
+          ),
         ),
       );
     }
