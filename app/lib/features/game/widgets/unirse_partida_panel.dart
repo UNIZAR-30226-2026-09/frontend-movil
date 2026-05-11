@@ -9,13 +9,10 @@ import '../providers/matchmaking_provider.dart';
 import '../../../app/theme/app_theme.dart';
 import '../../../shared/widgets/app_close_button.dart';
 
-enum _Vista { codigoDirecto, enSuspenso }
+enum _Vista { partidasRapidas, enSuspenso, codigoDirecto }
 
 class UnirsePartidaPanel extends ConsumerStatefulWidget {
-  const UnirsePartidaPanel({
-    super.key,
-    required this.onClose,
-  });
+  const UnirsePartidaPanel({super.key, required this.onClose});
 
   final VoidCallback onClose;
 
@@ -24,7 +21,7 @@ class UnirsePartidaPanel extends ConsumerStatefulWidget {
 }
 
 class _UnirsePartidaPanelState extends ConsumerState<UnirsePartidaPanel> {
-  _Vista _vistaActual = _Vista.codigoDirecto;
+  _Vista _vistaActual = _Vista.partidasRapidas;
 
   // ── Vista 1: código directo ──────────────────────────────────────────────
   final TextEditingController _codigoController = TextEditingController();
@@ -34,6 +31,15 @@ class _UnirsePartidaPanelState extends ConsumerState<UnirsePartidaPanel> {
   List<PublicMatchModel>? _partidas;
   String? _errorPausada;
   bool _pausadaCargada = false;
+
+  // ────────────────────────────────────────────────────────────────────────
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() {
+      ref.read(matchmakingProvider.notifier).loadMatches();
+    });
+  }
 
   // ────────────────────────────────────────────────────────────────────────
   @override
@@ -58,8 +64,9 @@ class _UnirsePartidaPanelState extends ConsumerState<UnirsePartidaPanel> {
     });
 
     try {
-      final lista =
-          await ref.read(matchmakingServiceProvider).getPartidasPausadas();
+      final lista = await ref
+          .read(matchmakingServiceProvider)
+          .getPartidasPausadas();
       if (!mounted) return;
       setState(() {
         _partidas = lista;
@@ -86,15 +93,18 @@ class _UnirsePartidaPanelState extends ConsumerState<UnirsePartidaPanel> {
       return;
     }
 
-    final joinResponse =
-        await ref.read(matchmakingProvider.notifier).joinMatch(codigoFinal);
+    final joinResponse = await ref
+        .read(matchmakingProvider.notifier)
+        .joinMatch(codigoFinal);
 
     if (!mounted) return;
 
     if (joinResponse != null && joinResponse.jugadoresEnSala.isNotEmpty) {
       final partidaId = joinResponse.jugadoresEnSala.first.partidaId;
 
-      ref.read(lobbyInfoProvider.notifier).setFromJoinResponse(
+      ref
+          .read(lobbyInfoProvider.notifier)
+          .setFromJoinResponse(
             partidaId: partidaId,
             creador: joinResponse.creador,
             jugadoresEnSala: joinResponse.jugadoresEnSala,
@@ -104,7 +114,8 @@ class _UnirsePartidaPanelState extends ConsumerState<UnirsePartidaPanel> {
       widget.onClose();
       context.push(AppRoutes.lobbyPath(partidaId));
     } else {
-      final errorMessage = ref.read(matchmakingProvider).errorMessage ??
+      final errorMessage =
+          ref.read(matchmakingProvider).errorMessage ??
           'No se pudo unir a la partida';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -140,15 +151,14 @@ class _UnirsePartidaPanelState extends ConsumerState<UnirsePartidaPanel> {
 
   // ── Entrar a partida pausada ─────────────────────────────────────────────
   void _entrarPausada(PublicMatchModel partida) {
-    ref.read(lobbyInfoProvider.notifier).setFromPausedMatch(
+    ref
+        .read(lobbyInfoProvider.notifier)
+        .setFromPausedMatch(
           partidaId: partida.id,
           codigoInvitacion: partida.codigoInvitacion,
         );
     widget.onClose();
-    context.push(
-      AppRoutes.lobbyPath(partida.id),
-      extra: {'esPausada': true},
-    );
+    context.push(AppRoutes.lobbyPath(partida.id), extra: {'esPausada': true});
   }
 
   // ────────────────────────────────────────────────────────────────────────
@@ -156,20 +166,14 @@ class _UnirsePartidaPanelState extends ConsumerState<UnirsePartidaPanel> {
   Widget build(BuildContext context) {
     return Center(
       child: ConstrainedBox(
-        constraints: const BoxConstraints(
-          maxWidth: 700,
-          maxHeight: 450,
-        ),
+        constraints: const BoxConstraints(maxWidth: 700, maxHeight: 450),
         child: Container(
           width: double.infinity,
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
             color: AppTheme.panelOverlay.withValues(alpha: 0.96),
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: AppTheme.borderGold, 
-              width: 1.2
-            ),
+            border: Border.all(color: AppTheme.borderGold, width: 1.2),
             boxShadow: const [
               BoxShadow(
                 color: Colors.black54,
@@ -195,18 +199,13 @@ class _UnirsePartidaPanelState extends ConsumerState<UnirsePartidaPanel> {
                       ),
                     ),
                   ),
-                  AppCloseButton(
-                    onPressed: widget.onClose,
-                  ),
+                  AppCloseButton(onPressed: widget.onClose),
                 ],
               ),
               const SizedBox(height: 14),
 
               // ── Selector de pestaña ─────────────────────────────────────
-              _TabSelector(
-                vistaActual: _vistaActual,
-                onCambiar: _cambiarVista,
-              ),
+              _TabSelector(vistaActual: _vistaActual, onCambiar: _cambiarVista),
               const SizedBox(height: 14),
 
               // ── Contenido ───────────────────────────────────────────────
@@ -215,24 +214,24 @@ class _UnirsePartidaPanelState extends ConsumerState<UnirsePartidaPanel> {
                   decoration: BoxDecoration(
                     color: AppTheme.surface.withValues(alpha: 0.85),
                     borderRadius: BorderRadius.circular(16),
-                    border:
-                        Border.all(
-                          color: AppTheme.borderGold, 
-                          width: 1,
-                        ),
+                    border: Border.all(color: AppTheme.borderGold, width: 1),
                   ),
-                  child: _vistaActual == _Vista.codigoDirecto
-                      ? _VistaCodigo(
-                          codigoController: _codigoController,
-                          onJoinMatch: _joinMatch,
-                        )
-                      : _VistaPausada(
-                          cargando: _cargandoPausada,
-                          partidas: _partidas,
-                          error: _errorPausada,
-                          onReintentar: _cargarPausada,
-                          onEntrar: _entrarPausada,
-                        ),
+                  child: switch (_vistaActual) {
+                    _Vista.partidasRapidas => _VistaPartidasRapidas(
+                      onJoinMatch: _joinMatch,
+                    ),
+                    _Vista.enSuspenso => _VistaPausada(
+                      cargando: _cargandoPausada,
+                      partidas: _partidas,
+                      error: _errorPausada,
+                      onReintentar: _cargarPausada,
+                      onEntrar: _entrarPausada,
+                    ),
+                    _Vista.codigoDirecto => _VistaCodigo(
+                      codigoController: _codigoController,
+                      onJoinMatch: _joinMatch,
+                    ),
+                  },
                 ),
               ),
             ],
@@ -247,10 +246,7 @@ class _UnirsePartidaPanelState extends ConsumerState<UnirsePartidaPanel> {
 // Selector de pestañas
 // ════════════════════════════════════════════════════════════════════════════
 class _TabSelector extends StatelessWidget {
-  const _TabSelector({
-    required this.vistaActual,
-    required this.onCambiar,
-  });
+  const _TabSelector({required this.vistaActual, required this.onCambiar});
 
   final _Vista vistaActual;
   final ValueChanged<_Vista> onCambiar;
@@ -262,17 +258,14 @@ class _TabSelector extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppTheme.surface,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: AppTheme.borderBronze,
-          width: 1,
-        ),
+        border: Border.all(color: AppTheme.borderBronze, width: 1),
       ),
       child: Row(
         children: [
           _TabButton(
-            label: 'CÓDIGO DIRECTO',
-            isActive: vistaActual == _Vista.codigoDirecto,
-            onTap: () => onCambiar(_Vista.codigoDirecto),
+            label: 'RÁPIDAS',
+            isActive: vistaActual == _Vista.partidasRapidas,
+            onTap: () => onCambiar(_Vista.partidasRapidas),
             isFirst: true,
           ),
           _TabButton(
@@ -280,6 +273,14 @@ class _TabSelector extends StatelessWidget {
             isActive: vistaActual == _Vista.enSuspenso,
             onTap: () => onCambiar(_Vista.enSuspenso),
             isFirst: false,
+            isLast: false,
+          ),
+          _TabButton(
+            label: 'CÓDIGO',
+            isActive: vistaActual == _Vista.codigoDirecto,
+            onTap: () => onCambiar(_Vista.codigoDirecto),
+            isFirst: false,
+            isLast: true,
           ),
         ],
       ),
@@ -293,12 +294,14 @@ class _TabButton extends StatelessWidget {
     required this.isActive,
     required this.onTap,
     required this.isFirst,
+    this.isLast = false,
   });
 
   final String label;
   final bool isActive;
   final VoidCallback onTap;
   final bool isFirst;
+  final bool isLast;
 
   @override
   Widget build(BuildContext context) {
@@ -313,13 +316,10 @@ class _TabButton extends StatelessWidget {
                 : Colors.transparent,
             borderRadius: BorderRadius.horizontal(
               left: isFirst ? const Radius.circular(9) : Radius.zero,
-              right: !isFirst ? const Radius.circular(9) : Radius.zero,
+              right: isLast ? const Radius.circular(9) : Radius.zero,
             ),
             border: isActive
-                ? Border.all(
-                    color: AppTheme.borderGold, 
-                    width: 1,
-                  )
+                ? Border.all(color: AppTheme.borderGold, width: 1)
                 : null,
           ),
           alignment: Alignment.center,
@@ -328,9 +328,7 @@ class _TabButton extends StatelessWidget {
             style: TextStyle(
               fontSize: 12,
               fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-              color: isActive
-                  ? AppTheme.borderGold
-                  : AppTheme.textSecondary,
+              color: isActive ? AppTheme.borderGold : AppTheme.textSecondary,
               letterSpacing: 0.8,
             ),
           ),
@@ -341,7 +339,133 @@ class _TabButton extends StatelessWidget {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// Vista 1 – Solo código directo
+// Vista 1 – Partidas rápidas públicas
+// ════════════════════════════════════════════════════════════════════════════
+class _VistaPartidasRapidas extends ConsumerWidget {
+  const _VistaPartidasRapidas({required this.onJoinMatch});
+
+  final Future<void> Function(String codigo) onJoinMatch;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(matchmakingProvider);
+
+    if (state.isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(color: AppTheme.borderGold),
+      );
+    }
+
+    if (state.errorMessage != null && state.matches.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                state.errorMessage!,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 15,
+                  color: AppTheme.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextButton.icon(
+                onPressed: () =>
+                    ref.read(matchmakingProvider.notifier).loadMatches(),
+                icon: const Icon(Icons.refresh_rounded, size: 18),
+                label: const Text('Reintentar'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (state.matches.isEmpty) {
+      return RefreshIndicator(
+        onRefresh: () =>
+            ref.read(matchmakingProvider.notifier).refreshMatches(),
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          children: const [
+            SizedBox(height: 110),
+            Center(
+              child: Text(
+                'No hay partidas rápidas disponibles ahora mismo.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 15, color: AppTheme.textSecondary),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: () => ref.read(matchmakingProvider.notifier).refreshMatches(),
+      child: ListView.separated(
+        padding: const EdgeInsets.all(12),
+        itemCount: state.matches.length,
+        separatorBuilder: (_, _) => const SizedBox(height: 10),
+        itemBuilder: (context, index) {
+          final partida = state.matches[index];
+          return Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppTheme.surface,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppTheme.borderGold, width: 1),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.public_rounded, size: 32),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Código: ${partida.codigoInvitacion}',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Estado: ${partida.estado}',
+                        style: const TextStyle(color: AppTheme.textSecondary),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Jugadores: ${partida.configMaxPlayers} máx.',
+                        style: const TextStyle(color: AppTheme.textSecondary),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                _JoinMatchButton(
+                  text: 'ENTRAR',
+                  compact: true,
+                  isLoading: state.isJoining,
+                  onPressed: () => onJoinMatch(partida.codigoInvitacion),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// Vista 2 – Solo código directo
 // ════════════════════════════════════════════════════════════════════════════
 class _VistaCodigo extends ConsumerWidget {
   const _VistaCodigo({
@@ -363,50 +487,50 @@ class _VistaCodigo extends ConsumerWidget {
         children: [
           const Text(
             'Código de invitación',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-            ),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 10),
           TextField(
             controller: codigoController,
             textCapitalization: TextCapitalization.characters,
             style: const TextStyle(
-              color: Colors.white, 
+              color: Colors.white,
               fontSize: 15,
-              fontWeight: FontWeight.w600,  
+              fontWeight: FontWeight.w600,
             ),
             decoration: InputDecoration(
               hintText: 'Ejemplo: 5RH8AQ',
               hintStyle: TextStyle(
-                color: AppTheme.textSecondary.withValues(alpha: 0.7), 
+                color: AppTheme.textSecondary.withValues(alpha: 0.7),
                 fontSize: 14,
               ),
               isDense: true,
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 14,
+              ),
               filled: true,
               fillColor: AppTheme.surface,
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide:
-                    const BorderSide(color: AppTheme.borderBronze, width: 1),
+                borderSide: const BorderSide(
+                  color: AppTheme.borderBronze,
+                  width: 1,
+                ),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide:
-                    const BorderSide(color: AppTheme.borderGold, width: 1.5),
+                borderSide: const BorderSide(
+                  color: AppTheme.borderGold,
+                  width: 1.5,
+                ),
               ),
             ),
           ),
           const SizedBox(height: 14),
           const Text(
             'Introduce el código de una partida privada o pública para unirte directamente.',
-            style: TextStyle(
-              fontSize: 13,
-              color: AppTheme.textSecondary,
-            ),
+            style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
           ),
           const Spacer(),
           _JoinMatchButton(
@@ -442,9 +566,7 @@ class _VistaPausada extends StatelessWidget {
   Widget build(BuildContext context) {
     if (cargando) {
       return const Center(
-        child: CircularProgressIndicator(
-          color: AppTheme.borderGoldVivo,
-        )
+        child: CircularProgressIndicator(color: AppTheme.borderGoldVivo),
       );
     }
 
@@ -459,7 +581,9 @@ class _VistaPausada extends StatelessWidget {
                 error!,
                 textAlign: TextAlign.center,
                 style: const TextStyle(
-                    fontSize: 15, color: AppTheme.textSecondary),
+                  fontSize: 15,
+                  color: AppTheme.textSecondary,
+                ),
               ),
               const SizedBox(height: 16),
               TextButton.icon(
@@ -489,7 +613,7 @@ class _VistaPausada extends StatelessWidget {
     return ListView.separated(
       padding: const EdgeInsets.all(12),
       itemCount: partidas!.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 10),
+      separatorBuilder: (_, _) => const SizedBox(height: 10),
       itemBuilder: (context, index) {
         final partida = partidas![index];
         return Container(
@@ -511,7 +635,9 @@ class _VistaPausada extends StatelessWidget {
                     Text(
                       'Código: ${partida.codigoInvitacion}',
                       style: const TextStyle(
-                          fontSize: 16, fontWeight: FontWeight.bold),
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -589,9 +715,7 @@ class _JoinMatchButtonState extends State<_JoinMatchButton> {
           curve: Curves.easeOut,
           width: widget.compact ? null : double.infinity,
           height: widget.compact ? 38 : 46,
-          padding: EdgeInsets.symmetric(
-            horizontal: widget.compact ? 16 : 18,
-          ),
+          padding: EdgeInsets.symmetric(horizontal: widget.compact ? 16 : 18),
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color: widget.isLoading ? AppTheme.disabled : backgroundColor,
