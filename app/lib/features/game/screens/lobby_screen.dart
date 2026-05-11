@@ -311,9 +311,8 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                                     avataresLobby[nombreJugador] ??
                                     (isCurrentUser ? authState.user?.avatar : null);
 
-                                return Opacity(
-                                  opacity: estaOnline ? 1.0 : 0.55,
-                                  child: Container(
+                                return Container(
+                                  // Mostrar siempre la tarjeta encendida
                                   padding: const EdgeInsets.all(10),
                                   decoration: BoxDecoration(
                                     color: const Color(0xFF1A1A24),
@@ -368,13 +367,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                                                         Colors.blueGrey,
                                                     textColor: Colors.white,
                                                   ),
-                                                if (!estaOnline)
-                                                  const _MiniTag(
-                                                    text: 'Offline',
-                                                    backgroundColor:
-                                                        Color(0xFFB71C1C),
-                                                    textColor: Colors.white,
-                                                  ),
+
                                               ],
                                             ),
                                             const SizedBox(height: 6),
@@ -390,7 +383,6 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                                       ),
                                     ],
                                   ),
-                                ),
                                 );
                               },
                             ),

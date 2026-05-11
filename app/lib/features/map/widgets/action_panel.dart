@@ -1133,6 +1133,31 @@ class _ActionPanelState extends ConsumerState<ActionPanel> {
                               // Como es el único movimiento permitido en fortificación, pasamos de fase automáticamente
                               Future.delayed(const Duration(milliseconds: 500), () async {
                                 final dio = ref.read(dioProvider);
+                                // Avisamos al jugador que el juego le pasa de fase por comodidad
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      backgroundColor: const Color(0xFF121E14),
+                                      behavior: SnackBarBehavior.floating,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                        side: const BorderSide(color: Color(0xFF50BF58), width: 1),
+                                      ),
+                                      content: const Row(
+                                        children: [
+                                          Icon(Icons.check_circle_outline_rounded, color: Color(0xFF50BF58), size: 20),
+                                          SizedBox(width: 10),
+                                          Expanded(
+                                            child: Text(
+                                              'Fase avanzada automáticamente',
+                                              style: TextStyle(color: Color(0xFF90E898), fontWeight: FontWeight.w500),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                }
                                 try {
                                   await dio.post('/partidas/$partidaId/pasar_fase');
                                   // El backend notificará el cambio de fase por WebSocket
@@ -1343,6 +1368,31 @@ class _ActionPanelState extends ConsumerState<ActionPanel> {
                                   estadoActual.jugadores[username]?.tropasReserva ?? 0;
 
                               if (faseActual == 'refuerzo' && tropasReservaRestantes <= 0) {
+                                // Avisamos al jugador que el juego le pasa de fase por comodidad
+                                if (dialogContext.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      backgroundColor: const Color(0xFF121E14),
+                                      behavior: SnackBarBehavior.floating,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                        side: const BorderSide(color: Color(0xFF50BF58), width: 1),
+                                      ),
+                                      content: const Row(
+                                        children: [
+                                          Icon(Icons.check_circle_outline_rounded, color: Color(0xFF50BF58), size: 20),
+                                          SizedBox(width: 10),
+                                          Expanded(
+                                            child: Text(
+                                              'Fase avanzada automáticamente',
+                                              style: TextStyle(color: Color(0xFF90E898), fontWeight: FontWeight.w500),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                }
                                 await dio.post('/partidas/$partidaId/pasar_fase');
                                 await _refrescarEstadoPartida(ref);
                                 ref.read(gameProvider.notifier).reiniciarTemporizador();

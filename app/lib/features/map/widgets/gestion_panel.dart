@@ -296,6 +296,31 @@ class _GestionPanelState extends ConsumerState<GestionPanel> {
                           Future.delayed(const Duration(seconds: 2), () async {
                             if (!mounted) return;
                             final dio = ref.read(dioProvider);
+                            // Avisamos al jugador que el juego le pasa de fase por comodidad
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  backgroundColor: const Color(0xFF121E14),
+                                  behavior: SnackBarBehavior.floating,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                    side: const BorderSide(color: Color(0xFF50BF58), width: 1),
+                                  ),
+                                  content: const Row(
+                                    children: [
+                                      Icon(Icons.check_circle_outline_rounded, color: Color(0xFF50BF58), size: 20),
+                                      SizedBox(width: 10),
+                                      Expanded(
+                                        child: Text(
+                                          'Fase avanzada automáticamente',
+                                          style: TextStyle(color: Color(0xFF90E898), fontWeight: FontWeight.w500),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            }
                             try {
                               await dio.post('/partidas/$partidaIdEfectiva/pasar_fase');
                               // El backend notificará el cambio de fase por WebSocket
@@ -788,6 +813,31 @@ class _GestionPanelState extends ConsumerState<GestionPanel> {
                                 Future.delayed(const Duration(seconds: 2), () async {
                                   if (!mounted) return;
                                   final dio = ref.read(dioProvider);
+                                  // Avisamos al jugador que el juego le pasa de fase por comodidad
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        backgroundColor: const Color(0xFF121E14),
+                                        behavior: SnackBarBehavior.floating,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(10),
+                                          side: const BorderSide(color: Color(0xFF50BF58), width: 1),
+                                        ),
+                                        content: const Row(
+                                          children: [
+                                            Icon(Icons.check_circle_outline_rounded, color: Color(0xFF50BF58), size: 20),
+                                            SizedBox(width: 10),
+                                            Expanded(
+                                              child: Text(
+                                                'Fase avanzada automáticamente',
+                                                style: TextStyle(color: Color(0xFF90E898), fontWeight: FontWeight.w500),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    );
+                                  }
                                   try {
                                     await dio.post('/partidas/$partidaIdEfectiva/pasar_fase');
                                     // El backend notificará el cambio de fase por WebSocket
