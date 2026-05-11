@@ -317,11 +317,25 @@ class _InteractiveGameMapState extends ConsumerState<InteractiveGameMap>
     } catch (_) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'No puedes pasar de fase todavía (¿Te faltan tropas por colocar?)',
+        SnackBar(
+          backgroundColor: const Color(0xFF1E1212),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+            side: const BorderSide(color: Color(0xFFBF5050), width: 1),
           ),
-          backgroundColor: Colors.red,
+          content: const Row(
+            children: [
+              Icon(Icons.error_outline_rounded, color: Color(0xFFBF5050), size: 20),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'No puedes pasar de fase todavía (¿Te faltan tropas por colocar?)',
+                  style: TextStyle(color: Color(0xFFE89090), fontWeight: FontWeight.w500),
+                ),
+              ),
+            ],
+          ),
         ),
       );
     }

@@ -1209,7 +1209,26 @@ class _ActionPanelState extends ConsumerState<ActionPanel> {
 
     if (reserva <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No tienes tropas en reserva.')),
+        SnackBar(
+          backgroundColor: const Color(0xFF1E1212),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+            side: const BorderSide(color: Color(0xFFBF5050), width: 1),
+          ),
+          content: const Row(
+            children: [
+              Icon(Icons.error_outline_rounded, color: Color(0xFFBF5050), size: 20),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'No tienes tropas en reserva.',
+                  style: TextStyle(color: Color(0xFFE89090), fontWeight: FontWeight.w500),
+                ),
+              ),
+            ],
+          ),
+        ),
       );
       return;
     }

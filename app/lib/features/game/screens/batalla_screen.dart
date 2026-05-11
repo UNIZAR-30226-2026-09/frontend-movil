@@ -1069,8 +1069,25 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
     if (partidaId <= 0) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No se pudo identificar la partida para cargar logs.'),
+        SnackBar(
+          backgroundColor: const Color(0xFF1E1212),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+            side: const BorderSide(color: Color(0xFFBF5050), width: 1),
+          ),
+          content: const Row(
+            children: [
+              Icon(Icons.error_outline_rounded, color: Color(0xFFBF5050), size: 20),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'No se pudo identificar la partida para cargar logs.',
+                  style: TextStyle(color: Color(0xFFE89090), fontWeight: FontWeight.w500),
+                ),
+              ),
+            ],
+          ),
         ),
       );
       return;
@@ -1797,7 +1814,26 @@ class _BatallaScreenState extends ConsumerState<BatallaScreen> {
                           debugPrint('🔴 ERROR mover_conquista: $detalle');
                           if (!mounted || !dialogContext.mounted) return;
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Error: $detalle')),
+                            SnackBar(
+                              backgroundColor: const Color(0xFF1E1212),
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                side: const BorderSide(color: Color(0xFFBF5050), width: 1),
+                              ),
+                              content: Row(
+                                children: [
+                                  const Icon(Icons.error_outline_rounded, color: Color(0xFFBF5050), size: 20),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      'Error: $detalle',
+                                      style: const TextStyle(color: Color(0xFFE89090), fontWeight: FontWeight.w500),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           );
                         }
                       },

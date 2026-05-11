@@ -73,9 +73,24 @@ class _EditarPerfilPanelState extends ConsumerState<EditarPerfilPanel> {
         _loadingAvatarOptions = false;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'No se pudo cargar el catalogo de avatares desde backend.',
+        SnackBar(
+          backgroundColor: const Color(0xFF1E1212),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+            side: const BorderSide(color: Color(0xFFBF5050), width: 1),
+          ),
+          content: const Row(
+            children: [
+              Icon(Icons.error_outline_rounded, color: Color(0xFFBF5050), size: 20),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'No se pudo cargar el catalogo de avatares desde backend.',
+                  style: TextStyle(color: Color(0xFFE89090), fontWeight: FontWeight.w500),
+                ),
+              ),
+            ],
           ),
         ),
       );
@@ -147,15 +162,53 @@ class _EditarPerfilPanelState extends ConsumerState<EditarPerfilPanel> {
     if (_loadingAvatarOptions) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Cargando avatares...')));
+      ).showSnackBar(
+        SnackBar(
+          backgroundColor: const Color(0xFF1E1212),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+            side: const BorderSide(color: Color(0xFFBF9B50), width: 1),
+          ),
+          content: const Row(
+            children: [
+              Icon(Icons.hourglass_empty_rounded, color: Color(0xFFBF9B50), size: 20),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Cargando avatares...',
+                  style: TextStyle(color: Color(0xFFE8D490), fontWeight: FontWeight.w500),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
       return;
     }
 
     final options = _avatarOptions;
     if (options.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No hay avatares disponibles ahora mismo'),
+        SnackBar(
+          backgroundColor: const Color(0xFF1E1212),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+            side: const BorderSide(color: Color(0xFFBF5050), width: 1),
+          ),
+          content: const Row(
+            children: [
+              Icon(Icons.error_outline_rounded, color: Color(0xFFBF5050), size: 20),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'No hay avatares disponibles ahora mismo',
+                  style: TextStyle(color: Color(0xFFE89090), fontWeight: FontWeight.w500),
+                ),
+              ),
+            ],
+          ),
         ),
       );
       return;
@@ -343,7 +396,26 @@ class _EditarPerfilPanelState extends ConsumerState<EditarPerfilPanel> {
 
     if (!emailCambiado && !passwordInformada && !avatarCambiado) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No has cambiado ningun dato')),
+        SnackBar(
+          backgroundColor: const Color(0xFF1E1212),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+            side: const BorderSide(color: Color(0xFFBF5050), width: 1),
+          ),
+          content: const Row(
+            children: [
+              Icon(Icons.error_outline_rounded, color: Color(0xFFBF5050), size: 20),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'No has cambiado ningún dato',
+                  style: TextStyle(color: Color(0xFFE89090), fontWeight: FontWeight.w500),
+                ),
+              ),
+            ],
+          ),
+        ),
       );
       return;
     }
@@ -359,17 +431,57 @@ class _EditarPerfilPanelState extends ConsumerState<EditarPerfilPanel> {
     if (!mounted) return;
 
     final profileState = ref.read(profileProvider);
+    final mensaje = profileState.message ?? (ok ? 'Perfil actualizado correctamente' : 'Error al actualizar perfil');
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          profileState.message ??
-              (ok
-                  ? 'Perfil actualizado correctamente'
-                  : 'No se pudo actualizar el perfil'),
+    if (ok) {
+      // Diseño Verde Premium (Éxito)
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: const Color(0xFF121E14),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+            side: const BorderSide(color: Color(0xFF50BF58), width: 1),
+          ),
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle_outline_rounded, color: Color(0xFF50BF58), size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  mensaje,
+                  style: const TextStyle(color: Color(0xFF90E898), fontWeight: FontWeight.w500),
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
-    );
+      );
+    } else {
+      // Diseño Rojo Premium (Error)
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: const Color(0xFF1E1212),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+            side: const BorderSide(color: Color(0xFFBF5050), width: 1),
+          ),
+          content: Row(
+            children: [
+              const Icon(Icons.error_outline_rounded, color: Color(0xFFBF5050), size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  mensaje,
+                  style: const TextStyle(color: Color(0xFFE89090), fontWeight: FontWeight.w500),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     if (ok) {
       widget.onClose();
