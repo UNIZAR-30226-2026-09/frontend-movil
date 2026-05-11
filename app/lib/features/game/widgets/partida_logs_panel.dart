@@ -62,10 +62,11 @@ class PartidaLogsPanel extends StatelessWidget {
     }
 
     final groups = formatter.groupLogs(logs);
+    final participantColors = _participantColors(logs);
 
     return ListView.separated(
       itemCount: groups.length,
-      separatorBuilder: (_, __) =>
+      separatorBuilder: (_, _) =>
           const Divider(height: 1, color: Color(0x338C6D3F)),
       itemBuilder: (context, index) {
         final group = groups[index];
@@ -143,9 +144,10 @@ class PartidaLogsPanel extends StatelessWidget {
                                   if (subtitle != 'Sin detalles adicionales.')
                                     Padding(
                                       padding: const EdgeInsets.only(top: 4),
-                                      child: Text(
-                                        subtitle,
-                                        style: const TextStyle(
+                                      child: _ColoredUserLogText(
+                                        text: subtitle,
+                                        participantColors: participantColors,
+                                        baseStyle: const TextStyle(
                                           color: AppTheme.textSecondary,
                                           height: 1.35,
                                         ),
@@ -179,6 +181,54 @@ class PartidaLogsPanel extends StatelessWidget {
     );
   }
 
+  Map<String, Color> _participantColors(List<PartidaLogModel> logs) {
+    final names = <String>{};
+
+    void addName(dynamic value) {
+      if (value == null) return;
+      if (value is List) {
+        for (final item in value) {
+          addName(item);
+        }
+        return;
+      }
+      final text = value.toString().trim();
+      if (text.isEmpty || text.toLowerCase() == 'null') return;
+      names.add(text);
+    }
+
+    const participantKeys = <String>{
+      'user',
+      'usuario',
+      'jugador',
+      'turno_de',
+      'nuevo_turno',
+      'primer_turno',
+      'ganador',
+      'eliminado',
+      'jugador_eliminado',
+      'por_quien',
+      'atacante',
+      'defensor',
+      'eliminador',
+      'anterior_dueno',
+      'dueno_anterior',
+      'jugadores',
+      'participantes',
+    };
+
+    for (final log in logs) {
+      addName(log.user);
+      for (final entry in log.datos.entries) {
+        if (participantKeys.contains(entry.key.toString())) {
+          addName(entry.value);
+        }
+      }
+    }
+
+    return <String, Color>{for (final name in names) name: colorResolver(name)};
+  }
+
   IconData _iconoEvento(String tipo) {
     final upper = tipo.toUpperCase();
     if (upper.contains('PAUSA')) return Icons.pause_circle_outline;
@@ -190,6 +240,77 @@ class PartidaLogsPanel extends StatelessWidget {
     if (upper.contains('TURNO')) return Icons.hourglass_bottom_rounded;
     if (upper.contains('MOV')) return Icons.alt_route_rounded;
     return Icons.feed_rounded;
+  }
+}
+
+class _ColoredUserLogText extends StatelessWidget {
+  final String text;
+  final Map<String, Color> participantColors;
+  final TextStyle baseStyle;
+
+  const _ColoredUserLogText({
+    required this.text,
+    required this.participantColors,
+    required this.baseStyle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final participants =
+        participantColors.keys
+            .where((name) => name.trim().isNotEmpty && name != 'Sistema')
+            .toList(growable: false)
+          ..sort((a, b) => b.length.compareTo(a.length));
+
+    if (participants.isEmpty ||
+        !participants.any((name) => text.contains(name))) {
+      return Text(text, style: baseStyle);
+    }
+
+    final spans = <TextSpan>[];
+    var start = 0;
+    while (start < text.length) {
+      var nextIndex = -1;
+      String? nextParticipant;
+
+      for (final participant in participants) {
+        final index = text.indexOf(participant, start);
+        if (index < 0) continue;
+        if (nextIndex == -1 ||
+            index < nextIndex ||
+            (index == nextIndex &&
+                participant.length > (nextParticipant?.length ?? 0))) {
+          nextIndex = index;
+          nextParticipant = participant;
+        }
+      }
+
+      if (nextIndex < 0 || nextParticipant == null) {
+        if (start < text.length) {
+          spans.add(TextSpan(text: text.substring(start)));
+        }
+        break;
+      }
+
+      if (nextIndex > start) {
+        spans.add(TextSpan(text: text.substring(start, nextIndex)));
+      }
+
+      spans.add(
+        TextSpan(
+          text: nextParticipant,
+          style: baseStyle.copyWith(
+            color: participantColors[nextParticipant],
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      );
+      start = nextIndex + nextParticipant.length;
+    }
+
+    return RichText(
+      text: TextSpan(style: baseStyle, children: spans),
+    );
   }
 }
 

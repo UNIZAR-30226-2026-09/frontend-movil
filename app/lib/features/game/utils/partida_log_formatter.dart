@@ -13,6 +13,8 @@ class PartidaLogFormatter {
   }
 
   String title(PartidaLogModel log) {
+    final tipo = log.tipoEvento.trim().toLowerCase();
+    if (tipo == 'territorio_actualizado') return 'Trabajar';
     return _humanizarEvento(log.tipoEvento);
   }
 
@@ -28,8 +30,13 @@ class PartidaLogFormatter {
   List<PartidaLogGroup> groupLogs(List<PartidaLogModel> logs) {
     final groups = <PartidaLogGroup>[];
     PartidaLogGroup? current;
+    final sortedLogs =
+        logs
+            .where((log) => !_isRedundantRefuerzoPhase(log))
+            .toList(growable: false)
+          ..sort(_compareLogsGlobal);
 
-    for (final log in logs) {
+    for (final log in sortedLogs) {
       final actor = (log.user ?? '').trim().isEmpty
           ? 'Sistema'
           : log.user!.trim();
@@ -44,7 +51,46 @@ class PartidaLogFormatter {
       current.items.add(log);
     }
 
+    for (final group in groups) {
+      group.items.sort(_compareStableOrder);
+    }
+
     return groups;
+  }
+
+  int _compareLogsGlobal(PartidaLogModel a, PartidaLogModel b) {
+    final stableComparison = _compareStableOrder(a, b);
+    if (stableComparison != 0) return stableComparison;
+    return -a.turnoNumero.compareTo(b.turnoNumero);
+  }
+
+  int _compareStableOrder(PartidaLogModel a, PartidaLogModel b) {
+    final timeA = a.timestamp;
+    final timeB = b.timestamp;
+    if (timeA != null && timeB != null) return -timeA.compareTo(timeB);
+    return -a.id.compareTo(b.id);
+  }
+
+  bool _isRedundantRefuerzoPhase(PartidaLogModel log) {
+    final tipo = log.tipoEvento.trim().toLowerCase();
+    if (tipo != 'cambio_fase' && tipo != 'cambio_turno') return false;
+
+    final fase = _readDato(log.datos, const <String>[
+      'fase_nueva',
+      'fase',
+    ])?.toLowerCase();
+    if (fase != 'refuerzo') return false;
+
+    final turnoDe = _readDato(log.datos, const <String>[
+      'turno_de',
+      'nuevo_turno',
+    ]);
+    final tropasRecibidas = _readDato(log.datos, const <String>[
+      'tropas_recibidas',
+      'refuerzos',
+    ]);
+
+    return turnoDe == null || tropasRecibidas == null;
   }
 
   String _humanizarEvento(String raw) {
@@ -64,125 +110,153 @@ class PartidaLogFormatter {
 
   String? _fraseNaturalDatos(PartidaLogModel log) {
     final datos = log.datos;
-    if (datos.isEmpty) return null;
 
-    String? str(String key) {
-      final value = datos[key];
-      if (value == null) return null;
-      final text = value.toString().trim();
-      return text.isEmpty ? null : text;
+    String? str(List<String> keys) {
+      return _readDato(datos, keys);
     }
 
-    String? boolText(String key) {
-      final value = datos[key];
-      if (value is bool) return value ? 'victoria' : 'derrota';
-      if (value is String) {
-        final normalized = value.toLowerCase();
-        if (normalized == 'true' || normalized == 'si') return 'victoria';
-        if (normalized == 'false' || normalized == 'no') return 'derrota';
-      }
-      return null;
+    String textOr(String? value, String fallback) {
+      final text = value?.trim();
+      return text == null || text.isEmpty ? fallback : text;
     }
 
-    final tipo = log.tipoEvento.toLowerCase();
-    final actor = (log.user ?? '').trim();
+    final tipo = log.tipoEvento.trim().toLowerCase();
+    final actor = _nombreUsuario(
+      str(const <String>['user', 'usuario', 'jugador']) ?? log.user,
+    );
 
-    final origen = str('origen');
-    final destino = str('destino');
-    final defensor = str('defensor');
-    final bajasAtacante = str('bajas_atacante');
-    final bajasDefensor = str('bajas_defensor');
-    final victoria = boolText('victoria');
+    final jugadores = str(const <String>['jugadores', 'participantes']);
+    final primerTurno = str(const <String>['primer_turno', 'turno_de']);
 
-    final conquistado = str('territorio_conquistado');
-    final anterior = str('anterior_dueno');
+    final ganador = str(const <String>['ganador']);
+    final eliminado = str(const <String>['eliminado', 'jugador_eliminado']);
+    final porQuien = str(const <String>['por_quien', 'atacante', 'eliminador']);
 
-    final tipoAtaque = str('tipo_ataque');
+    final origen = str(const <String>[
+      'origen',
+      'territorio_origen',
+      'territorio_origen_id',
+    ]);
+    final destino = str(const <String>[
+      'destino',
+      'territorio_destino',
+      'territorio_destino_id',
+      'objetivo',
+    ]);
+    final bajasAtacante = str(const <String>['bajas_atacante']);
+    final bajasDefensor = str(const <String>['bajas_defensor']);
 
-    final eliminado = str('eliminado');
-    final ganador = str('ganador');
-    final turnoDe = str('turno_de');
+    final conquistado = str(const <String>[
+      'territorio_conquistado',
+      'conquistado',
+      'territorio',
+    ]);
+    final anterior = str(const <String>['anterior_dueno', 'dueno_anterior']);
 
-    if (tipo == 'cambio_turno') {
-      if (turnoDe != null) {
-        return 'Empieza el turno de ${_nombreUsuario(turnoDe)}.';
-      }
-      return 'Empieza un nuevo turno.';
+    final tropas = str(const <String>['tropas', 'cantidad']);
+    final territorio = str(const <String>[
+      'territorio',
+      'comarca',
+      'territorio_id',
+      'territorio_trabajado',
+    ]);
+    final cantidad = str(const <String>['cantidad', 'tropas']);
+
+    final turnoDe = str(const <String>['turno_de', 'nuevo_turno']);
+    final tropasRecibidas = str(const <String>[
+      'tropas_recibidas',
+      'refuerzos',
+    ]);
+    final faseNueva = str(const <String>['fase_nueva', 'fase']);
+
+    final tecnologia = str(const <String>[
+      'tecnologia',
+      'tecnologia_id',
+      'habilidad_id',
+      'habilidad',
+    ]);
+    final precio = str(const <String>['precio', 'coste', 'costo']);
+    final tipoAtaque = str(const <String>[
+      'tipo_ataque',
+      'ataque_id',
+      'ataque',
+      'habilidad_id',
+    ]);
+
+    if (tipo == 'partida_iniciada') {
+      return 'La Guerra por la Soberanía ha comenzado. Participantes: ${textOr(_listaTexto(datos['jugadores']) ?? jugadores, 'los jugadores')}. Las fuerzas de ${_nombreUsuario(primerTurno)} toman la iniciativa.';
     }
 
-    if (tipo == 'ataque_convencional') {
-      final destinoNombre = _nombreComarca(destino);
-      final origenNombre = _nombreComarca(origen);
-      final defensorNombre = _nombreUsuario(defensor);
-      final partes = <String>[];
-      if (destinoNombre != null && origenNombre != null) {
-        partes.add('Atacó $destinoNombre desde $origenNombre');
-      } else if (destinoNombre != null) {
-        partes.add('Atacó $destinoNombre');
-      }
-      if (defensorNombre != null) {
-        partes.add('y se encontró con la defensa de $defensorNombre.');
-      }
-      if (bajasAtacante != null || bajasDefensor != null) {
-        final bajas = <String>[];
-        if (bajasAtacante != null) {
-          final label = bajasAtacante == '1' ? 'baja' : 'bajas';
-          bajas.add('$bajasAtacante $label del atacante');
-        }
-        if (bajasDefensor != null) {
-          final label = bajasDefensor == '1' ? 'baja' : 'bajas';
-          bajas.add('$bajasDefensor $label del defensor');
-        }
-        partes.add('Hubo ${bajas.join(' y ')}');
-      }
-      if (victoria != null) {
-        partes.add('y terminó en $victoria');
-      }
-      if (partes.isNotEmpty) return partes.join(' ');
-    }
-
-    if (tipo == 'conquista') {
-      final territorioNombre = _nombreComarca(conquistado);
-      final anteriorNombre = _nombreUsuario(anterior);
-      final actorNombre = _nombreUsuario(actor);
-      if (territorioNombre != null && anteriorNombre != null) {
-        return '$actorNombre conquistó $territorioNombre y lo arrebató a $anteriorNombre.';
-      }
-      if (territorioNombre != null) {
-        return '$actorNombre conquistó $territorioNombre.';
-      }
-    }
-
-    if (tipo == 'ataque_especial') {
-      final ataque = _nombreTipoAtaque(tipoAtaque);
-      final destinoNombre = _nombreComarca(destino);
-      final origenNombre = _nombreComarca(origen);
-      if (ataque != null && destinoNombre != null && origenNombre != null) {
-        return 'Lanza $ataque desde $origenNombre hacia $destinoNombre.';
-      }
-      if (ataque != null && destinoNombre != null) {
-        return 'Lanza $ataque sobre $destinoNombre.';
-      }
-      if (ataque != null) {
-        return 'Lanza $ataque.';
-      }
+    if (tipo == 'partida_finalizada' || tipo == 'fin_partida') {
+      return '¡Conflicto concluido! ${_nombreUsuario(ganador)} ha sometido al resto de facciones y reclama el control absoluto.';
     }
 
     if (tipo == 'jugador_eliminado') {
-      if (eliminado != null) {
-        return '${_nombreUsuario(eliminado)} queda fuera de la partida.';
+      if (porQuien == null) {
+        return '¡Caída de un imperio! Las defensas de ${_nombreUsuario(eliminado)} han colapsado por desgaste.';
       }
-      return 'Un jugador queda fuera de la partida.';
+      return '¡Caída de un imperio! Las defensas de ${_nombreUsuario(eliminado)} han colapsado a manos de ${_nombreUsuario(porQuien)}.';
     }
 
-    if (tipo == 'fin_partida') {
-      if (ganador != null) {
-        return 'La partida termina y gana ${_nombreUsuario(ganador)}.';
-      }
-      return 'La partida termina.';
+    if (tipo == 'abandonar_partida') {
+      return '${_nombreUsuario(str(const <String>['usuario']) ?? actor)} ha desertado antes de que comience el conflicto.';
     }
 
+    if (tipo == 'ataque_resultado' || tipo == 'ataque_convencional') {
+      return '$actor lanza una ofensiva desde ${_nombreComarca(origen) ?? 'origen desconocido'} hacia ${_nombreComarca(destino) ?? 'destino desconocido'}. Causa ${textOr(bajasDefensor, '0')} bajas, sufriendo ${textOr(bajasAtacante, '0')} pérdidas.';
+    }
+
+    if (tipo == 'conquista') {
+      return '¡Victoria decisiva! Las tropas de $actor han ocupado ${_nombreComarca(conquistado) ?? 'el territorio conquistado'}, expulsando a las fuerzas de ${_nombreUsuario(anterior)}.';
+    }
+
+    if (tipo == 'movimiento_conquista' ||
+        tipo == 'mover_conquista' ||
+        tipo == 'fortificacion' ||
+        tipo == 'fortificación' ||
+        tipo == 'fortificar') {
+      return '$actor redespliega tácticamente ${textOr(tropas, '0')} batallones desde ${_nombreComarca(origen) ?? 'origen desconocido'} hacia ${_nombreComarca(destino) ?? 'destino desconocido'}.';
+    }
+
+    if (tipo == 'tropas_colocadas' || tipo == 'colocar_tropas') {
+      return '$actor ha reforzado el frente en ${_nombreComarca(territorio) ?? 'territorio desconocido'} desplegando ${textOr(cantidad, '0')} nuevas divisiones.';
+    }
+
+    if (tipo == 'cambio_fase' || tipo == 'cambio_turno') {
+      if (turnoDe != null && tropasRecibidas != null) {
+        return 'Alto mando: Inicia el turno de ${_nombreUsuario(turnoDe)}. Se movilizan $tropasRecibidas brigadas de refuerzo.';
+      }
+      return '$actor avanza su campaña: las fuerzas entran en fase de ${textOr(faseNueva, log.fase)}.';
+    }
+
+    if (tipo == 'trabajar' || tipo == 'territorio_actualizado') {
+      return '$actor ha movilizado a la población de ${_nombreComarca(territorio) ?? 'territorio desconocido'} para acelerar la producción de recursos.';
+    }
+
+    if (tipo == 'investigar') {
+      return '$actor ha ordenado a las instalaciones de ${_nombreComarca(territorio) ?? 'territorio desconocido'} iniciar un desarrollo confidencial.';
+    }
+
+    if (tipo == 'comprar_tecnologia') {
+      return "$actor ha financiado la tecnología militar '${_nombreTipoAtaque(tecnologia) ?? 'desconocida'}' por un coste de ${textOr(precio, '0')} de oro.";
+    }
+
+    if (tipo == 'ataque_especial') {
+      return "¡Lanzamiento táctico! $actor ejecuta la operación '${_nombreTipoAtaque(tipoAtaque) ?? 'desconocida'}' con objetivo en ${_nombreComarca(destino) ?? 'destino desconocido'}.";
+    }
+
+    if (datos.isEmpty) return null;
     return _fraseGenericaDatos(datos);
+  }
+
+  String? _readDato(Map<String, dynamic> datos, List<String> keys) {
+    for (final key in keys) {
+      final value = datos[key];
+      if (value == null) continue;
+      final text = value.toString().trim();
+      if (text.isNotEmpty && text.toLowerCase() != 'null') return text;
+    }
+    return null;
   }
 
   String _fraseGenericaDatos(Map<String, dynamic> datos) {
@@ -227,6 +301,18 @@ class PartidaLogFormatter {
       return _titleCase(text.replaceAll('_', ' '));
     }
     return text;
+  }
+
+  String? _listaTexto(dynamic value) {
+    if (value is List) {
+      final items = value
+          .map((item) => item.toString().trim())
+          .where((item) => item.isNotEmpty)
+          .toList(growable: false);
+      if (items.isEmpty) return null;
+      return items.join(', ');
+    }
+    return null;
   }
 
   String? _nombreComarca(String? raw) {
