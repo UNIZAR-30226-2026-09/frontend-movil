@@ -48,11 +48,13 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     } on DioException catch (e) {
       if (!mounted) return;
       final detalle = e.response?.data is Map<String, dynamic>
-          ? (e.response?.data['detail']?.toString() ?? e.message ?? 'No se pudo abandonar')
+          ? (e.response?.data['detail']?.toString() ??
+                e.message ??
+                'No se pudo abandonar')
           : (e.message ?? 'No se pudo abandonar');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(detalle)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(detalle)));
     }
   }
 
@@ -66,7 +68,9 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     } on DioException catch (e) {
       if (!mounted) return;
       final detalle = e.response?.data is Map<String, dynamic>
-          ? (e.response?.data['detail']?.toString() ?? e.message ?? 'Error al iniciar')
+          ? (e.response?.data['detail']?.toString() ??
+                e.message ??
+                'Error al iniciar')
           : (e.message ?? 'Error al iniciar');
 
       if (detalle.toLowerCase().contains('creador')) {
@@ -100,12 +104,19 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
             ),
             content: Row(
               children: [
-                const Icon(Icons.error_outline_rounded, color: Color(0xFFBF5050), size: 20),
+                const Icon(
+                  Icons.error_outline_rounded,
+                  color: Color(0xFFBF5050),
+                  size: 20,
+                ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     detalle,
-                    style: const TextStyle(color: Color(0xFFE89090), fontWeight: FontWeight.w500),
+                    style: const TextStyle(
+                      color: Color(0xFFE89090),
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
               ],
@@ -120,7 +131,9 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     final codigo = ref.read(lobbyInfoProvider).codigoInvitacion;
     if (codigo == null || codigo.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No se encontró el código de la partida.')),
+        const SnackBar(
+          content: Text('No se encontró el código de la partida.'),
+        ),
       );
       return;
     }
@@ -131,7 +144,9 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     } on DioException catch (e) {
       if (!mounted) return;
       final detalle = (e.response?.data is Map<String, dynamic>)
-          ? (e.response?.data['detail']?.toString() ?? e.message ?? 'Error al reanudar')
+          ? (e.response?.data['detail']?.toString() ??
+                e.message ??
+                'Error al reanudar')
           : (e.message ?? 'Error al reanudar');
       if (detalle.toLowerCase().contains('creador')) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -164,12 +179,19 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
             ),
             content: Row(
               children: [
-                const Icon(Icons.error_outline_rounded, color: Color(0xFFBF5050), size: 20),
+                const Icon(
+                  Icons.error_outline_rounded,
+                  color: Color(0xFFBF5050),
+                  size: 20,
+                ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     detalle,
-                    style: const TextStyle(color: Color(0xFFE89090), fontWeight: FontWeight.w500),
+                    style: const TextStyle(
+                      color: Color(0xFFE89090),
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
               ],
@@ -192,17 +214,20 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     final creador = lobbyInfo.creador;
 
     // Por si acaso hay un baile de mayúsculas o viene vacío, nos aseguramos de que el creador se detecte
-    final esCreador = usuarioActual.toLowerCase() == (creador?.toLowerCase() ?? '') ||
-      (esPartidaPausada && gameState.jugadores.containsKey(usuarioActual));
+    final esCreador =
+        usuarioActual.toLowerCase() == (creador?.toLowerCase() ?? '') ||
+        (esPartidaPausada && gameState.jugadores.containsKey(usuarioActual));
 
     // En partidas nuevas usamos lo que diga el servidor.
     // En pausadas el servidor no nos avisa de quién entra, así que tiramos del archivo de guardado para pintar la pantalla.
-    final jugadoresHttp = lobbyInfo.jugadoresEnSala.map((j) => j.usuarioId).toList();
+    final jugadoresHttp = lobbyInfo.jugadoresEnSala
+        .map((j) => j.usuarioId)
+        .toList();
     final jugadoresWs = gameState.jugadores.keys.toList();
 
     final jugadoresConectados = esPartidaPausada
-      ? jugadoresWs
-      : {...jugadoresHttp, ...jugadoresWs}.toList();
+        ? jugadoresWs
+        : {...jugadoresHttp, ...jugadoresWs}.toList();
     final avataresLobby = {
       for (final jugador in lobbyInfo.jugadoresEnSala)
         jugador.usuarioId: jugador.avatar,
@@ -385,11 +410,15 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                                 final isCreator = nombreJugador == creador;
                                 final playerState =
                                     gameState.jugadores[nombreJugador];
-                                final estaOnline =
-                                  jugadoresConectados.contains(nombreJugador);
-                                final avatarJugador = playerState?.avatar ??
+                                final estaOnline = jugadoresConectados.contains(
+                                  nombreJugador,
+                                );
+                                final avatarJugador =
+                                    playerState?.avatar ??
                                     avataresLobby[nombreJugador] ??
-                                    (isCurrentUser ? authState.user?.avatar : null);
+                                    (isCurrentUser
+                                        ? authState.user?.avatar
+                                        : null);
 
                                 return Opacity(
                                   opacity: estaOnline ? 1.0 : 0.4,
@@ -437,7 +466,9 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                                                     _MiniTag(
                                                       text: 'Tú',
                                                       backgroundColor:
-                                                          const Color(0xFFC5A059),
+                                                          const Color(
+                                                            0xFFC5A059,
+                                                          ),
                                                       textColor: const Color(
                                                         0xFF1A1A24,
                                                       ),
@@ -449,16 +480,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                                                           Colors.blueGrey,
                                                       textColor: Colors.white,
                                                     ),
-
                                                 ],
-                                              ),
-                                              const SizedBox(height: 6),
-                                              Text(
-                                                'Tropas reserva: ${playerState?.tropasReserva ?? 0}',
-                                                style: const TextStyle(
-                                                  fontSize: 13,
-                                                  color: Color(0xFFA0A0B0),
-                                                ),
                                               ),
                                             ],
                                           ),
@@ -479,8 +501,8 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                       onPressed: esPartidaPausada
                           ? _handleReanudarPartida
                           : (jugadoresConectados.length >= 2
-                              ? _handleIniciarPartida
-                              : null),
+                                ? _handleIniciarPartida
+                                : null),
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         backgroundColor: esPartidaPausada
@@ -498,7 +520,9 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            esPartidaPausada ? 'REANUDAR PARTIDA' : 'INICIAR PARTIDA',
+                            esPartidaPausada
+                                ? 'REANUDAR PARTIDA'
+                                : 'INICIAR PARTIDA',
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,

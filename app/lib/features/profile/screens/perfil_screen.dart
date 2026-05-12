@@ -56,7 +56,6 @@ class _PerfilScreenState extends ConsumerState<PerfilScreen> {
       body: Stack(
         children: [
           SafeArea(
-            
             child: LayoutBuilder(
               builder: (context, constraints) {
                 return ListView(
@@ -80,9 +79,7 @@ class _PerfilScreenState extends ConsumerState<PerfilScreen> {
                           ),
                           Center(
                             child: ConstrainedBox(
-                              constraints: const BoxConstraints(
-                                maxWidth: 750,
-                              ),
+                              constraints: const BoxConstraints(maxWidth: 750),
                               child: Padding(
                                 padding: const EdgeInsets.fromLTRB(
                                   20,
@@ -98,9 +95,7 @@ class _PerfilScreenState extends ConsumerState<PerfilScreen> {
                                       padding: const EdgeInsets.all(20),
                                       decoration: BoxDecoration(
                                         color: AppTheme.surface,
-                                        borderRadius: BorderRadius.circular(
-                                          20,
-                                        ),
+                                        borderRadius: BorderRadius.circular(20),
                                         border: Border.all(
                                           color: AppTheme.borderGold,
                                           width: 1.2,
@@ -133,8 +128,7 @@ class _PerfilScreenState extends ConsumerState<PerfilScreen> {
                                                   style: const TextStyle(
                                                     color: AppTheme.borderGold,
                                                     fontSize: 22,
-                                                    fontWeight:
-                                                        FontWeight.bold,
+                                                    fontWeight: FontWeight.bold,
                                                   ),
                                                 ),
                                               ],
@@ -160,15 +154,25 @@ class _PerfilScreenState extends ConsumerState<PerfilScreen> {
                                                   children: [
                                                     _ProfileActionButton(
                                                       text: 'Editar perfil',
-                                                      variant: _ProfileActionButtonVariant.primary,
-                                                      onPressed: _openEditProfile,
+                                                      variant:
+                                                          _ProfileActionButtonVariant
+                                                              .primary,
+                                                      onPressed:
+                                                          _openEditProfile,
                                                     ),
                                                     const SizedBox(width: 12),
                                                     _ProfileActionButton(
                                                       text: 'Cerrar sesión',
-                                                      variant: _ProfileActionButtonVariant.danger,
+                                                      variant:
+                                                          _ProfileActionButtonVariant
+                                                              .danger,
                                                       onPressed: () async {
-                                                        await ref.read(authProvider.notifier).logout();
+                                                        await ref
+                                                            .read(
+                                                              authProvider
+                                                                  .notifier,
+                                                            )
+                                                            .logout();
                                                         if (context.mounted) {
                                                           context.go('/inicio');
                                                         }
@@ -187,9 +191,7 @@ class _PerfilScreenState extends ConsumerState<PerfilScreen> {
                                       padding: const EdgeInsets.all(20),
                                       decoration: BoxDecoration(
                                         color: AppTheme.surface,
-                                        borderRadius: BorderRadius.circular(
-                                          20,
-                                        ),
+                                        borderRadius: BorderRadius.circular(20),
                                         border: Border.all(
                                           color: AppTheme.borderGold,
                                           width: 1.2,
@@ -257,8 +259,6 @@ class _PerfilScreenState extends ConsumerState<PerfilScreen> {
       ),
     );
   }
-
-  
 
   Widget _buildStatsLoading() {
     return Center(
@@ -338,16 +338,12 @@ class _PerfilScreenState extends ConsumerState<PerfilScreen> {
   Widget _buildStatsContainer(AsyncValue<EstadisticasModel> estadisticasAsync) {
     return estadisticasAsync.when(
       data: (estadisticas) {
-        return PerfilEstadisticasPanel(
-          stats: _buildStats(estadisticas),
-        );
+        return PerfilEstadisticasPanel(stats: _buildStats(estadisticas));
       },
       loading: _buildStatsLoading,
       error: _buildStatsError,
     );
   }
-
-  
 
   List<PerfilEstadisticasItem> _buildStats(EstadisticasModel estadisticas) {
     final jugadas = estadisticas.numPartidasJugadas;
@@ -360,29 +356,23 @@ class _PerfilScreenState extends ConsumerState<PerfilScreen> {
         titulo: 'WINRATE',
         valor: '${winrate.toStringAsFixed(1)}%',
       ),
-      const PerfilEstadisticasItem(
+      PerfilEstadisticasItem(
         titulo: 'RANKING MUNDIAL',
-        valor: '0',
+        valor: estadisticas.posicionRanking?.toString() ?? '0',
       ),
-      PerfilEstadisticasItem(
-        titulo: 'PARTIDAS JUGADAS',
-        valor: '$jugadas',
-      ),
-      PerfilEstadisticasItem(
-        titulo: 'VICTORIAS TOTALES',
-        valor: '$ganadas',
-      ),
+      PerfilEstadisticasItem(titulo: 'PARTIDAS JUGADAS', valor: '$jugadas'),
+      PerfilEstadisticasItem(titulo: 'VICTORIAS TOTALES', valor: '$ganadas'),
       PerfilEstadisticasItem(
         titulo: 'BAJAS ENEMIGAS',
         valor: '${estadisticas.numSoldadosMatados}',
       ),
       PerfilEstadisticasItem(
         titulo: 'COMARCAS CONQUISTADAS',
-        valor: '${estadisticas.numRegionesConquistadas}',
+        valor: '${estadisticas.numComarcasConquistadas}',
       ),
       PerfilEstadisticasItem(
         titulo: 'REGIONES CONQUISTADAS',
-        valor: '${estadisticas.conquistasPorRegion.length}',
+        valor: '${estadisticas.numRegionesConquistadas}',
       ),
       PerfilEstadisticasItem(
         titulo: 'COMARCA FAVORITA',
@@ -395,10 +385,7 @@ class _PerfilScreenState extends ConsumerState<PerfilScreen> {
 }
 
 class _PerfilInfoField extends StatelessWidget {
-  const _PerfilInfoField({
-    required this.label,
-    required this.value,
-  });
+  const _PerfilInfoField({required this.label, required this.value});
 
   final String label;
   final String value;
@@ -420,10 +407,7 @@ class _PerfilInfoField extends StatelessWidget {
         const SizedBox(height: 6),
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(
-            horizontal: 14,
-            vertical: 11,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
           decoration: BoxDecoration(
             color: AppTheme.bg.withValues(alpha: 0.45),
             borderRadius: BorderRadius.circular(10),
@@ -448,12 +432,7 @@ class _PerfilInfoField extends StatelessWidget {
   }
 }
 
-
-
-enum _ProfileActionButtonVariant {
-  primary,
-  danger,
-}
+enum _ProfileActionButtonVariant { primary, danger }
 
 class _ProfileActionButton extends StatefulWidget {
   const _ProfileActionButton({
@@ -511,10 +490,7 @@ class _ProfileActionButtonState extends State<_ProfileActionButton> {
           decoration: BoxDecoration(
             color: backgroundColor,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: borderColor,
-              width: 1.2,
-            ),
+            border: Border.all(color: borderColor, width: 1.2),
           ),
           child: Text(
             widget.text,
@@ -529,6 +505,3 @@ class _ProfileActionButtonState extends State<_ProfileActionButton> {
     );
   }
 }
-
-
-

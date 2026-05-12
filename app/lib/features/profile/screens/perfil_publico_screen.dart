@@ -10,10 +10,7 @@ import '../widgets/perfil_estadisticas_panel.dart';
 import '../../../shared/widgets/app_back_button.dart';
 
 class PerfilPublicoScreen extends ConsumerWidget {
-  const PerfilPublicoScreen({
-    super.key,
-    required this.username,
-  });
+  const PerfilPublicoScreen({super.key, required this.username});
 
   final String username;
 
@@ -26,7 +23,6 @@ class PerfilPublicoScreen extends ConsumerWidget {
       body: Stack(
         children: [
           SafeArea(
-            
             child: LayoutBuilder(
               builder: (context, constraints) {
                 return ListView(
@@ -50,9 +46,7 @@ class PerfilPublicoScreen extends ConsumerWidget {
                           ),
                           Center(
                             child: ConstrainedBox(
-                              constraints: const BoxConstraints(
-                                maxWidth: 750,
-                              ),
+                              constraints: const BoxConstraints(maxWidth: 750),
                               child: Padding(
                                 padding: const EdgeInsets.fromLTRB(
                                   20,
@@ -79,8 +73,9 @@ class PerfilPublicoScreen extends ConsumerWidget {
                                           padding: const EdgeInsets.all(20),
                                           decoration: BoxDecoration(
                                             color: AppTheme.surface,
-                                            borderRadius:
-                                                BorderRadius.circular(20),
+                                            borderRadius: BorderRadius.circular(
+                                              20,
+                                            ),
                                             border: Border.all(
                                               color: AppTheme.borderGold,
                                               width: 1.2,
@@ -107,17 +102,17 @@ class PerfilPublicoScreen extends ConsumerWidget {
                                                       fallbackIcon:
                                                           Icons.person,
                                                     ),
-                                                    const SizedBox(
-                                                      height: 12,
-                                                    ),
+                                                    const SizedBox(height: 12),
                                                     Text(
                                                       'Perfil de ${perfil.nombreUser}',
                                                       textAlign:
                                                           TextAlign.center,
                                                       style: const TextStyle(
-                                                        color: AppTheme.borderGold,
+                                                        color:
+                                                            AppTheme.borderGold,
                                                         fontSize: 22,
-                                                        fontWeight: FontWeight.bold,
+                                                        fontWeight:
+                                                            FontWeight.bold,
                                                       ),
                                                     ),
                                                   ],
@@ -127,11 +122,11 @@ class PerfilPublicoScreen extends ConsumerWidget {
                                               Expanded(
                                                 child: Column(
                                                   crossAxisAlignment:
-                                                      CrossAxisAlignment
-                                                          .start,
+                                                      CrossAxisAlignment.start,
                                                   children: [
                                                     _PerfilInfoField(
-                                                      label: 'Nombre de usuario',
+                                                      label:
+                                                          'Nombre de usuario',
                                                       value: perfil.nombreUser,
                                                     ),
                                                   ],
@@ -145,8 +140,9 @@ class PerfilPublicoScreen extends ConsumerWidget {
                                           padding: const EdgeInsets.all(20),
                                           decoration: BoxDecoration(
                                             color: AppTheme.surface,
-                                            borderRadius:
-                                                BorderRadius.circular(20),
+                                            borderRadius: BorderRadius.circular(
+                                              20,
+                                            ),
                                             border: Border.all(
                                               color: AppTheme.borderGold,
                                               width: 1.2,
@@ -207,11 +203,11 @@ class PerfilPublicoScreen extends ConsumerWidget {
       ),
       PerfilEstadisticasItem(
         titulo: 'COMARCAS CONQUISTADAS',
-        valor: '${perfil.numRegionesConquistadas}',
+        valor: '${perfil.numComarcasConquistadas}',
       ),
       PerfilEstadisticasItem(
         titulo: 'REGIONES CONQUISTADAS',
-        valor: '${perfil.numComarcasConquistadas}',
+        valor: '${perfil.numRegionesConquistadas}',
       ),
       PerfilEstadisticasItem(
         titulo: 'COMARCA FAVORITA',
@@ -240,10 +236,7 @@ class _LoadingProfile extends StatelessWidget {
 }
 
 class _ProfileError extends StatelessWidget {
-  const _ProfileError({
-    required this.error,
-    required this.onRetry,
-  });
+  const _ProfileError({required this.error, required this.onRetry});
 
   final Object error;
   final VoidCallback onRetry;
@@ -258,9 +251,7 @@ class _ProfileError extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppTheme.bg.withValues(alpha: 0.94),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: AppTheme.error.withValues(alpha: 0.7),
-          ),
+          border: Border.all(color: AppTheme.error.withValues(alpha: 0.7)),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -290,10 +281,7 @@ class _ProfileError extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            TextButton(
-              onPressed: onRetry,
-              child: const Text('Reintentar'),
-            ),
+            TextButton(onPressed: onRetry, child: const Text('Reintentar')),
           ],
         ),
       ),
@@ -302,10 +290,7 @@ class _ProfileError extends StatelessWidget {
 }
 
 class _PerfilInfoField extends StatelessWidget {
-  const _PerfilInfoField({
-    required this.label,
-    required this.value,
-  });
+  const _PerfilInfoField({required this.label, required this.value});
 
   final String label;
   final String value;
@@ -327,10 +312,7 @@ class _PerfilInfoField extends StatelessWidget {
         const SizedBox(height: 6),
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(
-            horizontal: 14,
-            vertical: 11,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
           decoration: BoxDecoration(
             color: AppTheme.bg.withValues(alpha: 0.45),
             borderRadius: BorderRadius.circular(10),
