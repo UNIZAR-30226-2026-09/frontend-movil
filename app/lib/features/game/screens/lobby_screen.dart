@@ -65,9 +65,54 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
       context.go(AppRoutes.batalla);
     } on DioException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error al iniciar: ${e.response?.data}')),
-      );
+      final detalle = e.response?.data is Map<String, dynamic>
+          ? (e.response?.data['detail']?.toString() ?? e.message ?? 'Error al iniciar')
+          : (e.message ?? 'Error al iniciar');
+
+      if (detalle.toLowerCase().contains('creador')) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              '❌ Solo el creador de la partida puede iniciarla',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 15,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            backgroundColor: Color(0xFFD32F2F),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.all(Radius.circular(8)),
+            ),
+            duration: Duration(seconds: 3),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: const Color(0xFF1E1212),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+              side: const BorderSide(color: Color(0xFFBF5050), width: 1),
+            ),
+            content: Row(
+              children: [
+                const Icon(Icons.error_outline_rounded, color: Color(0xFFBF5050), size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    detalle,
+                    style: const TextStyle(color: Color(0xFFE89090), fontWeight: FontWeight.w500),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
     }
   }
 
@@ -88,9 +133,50 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
       final detalle = (e.response?.data is Map<String, dynamic>)
           ? (e.response?.data['detail']?.toString() ?? e.message ?? 'Error al reanudar')
           : (e.message ?? 'Error al reanudar');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(detalle)),
-      );
+      if (detalle.toLowerCase().contains('creador')) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              '❌ Solo el creador de la partida puede reanudarla',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 15,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            backgroundColor: Color(0xFFD32F2F),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.all(Radius.circular(8)),
+            ),
+            duration: Duration(seconds: 3),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: const Color(0xFF1E1212),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+              side: const BorderSide(color: Color(0xFFBF5050), width: 1),
+            ),
+            content: Row(
+              children: [
+                const Icon(Icons.error_outline_rounded, color: Color(0xFFBF5050), size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    detalle,
+                    style: const TextStyle(color: Color(0xFFE89090), fontWeight: FontWeight.w500),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
     }
   }
 
@@ -101,35 +187,29 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     final wsState = ref.watch(webSocketProvider);
     final lobbyInfo = ref.watch(lobbyInfoProvider);
 
-    final usuarioActual = authState.user?.username;
-    final jugadoresWs = gameState.jugadores.keys.toList();
-    final jugadoresIniciales = lobbyInfo.jugadoresEnSala
-        .map((j) => j.usuarioId)
-        .toList();
+    final esPartidaPausada = widget.esPausada;
+    final usuarioActual = authState.user?.username ?? '';
+    final creador = lobbyInfo.creador;
 
-    // Fusionamos ambas fuentes — los iniciales (HTTP) más los que lleguen por WS.
-    // Sin esto, cuando llega NUEVO_JUGADOR solo aparece el recién unido y desaparece el creador.
-    final jugadoresConectados = {
-      ...jugadoresIniciales,
-      ...jugadoresWs,
-    }.toList();
+    // Por si acaso hay un baile de mayúsculas o viene vacío, nos aseguramos de que el creador se detecte
+    final esCreador = usuarioActual.toLowerCase() == (creador?.toLowerCase() ?? '') ||
+      (esPartidaPausada && gameState.jugadores.containsKey(usuarioActual));
+
+    // En partidas nuevas usamos lo que diga el servidor.
+    // En pausadas el servidor no nos avisa de quién entra, así que tiramos del archivo de guardado para pintar la pantalla.
+    final jugadoresHttp = lobbyInfo.jugadoresEnSala.map((j) => j.usuarioId).toList();
+    final jugadoresWs = gameState.jugadores.keys.toList();
+
+    final jugadoresConectados = esPartidaPausada
+      ? jugadoresWs
+      : {...jugadoresHttp, ...jugadoresWs}.toList();
     final avataresLobby = {
       for (final jugador in lobbyInfo.jugadoresEnSala)
         jugador.usuarioId: jugador.avatar,
     };
-    final creador = lobbyInfo.creador;
     final codigoInvitacion = lobbyInfo.codigoInvitacion;
     final maxJugadores = lobbyInfo.maxPlayers;
     final visibilidad = lobbyInfo.visibility;
-    final esCreador = usuarioActual == creador;
-    final esPartidaPausada = widget.esPausada;
-
-    // Para la reanudación exigimos que todos los jugadores que entraron
-    // por HTTP (los que estaban en la partida original) estén reconectados
-    // al WS. Sin esto, el host podría reanudar con jugadores desconectados.
-    final todosReconectados = esPartidaPausada &&
-        jugadoresIniciales.isNotEmpty &&
-        jugadoresIniciales.every((j) => jugadoresWs.contains(j));
 
     // Escuchamos los eventos de sistema del WS para navegar al momento exacto:
     // PARTIDA_INICIADA    → partida normal arrancada por el host.
@@ -306,82 +386,85 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                                 final playerState =
                                     gameState.jugadores[nombreJugador];
                                 final estaOnline =
-                                    jugadoresWs.contains(nombreJugador);
+                                  jugadoresConectados.contains(nombreJugador);
                                 final avatarJugador = playerState?.avatar ??
                                     avataresLobby[nombreJugador] ??
                                     (isCurrentUser ? authState.user?.avatar : null);
 
-                                return Container(
-                                  // Mostrar siempre la tarjeta encendida
-                                  padding: const EdgeInsets.all(10),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF1A1A24),
-                                    borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(
-                                      color: isCurrentUser
-                                          ? const Color(0xFFC5A059)
-                                          : const Color(0xFF8C6D3F),
-                                      width: isCurrentUser ? 1.4 : 1,
-                                    ),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      AppAvatar(
-                                        avatar: avatarJugador,
-                                        radius: 18,
-                                        iconColor: isCurrentUser
+                                return Opacity(
+                                  opacity: estaOnline ? 1.0 : 0.4,
+                                  child: Container(
+                                    // Mostrar siempre la tarjeta encendida
+                                    padding: const EdgeInsets.all(10),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF1A1A24),
+                                      borderRadius: BorderRadius.circular(16),
+                                      border: Border.all(
+                                        color: isCurrentUser
                                             ? const Color(0xFFC5A059)
-                                            : const Color(0xFFF0F0F5),
+                                            : const Color(0xFF8C6D3F),
+                                        width: isCurrentUser ? 1.4 : 1,
                                       ),
-                                      const SizedBox(width: 14),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              nombreJugador,
-                                              style: const TextStyle(
-                                                fontSize: 15,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Wrap(
-                                              spacing: 8,
-                                              runSpacing: 6,
-                                              children: [
-                                                if (isCurrentUser)
-                                                  _MiniTag(
-                                                    text: 'Tú',
-                                                    backgroundColor:
-                                                        const Color(0xFFC5A059),
-                                                    textColor: const Color(
-                                                      0xFF1A1A24,
-                                                    ),
-                                                  ),
-                                                if (isCreator)
-                                                  const _MiniTag(
-                                                    text: 'Creador',
-                                                    backgroundColor:
-                                                        Colors.blueGrey,
-                                                    textColor: Colors.white,
-                                                  ),
-
-                                              ],
-                                            ),
-                                            const SizedBox(height: 6),
-                                            Text(
-                                              'Tropas reserva: ${playerState?.tropasReserva ?? 0}',
-                                              style: const TextStyle(
-                                                fontSize: 13,
-                                                color: Color(0xFFA0A0B0),
-                                              ),
-                                            ),
-                                          ],
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        AppAvatar(
+                                          avatar: avatarJugador,
+                                          radius: 18,
+                                          iconColor: isCurrentUser
+                                              ? const Color(0xFFC5A059)
+                                              : const Color(0xFFF0F0F5),
                                         ),
-                                      ),
-                                    ],
+                                        const SizedBox(width: 14),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                nombreJugador,
+                                                style: const TextStyle(
+                                                  fontSize: 15,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Wrap(
+                                                spacing: 8,
+                                                runSpacing: 6,
+                                                children: [
+                                                  if (isCurrentUser)
+                                                    _MiniTag(
+                                                      text: 'Tú',
+                                                      backgroundColor:
+                                                          const Color(0xFFC5A059),
+                                                      textColor: const Color(
+                                                        0xFF1A1A24,
+                                                      ),
+                                                    ),
+                                                  if (isCreator)
+                                                    const _MiniTag(
+                                                      text: 'Creador',
+                                                      backgroundColor:
+                                                          Colors.blueGrey,
+                                                      textColor: Colors.white,
+                                                    ),
+
+                                                ],
+                                              ),
+                                              const SizedBox(height: 6),
+                                              Text(
+                                                'Tropas reserva: ${playerState?.tropasReserva ?? 0}',
+                                                style: const TextStyle(
+                                                  fontSize: 13,
+                                                  color: Color(0xFFA0A0B0),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 );
                               },
@@ -391,18 +474,10 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                   const SizedBox(height: 18),
                   if (esCreador)
                     ElevatedButton(
+                      // Si es pausada, tiramos palante porque el backend no nos va a chivar si el otro ha entrado.
+                      // Si es nueva, seguimos pidiendo 2 pelagatos mínimo.
                       onPressed: esPartidaPausada
-                          ? (todosReconectados
-                              ? _handleReanudarPartida
-                              : () {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Faltan jugadores por conectarse.',
-                                      ),
-                                    ),
-                                  );
-                                })
+                          ? _handleReanudarPartida
                           : (jugadoresConectados.length >= 2
                               ? _handleIniciarPartida
                               : null),
