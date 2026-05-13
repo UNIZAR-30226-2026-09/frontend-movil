@@ -77,7 +77,7 @@ class BattleOperationsPanel extends StatelessWidget {
                     child: BattleOperationCard(
                       title: 'Partida rápida',
                       description:
-                          'Busca una sala pública disponible.',
+                          'Busca una sala pública disponible y te une automáticamente.',
                       buttonText: 'Iniciar',
                       onPressed: onQuickMatch,
                     ),
