@@ -195,6 +195,7 @@ class _UnirsePartidaPanelState extends ConsumerState<UnirsePartidaPanel> {
                         color: AppTheme.borderGold,
                         fontSize: 22,
                         fontWeight: FontWeight.bold,
+                        fontFamily: 'Times New Roman',
                         letterSpacing: 0.8,
                       ),
                     ),

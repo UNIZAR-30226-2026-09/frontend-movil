@@ -129,6 +129,7 @@ class _PerfilScreenState extends ConsumerState<PerfilScreen> {
                                                     color: AppTheme.borderGold,
                                                     fontSize: 22,
                                                     fontWeight: FontWeight.bold,
+                                                    fontFamily: 'Times New Roman',
                                                   ),
                                                 ),
                                               ],

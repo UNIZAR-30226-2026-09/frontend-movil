@@ -52,6 +52,7 @@ class HomePanel extends StatelessWidget {
                   color: AppTheme.primary,
                   fontSize: 13,
                   fontWeight: FontWeight.w900,
+                  fontFamily: 'Times New Roman',
                   letterSpacing: 4,
                 ),
               ),

@@ -26,7 +26,12 @@ class InicioScreen extends ConsumerWidget {
                     onPressed: () {
                       context.go(AppRoutes.home);
                     },
-                    child: const Text('Entrar al campo'),
+                    child: Text(
+                      'Entrar al campo',
+                      style: TextStyle(
+                        fontFamily: 'Times New Roman',
+                      ),  
+                    ),
                   )
                 : Column(
                     mainAxisSize: MainAxisSize.min,
@@ -35,14 +40,24 @@ class InicioScreen extends ConsumerWidget {
                         onPressed: () {
                           context.push(AppRoutes.login);
                         },
-                        child: const Text('Iniciar sesión'),
+                        child: const Text(
+                          'Iniciar sesión',
+                          style: TextStyle(
+                            fontFamily: 'Times New Roman',
+                          ),  
+                        ),
                       ),
                       const SizedBox(height: 16),
                       ElevatedButton(
                         onPressed: () {
                           context.push(AppRoutes.registro);
                         },
-                        child: const Text('Registrarse'),
+                        child: const Text(
+                          'Registrarse',
+                          style: TextStyle(
+                            fontFamily: 'Times New Roman',
+                          ),  
+                        ),
                       ),
                     ],
                   ),

@@ -113,6 +113,7 @@ class PerfilPublicoScreen extends ConsumerWidget {
                                                         fontSize: 22,
                                                         fontWeight:
                                                             FontWeight.bold,
+                                                        fontFamily: 'Times New Roman',
                                                       ),
                                                     ),
                                                   ],

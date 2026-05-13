@@ -201,7 +201,8 @@ class _PanelHeader extends StatelessWidget {
             color: AppTheme.primary,
             fontSize: 24,
             fontWeight: FontWeight.w800,
-            letterSpacing: 4,
+            fontFamily: 'Times New Roman',
+            letterSpacing: 3,
             shadows: [
               Shadow(color: Colors.black.withOpacity(0.8), blurRadius: 8),
             ],

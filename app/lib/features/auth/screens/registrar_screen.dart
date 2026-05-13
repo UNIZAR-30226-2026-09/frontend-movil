@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../providers/auth_provider.dart';
 import '../../../app/router/app_routes.dart';
 import '../../../shared/widgets/auth_inicio_background.dart';
+import '../../../app/theme/app_theme.dart';
 
 /// Pantalla de registro.
 /// Permite al usuario crear una nueva cuenta usando la lógica
@@ -142,8 +143,11 @@ class _RegistrarScreenState extends ConsumerState<RegistrarScreen> {
                           const Text(
                             'Nuevo Recluta',
                             style: TextStyle(
-                              fontSize: 22,
+                              color: AppTheme.borderGold,
+                              fontSize: 28,
                               fontWeight: FontWeight.bold,
+                              fontFamily: 'Times New Roman',
+                              letterSpacing: 0.8,
                             ),
                             textAlign: TextAlign.center,
                           ),

@@ -11,6 +11,8 @@ import '../providers/game_provider.dart';
 import '../providers/websocket_provider.dart';
 import '../providers/lobby_info_provider.dart';
 import '../providers/matchmaking_provider.dart';
+import '../../../app/theme/app_theme.dart';
+
 
 class LobbyScreen extends ConsumerStatefulWidget {
   final int partidaId;
@@ -290,8 +292,11 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                               child: Text(
                                 'Sala de espera #${widget.partidaId}',
                                 style: const TextStyle(
-                                  fontSize: 20,
+                                  color: AppTheme.borderGold,
+                                  fontSize: 24,
                                   fontWeight: FontWeight.bold,
+                                  fontFamily: 'Times New Roman',
+                                  letterSpacing: 0.8,
                                 ),
                               ),
                             ),

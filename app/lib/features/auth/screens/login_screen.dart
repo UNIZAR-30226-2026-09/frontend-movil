@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../providers/auth_provider.dart';
 import '../../../app/router/app_routes.dart';
 import '../../../shared/widgets/auth_inicio_background.dart';
+import '../../../app/theme/app_theme.dart';
 
 /* Pantalla de inicio de sesión.
    Permite al usuario introducir sus credenciales y autenticarse
@@ -134,8 +135,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           const Text(
                             'INICIAR SESIÓN',
                             style: TextStyle(
+                              color: AppTheme.borderGold,
                               fontSize: 28,
                               fontWeight: FontWeight.bold,
+                              fontFamily: 'Times New Roman',
+                              letterSpacing: 0.8,
                             ),
                             textAlign: TextAlign.center,
                           ),

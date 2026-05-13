@@ -121,11 +121,12 @@ class _CrearPartidaPanelState extends ConsumerState<CrearPartidaPanel> {
                 children: [
                   const Expanded(
                     child: Text(
-                      'CREAR PARTIDA',
+                      'NUEVA OPERACIÓN',
                       style: TextStyle(
                         color: AppTheme.borderGold,
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
+                        fontFamily: 'Times New Roman',
                         letterSpacing: 0.8,
                       ),
                     ),
@@ -150,7 +151,7 @@ class _CrearPartidaPanelState extends ConsumerState<CrearPartidaPanel> {
                   child: Column(
                     children: [
                       _buildConfigRow(
-                        label: 'Max. Jugadores',
+                        label: 'Número de comandantes',
                         child: DropdownButtonFormField<int>(
                           value: _maxPlayers,
                           dropdownColor: AppTheme.surface,
@@ -176,7 +177,7 @@ class _CrearPartidaPanelState extends ConsumerState<CrearPartidaPanel> {
                       ),
                       const SizedBox(height: 14),
                       _buildConfigRow(
-                        label: 'Visibilidad',
+                        label: 'Visibilidad de la sala',
                         child: DropdownButtonFormField<String>(
                           value: _visibility,
                           dropdownColor: const Color(0xFF252530),
@@ -364,11 +365,12 @@ class _CreateMatchButtonState extends State<_CreateMatchButton> {
                   ),
                 )
               : const Text(
-                  'CREAR PARTIDA',
+                  'FUNDAR OPERACIÓN',
                   style: TextStyle(
                     color: AppTheme.bg,
                     fontSize: 14,
                     fontWeight: FontWeight.w900,
+                    fontFamily: 'Times New Roman',
                     letterSpacing: 1.2,
                   ),
                 ),
